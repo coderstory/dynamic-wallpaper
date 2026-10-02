@@ -32,6 +32,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Goal:** 用几小时的一次性 throwaway app 证明「视频待在桌面图标后面」这条路线在本机成立；证伪则整个架构作废，Phase 2–7 全部不启动。
 **Mode:** mvp
 **Depends on**: Nothing (first phase)
+**门禁证伪的处置（已拍板 2026-10-03）**: 自动转**路线 B（`.saver` 屏保 bundle）**继续做，不回头问。路线 B 在 ARCHITECTURE §2.1 标注为「ScreenSaver 路线是补充而非替代」，`.saver` bundle 存在性已实测（系统自带 saver 在 macOS 27 上仍在），权限需求同样为「无」。
+**门禁验收方式（已拍板 2026-10-03）**: 「桌面图标仍可点选/可拖动」无法自动化 → 用**强证据**推进：① 我方窗口 level 严格低于 Finder 桌面图标窗口 ② `CGWindowListCopyWindowInfo` 里 Finder 图标窗口在我方之上 ③ 截图 ④ `killall Finder` 后仍在。人工 10 秒肉眼确认**补做，不阻塞** Phase 2。
 **Requirements**: 无 —— 门禁阶段不交付 v1 需求。它消解的是 PLAY-01 / PLAY-02 / PAUSE-01 / PAUSE-02 / SYS-02 的**可行性风险**，这些需求由 Phase 2 / Phase 3 交付。
 **Success Criteria** (what must be TRUE):
   1. 一个挂在桌面层级的带帧号彩色窗口出现后，桌面图标**可点选、可拖动**，且 `killall Finder` 后壁纸仍在 —— 层级方案成立
@@ -143,6 +145,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: TBD
 **UI hint**: yes
 **Notes**:
+- **产物目录（已拍板 2026-10-03）**：`<壁纸目录>/Converted/`。扫描器排除该目录名即杜绝回流（TRANS-05）；产物本身是 MP4，天然不进「非原生格式」队列，双保险
 - ⚠️ **阻塞项（开工前必须解）**：「视觉无损」的 CRF / preset / 编码器未定（libx264 vs libx265 vs svt-av1 vs VideoToolbox hw）；产物命名 / 目录规则待设计（防扫描死循环）；GPL v3.0 在自用场景的义务边界【待验证】→ **本 Phase 需要深度 research-phase**
 - 本机现实：`which ffmpeg` 曾为 not found；最终用 evermeet.cx 静态二进制装成 9.0.2 —— 安装提示不能只写 brew 一条
 - 退出码必须用 `Process.terminationStatus`，**绝不用管道**（`cmd | tail` 恒返回 0，等于没检测）
