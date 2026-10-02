@@ -99,6 +99,48 @@
 
 ---
 
+### W-2026-10-03-11 · unrun-verify · Phase 2 / Plan 02-04
+
+- **描述**：PDCA-A4 —— 打包成 `.app` 之后，本进程**仍然**拿不到显示刷新回调。
+- **证据**：`evidence/refresh.log`。`swift_run` 与 `app_bundle` 两轮的 `DRIVER` **都是**
+  `timer_fallback_hz30`，`TICK_RATE=27.2`（`REFRESH_TICK_COUNT=272` / `REFRESH_WINDOW_SECONDS=10.0`）。
+  `REFRESH_VERDICT=blocked`、`REFRESH_BLOCKED_REASON=no_display_link_in_any_mode`。
+- **保留的边界**：`REFRESH_SESSION=locked`。本次测量**无法区分**「`.app` 也拿不到」与
+  「锁屏会话压制了显示回调」—— 两者在解锁会话下会给出不同答案，而解锁后本机读不到答案。
+  不把它写成「打包成 `.app` 就该有」，也不写成「`.app` 也没用」。
+- **影响**：Phase 1 的硬约束第 3 条（「本 Phase 的降级证据不等于产品行为」）**没有**被解除。
+  Phase 3 的锁屏 / 熄屏 / 睡眠 / 电源四类检测必须走事件通知，不得逐帧轮询。
+- **解开条件**：解锁会话后重跑 `bash scripts/run-probe.sh refresh`（约 35 秒，脚本无需修改）。
+- **status**：open
+
+### W-2026-10-03-12 · deviation · Phase 2 / Plan 02-04
+
+- **描述**：`build.sh` 重复执行产出的 DMG **不是**逐字节可复现的（计划预留了这条口径，要求如实记录）。
+- **证据**：`evidence/app-bundle.log`。四次独立 `build.sh` 的 DMG md5 全部不同
+  （`9b4c7e31…` / `1e685a43…` / `166e336a…` / `e391cb5f…`）。已排除「我们的输入不是确定性产物」：
+  两个 DMG 内的 `Pic.app` 逐字节相同（MacOS 二进制 md5 `662e632168d66ff79f7892e932b695fa`、
+  Info.plist md5 `f85a5701cdcd2be959c437c92976393d`），差异在 UDIF 容器层。
+- **进一步排除**：把源树 mtime 全部 pin 成同一时刻后，相隔 2 秒的两次 `hdiutil create`
+  仍产出不同 md5（`9e20b8a9…` vs `936dab1c…`），故 mtime 不是唯一变量。**未定位到容器内具体哪几个字节在变。**
+- **影响**：ROADMAP Phase 7 SC1 若要求「重复执行结果一致」，判据必须落在 **`.app` 内容的 md5** 上，
+  不能落在 DMG 容器的 md5 上。
+- **status**：open（交给 Phase 7 定口径）
+
+### W-2026-10-03-13 · deviation · Phase 2 / Plan 02-04（已修）
+
+- **描述**：`test.sh` 在 UTF-8 locale 下运行时会**按字节偏移丢掉 2 字节**，
+  且丢点与脚本内容无关 —— 同一份脚本在 C locale 下输出逐字节有效。
+- **证据**：最小复现（33 行中文填充 + 一行含 `…行数 $MF）` 的 `ok`）在 UTF-8 locale 下把
+  `1）`（`31 EF BC 89`）变成 `¼`（丢掉 `31 EF`），同一脚本在 `LC_ALL=C` 下不丢。
+  `evidence/app-bundle.log` 同批的 `test.sh` 输出在 UTF-8 locale 下于 offset 1681 出现同一损坏。
+- **后果**：`bash test.sh` 的输出里只要有一个非法字节，`grep` 就会中止整份文件 ——
+  「test.sh 的输出能不能被 grep」不可靠，判据会假红。这条曾让 02-04 的
+  「干净环境输出含 `跳过`」判据无法通过。
+- **纠正**：`test.sh` 内 `export LC_ALL=C`，只固定脚本自身的字节处理，
+  **不改变任何一条判据的语义**。修后实测：默认 UTF-8 环境跑 `bash test.sh` → `通过 32  失败 0  跳过 0`，
+  输出逐字节有效，`grep -c '跳过'` 命中。
+- **status**：resolved（Phase 3/4 若新增中文输出脚本，同样需要这一行）
+
 ## resolved
 
 （暂无）
