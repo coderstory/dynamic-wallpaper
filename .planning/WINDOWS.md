@@ -54,6 +54,49 @@
 - **纠正**：按 T3 的五条源码断言执行（其中不含 `CGWindowLevelForKey` 全树计数），且该符号的 **0 次** 约束只作用于 `Sources/PicCore/Playback/WindowProbe.swift` 单文件 —— 已实测 0 次。
 - **status**：open（防止 Phase 3/4 再抄一次自相矛盾的判据）
 
+### W-2026-10-03-07 · unrun-verify · Phase 2 / Plan 02-03
+
+- **描述**：「**点菜单栏图标退出**」这一半未被自动验证 —— 需要真人点击。
+- **证据**：本机无 `.xcodeproj` 故无 XCUITest（D-01），会话锁定、屏幕录制无权限。
+  已自动证明的只有两段：① 菜单 `.quit` 的动作就是 `terminateApp()`（`test.sh` 判据
+  「菜单结构体内零 AVPlayer 直连」+ `MenuBarModelTests.testPerformQuitCallsInjectedClosureOnlyOnce`）
+  ② `NSApp.terminate` 那条路径会跑完 `applicationWillTerminate` 并让进程真正消失
+  （`evidence/quit.log` 的 `QUIT_HOOK_SEEN=1` / `QUIT_EXITED=1`）。
+  **未证明**的是「真人点击菜单项 → 同一条路径」这一跳。
+- **解开条件**：Phase 5 引入 `.xcodeproj` 后写一个 XCUITest 点击菜单项；
+  或在解锁会话由真人手动点一次并对照 `PIC_TERMINATED pid=` 行。
+- **status**：open
+
+### W-2026-10-03-08 · unrun-verify · Phase 2 / Plan 02-03
+
+- **描述**：`--quit-after <秒>` 是**测试脚手架**，不是产品能力，但它是一行留在产品源码里的启动参数。
+- **证据**：`Sources/PicApp/AppDelegate.swift` 的 `scheduleQuitAfterIfRequested()`；
+  它在 `evidence/quit.log` 里以 `QUIT_TRIGGER=--quit-after 3 启动参数（测试脚手架，不是产品能力）` 显式登记。
+- **风险**：后续读者可能把它误当成面向用户的启动参数。它不传参时一行都不跑，菜单里也不出现。
+- **解开条件**：XCUITest 可用后（见 W-2026-10-03-07）即可删除该函数与探针的 `--quit-after` 那一轮。
+- **status**：open
+
+### W-2026-10-03-09 · deviation · Phase 2 / Plan 02-03
+
+- **描述**：T1 的 AC「全仓 `NSApp.terminate(nil)` 字面量恰好 1 处」在开工时**不成立** —— 02-02 遗留了第二处。
+- **证据**：02-02 的 `Sources/PicCore/Playback/LoopProbe.swift` 观察跑完后自己调了一次结束进程，
+  与 `AppDelegate.terminateApp()` 并列。开工时 `grep -rn 'NSApp.terminate' Sources/` 得 **2** 处。
+- **纠正**：**改源码不放宽判据**。`LoopProbe` 改为构造时注入 `terminate` 闭包，
+  由 `AppDelegate` 把自己的 `terminateApp()` 注进去。实测收敛为 **1** 处
+  （`test.sh` 的「结束进程的全局调用全仓唯一落点」每次自动重验）。
+- **status**：resolved（判据已成立；留档防止 Phase 3/4 在别处再写一遍）
+
+### W-2026-10-03-10 · todo · Phase 2 / Plan 02-03
+
+- **描述**：`AppDelegate.startWallpaper()` 起播时有一处 `player.player.play()` 直连播放器。
+- **证据**：`Sources/PicApp/AppDelegate.swift` 起播序列 `load` → `play` → `setRate/Volume/Muted`。
+  它**不是菜单动作**，且发生在任何 watcher 存在之前，所以不归 T-02-08 那条判据管
+  （`test.sh` 的「菜单侧零 AVPlayer 直连」的范围因此是 `MenuContentView.swift` 单文件）。
+- **风险**：Phase 3 接入锁屏 / 全屏等 watcher 后，如果「起播」与「watcher 首次置位」的时序反了，
+  可能在已 hold 的情况下先 `play()` 一下才被压住。
+- **解开条件**：Phase 3 接 watcher 时复核这条起播路径，必要时改为经仲裁器起播。
+- **status**：open
+
 ---
 
 ## resolved
