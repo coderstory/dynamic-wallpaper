@@ -42,10 +42,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. 全屏检测几何原型在**刘海屏 / Chrome 全屏 / 超宽屏**三种场景各产出一次判定结果，误判方向确认为「宁可少暂停，不要误暂停」
   5. `com.apple.screenIsLocked` 在本机 macOS 27 上是否触发有明确实测结论（决定 Phase 3 走标准模式还是升级为需调研）；`isOpaque = true` 的 `powermetrics` A/B 有数字结论
 **Plans**: 5 plans
-- [ ] 01-01-PLAN.md — 桌面层级门禁 tracer：desktop-level NSWindow + 帧号 + 层级序/Finder 重启存活四项强证据
+- [ ] 01-01-PLAN.md — 桌面层级门禁 tracer：desktop-level NSWindow + 帧号 + 层级序/Finder 重启存活四项强证据 + D-08 两条对照路线（路线 C 私有框架 / 路线 D 硬编码 level）
 - [ ] 01-02-PLAN.md — `MenuBarExtra` + `.accessory` 主路线与 `NSStatusItem` 退路各跑一次并核对无 Dock 图标
-- [ ] 01-03-PLAN.md — 全屏几何原型：坐标系陷阱复现 + 刘海屏/Chrome/超宽屏五场景各一条 coverage 数字
-- [ ] 01-04-PLAN.md — WallpaperSpike 三种播放模式 + 锁屏通知探针 + `powermetrics` 四组 5 分钟 A/B（含人工 checkpoint）
+- [ ] 01-03-PLAN.md — 全屏几何原型：坐标系陷阱复现 + 三条内置几何自检（证明按 pid 聚合生效）+ 刘海屏/Chrome/超宽屏五场景各一条 coverage 数字
+- [ ] 01-04-PLAN.md — WallpaperSpike 三种播放模式 + 锁屏通知探针 + `powermetrics` 四组 5 分钟 A/B（含人工 checkpoint，带 `AB_STATUS=skipped` 兜底产物）
 - [ ] 01-05-PLAN.md — 门禁判定 `GATE=A|B` 收口 + `test.sh` 探针从 12 条增至 15 条
 **Notes**:
 - **throwaway，不进产品代码库** —— 产出是 `.planning/spike/` 下的一次性验证脚本/小 app
