@@ -395,11 +395,95 @@ cmd_app() {
   return 0
 }
 
+# ---- Plan 02-04 T2：PDCA-A4 显示刷新回调在两种运行模式下的实测 ----
+# 一次跑两轮，各起一个进程、各等满测量窗口（FrameDriver 默认 10s + 余量）。
+#
+# 为什么 `swift run` 那轮也用直接 exec：swift run 的 wrapper PID 与子进程 PID 不同，
+# cmd_quit 已经被这个坑炸过一次；且这里只读 stderr 行，不认 PID，wrapper 只会多一层噪声。
+refresh_one() {   # $1=mode  $2=binary
+  local mode="$1" bin="$2"
+  PIC_SOURCE_FOLDER="$FIXTURES" "$bin" > "$TMP/refresh-$mode.out" 2> "$TMP/refresh-$mode.err" &
+  APP_PID=$!
+  # 窗口 10s + 启动余量 6s = 16s。给足，避免把「还没测完」记成 tick 率 0。
+  local waited=0
+  while kill -0 "$APP_PID" 2>/dev/null && [ "$waited" -lt 16 ]; do
+    sleep 1; waited=$((waited + 1))
+  done
+  stop_app
+  local driver rate
+  driver=$(grep -E '^REFRESH_DRIVER=' "$TMP/refresh-$mode.err" | head -1 | cut -d= -f2-)
+  rate=$(grep -E '^REFRESH_TICK_RATE=' "$TMP/refresh-$mode.err" | head -1 | cut -d= -f2-)
+  printf 'REFRESH_RUN_MODE=%s DRIVER=%s TICK_RATE=%s\n' "$mode" "${driver:-none}" "${rate:-0}"
+  printf 'REFRESH_RUN_MODE_DETAIL_%s driver=%s tick_count=%s window=%s final=%s wait_seconds=%s\n' \
+    "$mode" "${driver:-none}" \
+    "$(grep -E '^REFRESH_TICK_COUNT=' "$TMP/refresh-$mode.err" | head -1 | cut -d= -f2-)" \
+    "$(grep -E '^REFRESH_WINDOW_SECONDS=' "$TMP/refresh-$mode.err" | head -1 | cut -d= -f2-)" \
+    "$(grep -E '^REFRESH_DRIVER_FINAL=' "$TMP/refresh-$mode.err" | head -1 | cut -d= -f2-)" \
+    "$waited"
+}
+
+cmd_refresh() {
+  mkdir -p "$EV"
+  ensure_binary || return 1
+  if [ ! -x "$APP_BIN" ]; then
+    log "APP_BUNDLE_MISSING path=$APP_BIN （app_bundle 那一轮需要先跑 bash build.sh）"
+    return 1
+  fi
+
+  log "REFRESH_START mode=swift_run"
+  refresh_one swift_run "$BIN" > "$TMP/refresh-a.txt"
+  log "REFRESH_START mode=app_bundle"
+  refresh_one app_bundle "$APP_BIN" > "$TMP/refresh-b.txt"
+
+  local da db
+  da=$(awk '/^REFRESH_RUN_MODE=swift_run /{for(i=1;i<=NF;i++) if($i ~ /^DRIVER=/) print substr($i,8)}' "$TMP/refresh-a.txt")
+  db=$(awk '/^REFRESH_RUN_MODE=app_bundle /{for(i=1;i<=NF;i++) if($i ~ /^DRIVER=/) print substr($i,8)}' "$TMP/refresh-b.txt")
+
+  local verdict
+  if [ "$da" = "display_link" ] && [ "$db" = "display_link" ]; then
+    verdict="display_link_available"
+  elif [ "$db" = "display_link" ] && [ "$da" != "display_link" ]; then
+    verdict="bundle_only"
+  else
+    verdict="blocked"
+  fi
+
+  # 会话锁定态先算好再写进日志：屏幕锁着时刷新回调的可用性本身可能受会话状态影响，
+  # 所以这个字段必须与两条驱动读数并列，不能靠读者事后回忆。
+  local session
+  session=$(ioreg -n Root -d 1 -a 2>/dev/null \
+    | grep -A1 '<key>CGSSessionScreenIsLocked</key>' | tail -1 | tr -d ' \t<>/')
+  case "$session" in
+    true|1) session="locked" ;;
+    *)      session="unlocked" ;;
+  esac
+
+  {
+    cat "$TMP/refresh-a.txt"
+    cat "$TMP/refresh-b.txt"
+    printf 'REFRESH_VERDICT=%s\n' "$verdict"
+    if [ "$verdict" = "blocked" ]; then
+      printf 'REFRESH_BLOCKED_REASON=no_display_link_in_any_mode\n'
+      printf 'IMPACT_ON_PHASE3=显示刷新回调不可用；Phase 3 的锁屏/熄屏检测必须走事件通知而非逐帧轮询\n'
+    elif [ "$verdict" = "bundle_only" ]; then
+      printf 'IMPACT_ON_PHASE3=只有 .app 形态能拿到 display_link；swift run 下拿不到。Phase 3 的任何逐帧逻辑必须在打包形态上验收，且开发期跑 swift run 会给出偏悲观的结论\n'
+    else
+      printf 'IMPACT_ON_PHASE3=两种形态都能拿到 display_link；Phase 3 若采用逐帧轮询（如台前调度帧差分）在开发期与打包期结论一致\n'
+    fi
+    printf 'REFRESH_SESSION=%s\n' "$session"
+    printf 'REFRESH_NOTE=两轮各起一个进程、各等满 10 秒测量窗口；TICK_RATE 是窗口内实测 tick 数除以窗口秒数，不是估计值\n'
+  } > "$EV/refresh.log"
+
+  log "REFRESH_LOG=$EV/refresh.log swift_run=$da app_bundle=$db verdict=$verdict session=$session"
+  return 0
+}
+
 case "${1:-}" in
   order) cmd_order ;;
   inset) cmd_inset ;;
   loop)  cmd_loop ;;
   quit)  cmd_quit ;;
   app)   cmd_app ;;
-  *) log "usage: bash scripts/run-probe.sh {order|inset|loop|quit|app}"; exit 2 ;;
+  refresh) cmd_refresh ;;
+  *) log "usage: bash scripts/run-probe.sh {order|inset|loop|quit|app|refresh}"; exit 2 ;;
 esac

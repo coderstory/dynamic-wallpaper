@@ -20,6 +20,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var holdObserver: Timer?
     private var tickSeq = 0
     private var loopProbe: LoopProbe?
+    /// Plan 02-04 T2：显示刷新驱动的**测量器**，不是渲染路径的一部分。
+    /// 它回答「打包成 .app 之后本进程能不能拿到显示刷新回调」（PDCA-A4），
+    /// 测满窗口即自行 invalidate，产品不留常驻定时器。
+    private var frameDriver: FrameDriver?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // D-05：菜单栏 app 无 Dock 图标。断言时注意 .accessory 的 rawValue 是 1 不是 0。
@@ -28,6 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 生效策略当场打一行，SC1「Dock 无图标」就不靠肉眼。
         emit("ACTIVATION_POLICY_RAW=\(NSApp.activationPolicy().rawValue)")
         wiring()
+        startFrameDriver()
         startWallpaper()
         startLoopProbeIfRequested()
         startHoldObserver()
@@ -91,6 +96,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 装配点（D-10）。每根线都只接一次，重复调用是幂等的。
     func wiring() {
         arbiter.attach(player)
+    }
+
+    /// Plan 02-04 T2：把 Phase 1 的显示刷新降级观察搬进产品。
+    ///
+    /// ⚠️ **这一根线不接渲染**。`FrameDriver` 只数 tick、打两行
+    /// `REFRESH_DRIVER=` / `REFRESH_TICK_RATE=`；播放推进由 `AVPlayer` 自己的
+    /// 时间戳负责，窗口合成由 WindowServer 负责。把它接进渲染路径会造出一个
+    /// 假的「画面在动」信号（Phase 1 正是因此才降级）。
+    ///
+    /// `NSScreen.main` 在本机单屏下唯一（`inset.log:SCREENS_COUNT=1`）；
+    /// 多屏时每个屏各一个 displayLink，本 Phase 不展开 —— Phase 3 接
+    /// `DisplayWatcher` 时再一并处理。
+    private func startFrameDriver() {
+        guard let screen = NSScreen.main else {
+            emit("REFRESH_DRIVER=no_screen")
+            return
+        }
+        let driver = FrameDriver()
+        frameDriver = driver
+        driver.attach(to: screen)
     }
 
     /// 渲染层建好 AVPlayerLayer 后注进来（Plan 02-04 打包复测时调用）。

@@ -1,0 +1,9 @@
+REFRESH_RUN_MODE=swift_run DRIVER=timer_fallback_hz30 TICK_RATE=27.1
+REFRESH_RUN_MODE_DETAIL_swift_run driver=timer_fallback_hz30 tick_count=271 window=10.0 final=timer_fallback_hz30 wait_seconds=16
+REFRESH_RUN_MODE=app_bundle DRIVER=timer_fallback_hz30 TICK_RATE=27.0
+REFRESH_RUN_MODE_DETAIL_app_bundle driver=timer_fallback_hz30 tick_count=270 window=10.0 final=timer_fallback_hz30 wait_seconds=16
+REFRESH_VERDICT=blocked
+REFRESH_BLOCKED_REASON=no_display_link_in_any_mode
+IMPACT_ON_PHASE3=显示刷新回调不可用；Phase 3 的锁屏/熄屏检测必须走事件通知而非逐帧轮询
+REFRESH_SESSION=locked
+REFRESH_NOTE=两轮各起一个进程、各等满 10 秒测量窗口；TICK_RATE 是窗口内实测 tick 数除以窗口秒数，不是估计值
