@@ -141,3 +141,33 @@ D-02 已定：「桌面图标仍可点选/可拖动」无法自动化，**本次
   —— 来源：planner agent 实测观察后被中止，**本 Phase 必须复现并给出确认数字**，不能直接当既成事实用。
 
 </planner_partial_findings>
+
+---
+
+<orchestrator_probe_findings>
+## 编排器在执行前实测到的事实（供 plan / verdict 使用）
+
+### 本机装了 4 个同类动态壁纸 app —— 层级抢占地毯是真实存在的
+```
+/Applications/Dynamic Wallpaper.app
+/Applications/Hanami Live Wallpaper.app
+/Applications/Wallpaper Monster.app
+/Applications/DevDesk.app
+```
+planner 已实测：**其中至少一个的窗口正常驻在与本项目相同的 `-2147483623`**。
+
+**影响 Phase 1**：spike 跑起来时可能与它**互相遮挡**（同层级按 z-order 决定前后）。
+**影响 Phase 2+**：这是一个必须在验收时排除的变量 —— 桌面壁纸被别的 app 盖住时，不应被误判为本项目层级方案失败。
+
+**Phase 1 期间的动作要求**：WindowProbe **必须按 PID（`kCGWindowOwnerPID`）认领自己的窗口**，不得用 layer 数值或 owner 名筛选 —— 同层级存在第三方窗口时，后者会认错。
+
+### `sudo` 需要密码 → `powermetrics` A/B 无法无人值守
+- `sudo -n true` → `sudo: a password is required`
+- 无免密 sudo，Plan 01-04 的四组 A/B（约 21 分钟）**必须人工在场**
+
+**按用户「无法解决的跳过」原则的处置**：Phase 1 跑完锁屏检测与坐标探针，把 `powermetrics` A/B 标为 `verification_deferred_human` 记入 STATE.md，**不阻塞 VERDICT 产出**。降级依据用 sudo-free 代理：`top -l1`、`ioreg`（Performance State）、`pmset -g thermlog` —— 精度不如 powermetrics，但能给出方向性结论，且**必须在结论里标注为降级证据**。
+
+### `timeout` 命令在本机不存在
+zsh 下 `timeout` 不可用（`command not found`）。脚本里限时用 `perl -e 'alarm N; exec @ARGV' CMD` 代替，否则限时探针会静默挂死。
+
+</orchestrator_probe_findings>
