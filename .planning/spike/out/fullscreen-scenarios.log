@@ -1,4 +1,4 @@
-RUN_UNTIL=2026-10-02T19:41:23Z
+RUN_UNTIL=2026-10-02T19:43:48Z
 DRIVER=scenarios.sh THRESHOLD=0.950 DENOMINATOR=visibleFrame AGGREGATION=per_pid
 COMPILE_CMD=swiftc -parse-as-library -target arm64-apple-macosx15.0
 COMPILE=ok binary=out/fullscreenprobe
@@ -37,15 +37,15 @@ FALSE_POSITIVE_OBSERVED=1 direction=safe_area_filled_but_not_fullscreen_scored_f
 FALSE_POSITIVE_NOTE=该窗口 bounds 高 833，小于屏幕 frame 高 956，够不到刘海区域，因此不可能是真全屏；但它把 visibleFrame 铺满 → coverage=1.000 ≥ 阈值 0.95 → 判成 fullscreen=true。这就是 PITFALLS Pitfall 2(b) 的假阳性，方向=误暂停（用户看到壁纸坏了）。
 S1_BEGIN scenario=notch-fullscreen intent=self_spawned_fullscreen_window
 S1_WAIT_TICKS=1
-S1_SPAWN_PID=86616
+S1_SPAWN_PID=87647
 S1_WARN_STDERR=WARN=fullscreen_for_5s
-S1_TOP_PID=86616 coverage=0.886 rects=1
+S1_TOP_PID=87647 coverage=0.886 rects=1
 S1_WINDOW_BOUNDS=73.0,47.0,1324.0,862.0
 S1_RAW_INSPECT=out/probe03-inspect-s1.txt reason_not_inlined=该文件的原始判定行标的是实测口径，若整段贴进本日志会多出一条 live 计数并破坏 SCENARIO_COUNT 自洽；判定结果已由下面两行如实转述。
 S1_FINAL_FULLSCREEN=0
 S1_MAX_OBSERVED_FULLSCREEN=0
 FULLSCREEN_CONFIRMED=0 scenario=notch-fullscreen coverage=0.886 threshold=0.950
-SCENARIO=notch-fullscreen source=blocked coverage=0.886 fullscreen=false pid=86616 rects=1
+SCENARIO=notch-fullscreen source=blocked coverage=0.886 fullscreen=false pid=87647 rects=1
 BLOCKED_REASON=toggleFullScreen_had_no_effect_while_session_locked max_observed_fullscreen=0 final_fullscreen=0 window_bounds=73.0,47.0,1324.0,862.0 window_never_reached_screen_frame coverage_below_threshold=0.886 LOCK=1
 BLOCKED_DETAIL=自建窗口确实被 CGWindowList 枚举到（rects=1，layer=0 alpha=1 is_onscreen=1），但 toggleFullScreen(nil) 在锁屏会话下没有生效（MAX_OBSERVED_FULLSCREEN=0），窗口从未进入全屏 Space。所以 coverage=0.886 量的是一扇非全屏窗，对「全屏检测是否有效」零信息量 —— 故记 blocked，不记 live。
 BLOCKED_WHY_NOT_LOCK_THE_SCREEN=制造 unlocked→locked / locked→unlocked 边沿需要真人操作屏幕，用户 asleep，硬性禁止。
