@@ -47,13 +47,31 @@ cat > "$TMP/v.swift" <<'SW'
 import AppKit
 let lvl = CGWindowLevelForKey(.desktopWindow)
 let icon = CGWindowLevelForKey(.desktopIconWindow)
-print("\(lvl)|\(icon)|\(icon - lvl)")
+let saver = CGWindowLevelForKey(.screenSaverWindow)
+print("\(lvl)|\(icon)|\(icon - lvl)|\(saver)")
 SW
 swiftc -target arm64-apple-macosx15.0 -o "$TMP/v" "$TMP/v.swift" 2>/dev/null \
-  && { RES=$("$TMP/v"); IFS='|' read -r L I D <<< "$RES"
+  && { RES=$("$TMP/v"); IFS='|' read -r L I D S <<< "$RES"
        [ "$L" = "-2147483623" ] && ok "desktopWindow = $L" || no "desktopWindow 值不符" "得到 $L，期望 -2147483623"
-       [ "$D" = "20" ] && ok "与图标层差 $D 级" || no "层级差不符" "得到 $D，期望 20"; } \
+       [ "$D" = "20" ] && ok "与图标层差 $D 级" || no "层级差不符" "得到 $D，期望 20"
+       [ "$S" = "1000" ] && ok "screenSaverWindow = $S" || no "screenSaverWindow 值不符" "得到 $S，期望 1000"; } \
   || no "运行时探针编译失败" ""
+
+echo ""
+echo "── spike 门禁探针 ─────────────────────"
+# 锁住 .planning/phases/01-spike/01-VERDICT.md「层级写法定案」段里最容易写错的三条：
+#   ① MenuBarExtra 不可用时的退路仍可编译  ② 桌面层 borderless 窗口可挂 AVPlayerLayer
+#   ③ 桌面层级实测值 CGWindowLevelForKey(.desktopWindow)（上面运行时值段已锁）
+# 全部无 GUI、无提权、无副作用（只 swiftc -typecheck）。
+probe "NSStatusItem 退路可编译" 'import AppKit
+let i = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+_ = i'
+probe "isOpaque=true 的 borderless NSWindow 可挂 AVPlayerLayer" 'import AppKit
+import AVFoundation
+let w = NSWindow(contentRect: .init(x: 0, y: 0, width: 1, height: 1), styleMask: [.borderless], backing: .buffered, defer: false)
+w.isOpaque = true
+w.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopWindow)))
+w.contentView!.layer?.addSublayer(AVPlayerLayer())'
 
 echo ""
 echo "── 渲染 ───────────────────────────────"
