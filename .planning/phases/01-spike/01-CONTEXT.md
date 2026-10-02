@@ -174,3 +174,41 @@ planner 已实测：**其中至少一个的窗口正常驻在与本项目相同�
 zsh 下 `timeout` 不可用（`command not found`）。脚本里限时用 `perl -e 'alarm N; exec @ARGV' CMD` 代替，否则限时探针会静默挂死。
 
 </orchestrator_probe_findings>
+
+---
+
+<gate_findings>
+## Plan 01-01 实测发现（门禁已通过，以下四条**必须**被后续 Phase 继承）
+
+### ① 桌面层窗口有系统性 14pt/9pt 内缩 —— Phase 3 全屏几何的头号坑
+任何 `-2147483623` 层的 borderless 窗口，`CGWindowList` 报告的 bounds 是
+```
+14, 9, 1442, 938
+```
+而 `NSScreen.frame` 是
+```
+0, 0, 1470, 956
+```
+**系统性内缩 14pt（宽）/ 9pt（高），四边对称。** 15 行独立二进制复现，非偶发。
+
+**后果**：全屏几何判定**必须**先处理这个内缩，否则窗口覆盖率永远算不到 1.000，会把真全屏误判成非全屏（→ 该暂停时不暂停）。这与已有的 33pt 刘海内缩是**两个独立**的偏差，叠加后共 47pt。
+
+### ② macOS 27 的 CADisplayLink 写法已变
+`CADisplayLink(target:selector:)` 与 `preferredFramesPerSecond` 在 macOS 27 SDK 标注 `API_UNAVAILABLE(macos)` —— 写出来编不过。
+**正确写法**：`NSScreen.displayLink` + `preferredFrameRateRange`。
+产品代码（Phase 2 的渲染层）必须照抄后者。
+
+### ③ 显示刷新回调在无前台进程时降级 —— 打包后必须复测
+本进程拿不到任何显示刷新回调（`CADisplayLink` / `CVDisplayLink` 的 timestamp 恒 0，`NSApp.isActive` 恒 false），实测是靠 30Hz Timer 兜底驱动，帧号仍真自增（帧 1→225）。
+**这是 spike 环境下测到的降级路径，不等于产品行为。** 打包成 .app 后必须复测，否则 VERDICT 会把降级证据当成产品证据。
+
+### ④ `screencapture` 无屏幕录制权限 —— 对照抓图判法
+本机 `screencapture` 返回固定占位图而非真实画面。
+**正确判法（后续任何依赖截图的探针照抄）**：同时抓一张**对照图**（已知空屏），比较两者 md5。逐字节相同即证明该图**不是**画面证据。
+Plan 01-01 实测：`gate-01.png` 与 `gate-01-control.png` md5 全等（`aa30b1bd…`）→ 诚实报 `SCREENSHOT=blocked reason=png_identical_to_control_capture`，而非谎称拿到画面。
+
+### 附：一个 shell 陷阱（与本项目无关但会反复踩）
+macOS 自带的是 **FreeBSD grep**，`grep -c '^…=-?[0-9]\+$'` 在 **BRE** 下 `?` 是**字面量**，因此该正则**恒返回 0**。
+需要量词时显式用 `grep -E`。**绝不能为了让正则过而修改产物值** —— 要改的是正则，不是数字。
+
+</gate_findings>
