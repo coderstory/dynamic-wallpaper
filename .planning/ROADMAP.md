@@ -67,7 +67,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 **Goal:** 用户看到一个真正的菜单栏 app —— 桌面图标后面有视频在无缝循环播放，菜单栏能暂停/继续和退出，没有 Dock 图标；`SettingsStore` / `HoldArbiter` / `PlayerController` 三个接口在此定死，后续全部阶段依赖它。
 **Mode:** mvp
-**Depends on**: Phase 1（门禁通过）
+**Depends on**: Phase 1（门禁通过 `GATE=A`）
+**⚠ Phase 1 遗留的强制前置（PDCA-A1）**: Phase 1 的**全部**几何测量都在**锁屏会话**内完成（每条日志带 `LOCK=1`，`UserIsActive 0`）。门禁结论「路线 A 成立」的适用边界尚未在**有前台进程**的环境验证。**本 Phase 的第一个任务必须是：在解锁会话中重跑 `bash .planning/spike/run-gate.sh`，确认 `ORDER=ok` 与 `FINDER_RESTART_ALIVE=1` 仍成立。不通过则门禁结论降级为「仅锁屏会话下成立」，本 Phase 需重新评估。**
 **Requirements**: PLAY-01, PLAY-02, MENUBAR-01, MENUBAR-03, MENUBAR-07, MENUBAR-08, PAUSE-08, SYS-02
 **Success Criteria** (what must be TRUE):
   1. 启动后菜单栏出现常驻图标、Dock 无图标；桌面图标后面有一段视频在播放，点击和拖动桌面图标完全不受影响
@@ -82,6 +83,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 - 用 `AVQueuePlayer` + `AVPlayerLooper` + `AVPlayerLayer`；`audioTimePitchAlgorithm = .spectral` 显式设（默认 `.timeDomain` 会变调）；`preferredForwardBufferDuration = 3.0`；`isOpaque = true` / `hasShadow = false` / `videoGravity = .resizeAspectFill`
 - `HoldArbiter` 从第一天就建成 `Set<HoldReason>` veto 集合（先只接手动暂停）—— 形状对了才不会在 Phase 3 返工
 - 防 Pitfall 4：切换视频前 `disableLooping()` → `removeAllItems()` → 再入队；observer 注册/注销严格配对
+- 🔴 **PDCA-A2 硬约束：全屏检测禁用 0.95 覆盖率阈值。** Phase 1 实测 `FALSE_POSITIVE_OBSERVED=1`：Ghostty(pid 1227) 与 CC Switch(pid 1228) 各把 `visibleFrame`(1470×833) 铺满 → `coverage=1.000` ≥ 0.95 被判成全屏，但两者 bounds 高 833 < 屏幕 frame 高 956，结构上够不到刘海，**可证不是全屏**。coverage 已顶在 **1.000 上限**，任何阈值调整都改不了。**必须二选一**：① 设计几何之外的判别信号（如 `activeSpaceDidChangeNotification` 关联 / Space 序号）；② 明确写下接受「误暂停」方向并编码进 `PauseReason`。**默认沿用 0.95 阈值 = 本 Phase 的 BLOCKER。**
+- 🔴 **PDCA-A5 几何内缩**：桌面层 borderless 窗口的 `CGWindowList` bounds 有系统性 **14pt/9pt** 内缩（叠加刘海 33pt 共 47pt）。任何覆盖率/全屏几何计算必须先处理，否则真全屏永远算不到 1.000。
+- ⚠️ **PDCA-A7 锁屏跃迁未验证**：`CGSSessionScreenIsLocked` 只验证了**能读出状态**（40 秒 9 次采样全为 1），**未验证跃迁时是否翻转**。Phase 3 必须实测跃迁才能写进产品代码。
 - 防 Pitfall 5：文件存在性检查统一用 `URL.path`（**不要喂 `absoluteString`**）
 - 防 Pitfall 7：暂停/恢复走**同一个 `re-evaluate()`** 入口
 - 本 Phase 不交付：声音/速度控件（Phase 5）、文件夹选择面板（Phase 4）—— 开发期用 `UserDefaults` 直接指一个测试目录

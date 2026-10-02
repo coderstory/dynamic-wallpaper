@@ -1,0 +1,48 @@
+{
+  "contract": "1.0.0",
+  "flavor": "core",
+  "milestone": "v3.0",
+  "phases": [
+    {
+      "number": "1",
+      "name": "桌面层级门禁 spike",
+      "status": "pending"
+    },
+    {
+      "number": "2",
+      "name": "播放内核竖切",
+      "status": "pending"
+    },
+    {
+      "number": "3",
+      "name": "系统事件仲裁",
+      "status": "pending"
+    },
+    {
+      "number": "4",
+      "name": "媒体库与轮换",
+      "status": "pending"
+    },
+    {
+      "number": "5",
+      "name": "设置窗口与即时生效",
+      "status": "pending"
+    },
+    {
+      "number": "6",
+      "name": "转码与独立窗口",
+      "status": "pending"
+    },
+    {
+      "number": "7",
+      "name": "打包、开机自启与整机验收",
+      "status": "pending"
+    }
+  ],
+  "next": {
+    "command": "/gsd:progress --next",
+    "label": "Advance to the next step",
+    "reason": "Phase 01 of 7 · executing"
+  },
+  "updated_at": "2026-10-02T18:37:41.508Z"
+}

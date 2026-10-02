@@ -78,6 +78,19 @@ Recent decisions affecting current work:
 
 3. **Phase 1 门禁证伪 → 自动转路线 B（.saver bundle）**，不回头问，做完再报。
 
+### Phase 1 完成 · PDCA 审计结论（2026-10-03）
+
+**判定 `GATE=A` —— 路线 A（desktop-level NSWindow）在本机成立，Phase 2 可启动。**
+PDCA 全文：`.planning/phases/01-spike/01-PDCA.md`
+
+**最重要的未闭合项（PDCA-C1）**：Phase 1 的**全部**测量都在**锁屏会话**内完成（`UserIsActive 0`，每条日志带 `LOCK=1`）。门禁结论的适用边界**未在有前台进程的环境验证** → 已列为 **Phase 2 的第一个强制前置任务**（ROADMAP Phase 2 已写死）。
+
+**已落进 ROADMAP 的硬约束：**
+- Phase 2：解锁会话重跑 `run-gate.sh` 为强制前置；层级写法照抄 VERDICT；`.accessory` 断言用 1；用 `NSScreen.displayLink`
+- Phase 3：🔴 **禁用 0.95 覆盖率阈值**（`FALSE_POSITIVE_OBSERVED=1` 已证伪）；🔴 处理 14pt/9pt 几何内缩；⚠️ 锁屏跃迁必须实测
+
+**Phase 1 零交付项：** SC5 整条 BLOCKED（`AB_GROUPS_MEASURED=0`，`SCREENLOCK=unknown`）。
+
 ### Pending Todos
 
 None yet.
@@ -100,6 +113,25 @@ Items acknowledged and deferred at milestone close, most recent first:
 | 媒体库 | LIB-01 自动监听文件夹 / LIB-02 失效自动恢复 | v2 | 2026-10-03 | v1 |
 | 界面 | UI2-01 浅色主题 / UI2-02 滑杆自绘摆脱系统外观 | v2 | 2026-10-03 | v1 |
 | 转码 | TR2-01 队列持久化断点续传 / TR2-02 批量并发控制 | v2 | 2026-10-03 | v1 |
+
+## Deferred Verification
+
+| Phase | State | Resume |
+|-------|-------|--------|
+| 01 | verification_deferred_human | 见下 —— 四项需真人在场，共约 22 分钟 |
+
+**Phase 1 待人工补跑清单（自动化无法覆盖，已核实为硬约束非疏漏）：**
+
+| # | 事项 | 成本 | 为什么自动化不了 |
+|---|------|------|-----------------|
+| 1 | `bash .planning/spike/powermetrics_ab.sh` —— 四组 × 5 分钟功耗 A/B | ~21 分钟 | `powermetrics must be invoked as the superuser`；`sudo -n true` 返回 `a password is required` |
+| 2 | 锁屏 / 解锁各一次，观察 `com.apple.screenIsLocked` 与 `CGSSessionScreenIsLocked` 是否跃迁 | 10 秒 | 需要真实的锁屏跳变，无人值守时屏幕全程已锁 |
+| 3 | 人工确认桌面图标可点选、可拖动，且壁纸在图标后面 | 10 秒 | 需真人手点（D-02 已定为「事后补做，不阻塞」） |
+| 4 | 在**解锁会话**中重跑 `run-gate.sh` | ~1 分钟 | 屏幕当前锁着（PDCA-C1）；**这条同时是 Phase 2 的强制前置** |
+
+**恢复命令：** `/gsd-verify-work 1`
+
+---
 
 ## Session Continuity
 
