@@ -164,6 +164,9 @@ planner 已实测：**其中至少一个的窗口正常驻在与本项目相同�
 ### `sudo` 需要密码 → `powermetrics` A/B 无法无人值守
 - `sudo -n true` → `sudo: a password is required`
 - 无免密 sudo，Plan 01-04 的四组 A/B（约 21 分钟）**必须人工在场**
+- **决定性证据**：`powermetrics` 无 sudo 直接报 `powermetrics must be invoked as the superuser`（exit 1）。这不是「权限不够降级」，是**根本不能跑**。
+- 采样器名是 **`tasks`**（复数）。`--samplers task` 会报 `unrecognized sampler: task`。
+- sudo-free 代理（按精度降序）：`top -l1 -stats ...` → `pmset -g thermlog` → `ioreg -c IOPlatformExpertDevice` 的 Performance State。**必须在结论里标注为降级证据，不得与 powermetrics 数字混为一谈。**
 
 **按用户「无法解决的跳过」原则的处置**：Phase 1 跑完锁屏检测与坐标探针，把 `powermetrics` A/B 标为 `verification_deferred_human` 记入 STATE.md，**不阻塞 VERDICT 产出**。降级依据用 sudo-free 代理：`top -l1`、`ioreg`（Performance State）、`pmset -g thermlog` —— 精度不如 powermetrics，但能给出方向性结论，且**必须在结论里标注为降级证据**。
 
