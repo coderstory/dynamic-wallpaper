@@ -183,6 +183,16 @@ warnGlow    rgba(245,181,68,0.30)
 
 ---
 
+## 9.5 已定（2026-10-03 补充）
+
+| 项 | 决定 | 理由 |
+|---|---|---|
+| **字体** | **打包 IBM Plex Mono 进 app** | 设计里的「仪器感」全靠等宽字撑。OFL 许可可自由分发，代价约几百 KB。备选是系统 SF Mono，但字形不同，观感会变 |
+| **滑杆** | **`DragGesture` 自绘** | 没有 `SliderStyle`，系统滑杆外观与本设计不搭。约 40 行 |
+| **分段控件** | 先用 `.tint()` 试；不可接受则自绘 | `.tint()` 对 macOS 分段控件的着色范围有限，需 spike 实测 |
+
+---
+
 ## 10. 待定项
 
 | 项 | 说明 |
@@ -195,3 +205,30 @@ warnGlow    rgba(245,181,68,0.30)
 ---
 
 *UI-SPEC 定稿于 2026-10-03。参考稿 `.planning/design/ui-final.html`。*
+
+---
+
+## 11. 已落地的 SwiftUI Spike（2026-10-03）
+
+**`.planning/spike/SettingsSpike.swift` —— 可编译、可渲染，不是纸面设计。**
+
+编译验证：`swiftc -parse-as-library -target arm64-apple-macosx15.0` 通过，用 `ImageRenderer` 渲染成 PNG。
+截图：`.planning/design/shots/spike-v3.png`（v1 为修复前，用于对比）
+
+### 实测确认可行的
+自绘分段控件 · 自绘滑杆（`DragGesture`）· 自定义 `ToggleStyle`（含发光）· 图标瓷砖双阴影发光 · 呼吸渐变背景 · 等宽字体标签 · 卡片描边
+
+### 踩到并修掉的 2 个真坑
+1. **`Card` 上的 `.clipShape(RoundedRectangle)` 会把内部图标砖的外发光裁掉** —— 发光在卡片边缘处直接消失。去掉 `clipShape`，改用 `background` + `overlay` 描边。
+2. **写死窗口高度会留一截空白** —— 改用 `.fixedSize(horizontal: false, vertical: true)` 让高度按内容撑，780×388 正好。
+
+### 与新需求：运行状态卡
+Spike 里在右列加了「运行状态」卡（已暂停 + 原因 / ffmpeg 状态）。理由：暂停逻辑是 **veto set 仲裁**（见 PAUSE-07），多个条件叠加时用户需要知道**当前到底卡在哪个原因上**，否则会误判成 bug。这一条应补进 REQUIREMENTS。
+
+### 仍与 HTML 稿有差的地方（已知，非缺陷）
+| 差异 | 状态 |
+|---|---|
+| 字体是 SF Mono，非 IBM Plex Mono | 待打包字体（UI-SPEC §9.5 已定用 IBM Plex Mono） |
+| 图标用 SF Symbols，非手绘 SVG | 形状不同但风格一致，可接受；若要 100% 一致需自绘 |
+| 分段控件比 HTML 略窄 | 微调即可 |
+| 无窗口标题栏 | `ImageRenderer` 只渲内容视图，真实 app 有红绿灯标题栏 |
