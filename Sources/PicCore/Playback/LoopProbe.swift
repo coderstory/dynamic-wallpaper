@@ -38,6 +38,9 @@ public final class LoopProbe {
 
     private let player: AVQueuePlayer
     private let durationSeconds: Int
+    /// 观察跑完后结束进程的回调。由 `AppDelegate` 注入它自己的 `terminateApp()` ——
+    /// 结束进程的全局调用字面量全仓只在 AppDelegate 里一处，两条路径不会各自漂移。
+    private let terminate: () -> Void
     /// 观察者令牌只由主线程增删；标 nonisolated(unsafe) 只是为了让 deinit 能摘干净 ——
     /// deinit 本身不是主线程隔离的，而观察者泄漏是 D-14 明令禁止的。
     nonisolated(unsafe) private var tokens: [NSObjectProtocol] = []
@@ -51,9 +54,10 @@ public final class LoopProbe {
     private var startedAt = Date()
     private var finished = false
 
-    public init(player: AVQueuePlayer, durationSeconds: Int) {
+    public init(player: AVQueuePlayer, durationSeconds: Int, terminate: @escaping () -> Void) {
         self.player = player
         self.durationSeconds = durationSeconds
+        self.terminate = terminate
     }
 
     deinit {
@@ -147,9 +151,9 @@ public final class LoopProbe {
         emit("LOOP_POS_NOTE=AVPlayerLooper 在 loop 边界克隆 item 并把 currentTime 归零，故 pos 非单调是探针 artifact；播放是否正常由 endedCount/failedCount/status/items 四项判定")
         emit("LOOP_DURATION=\(elapsed)")
 
-        // 让主线程喘一口气再退，跑完不留残窗。
+        // 让主线程喘一口气再退，跑完不留残窗。退的是进程，走的是注入进来的那条路。
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            NSApp.terminate(nil)
+            self.terminate()
         }
     }
 

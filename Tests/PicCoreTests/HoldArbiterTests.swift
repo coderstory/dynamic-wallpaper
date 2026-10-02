@@ -100,4 +100,15 @@ final class HoldArbiterTests: XCTestCase {
             "activeReasons 必须按 order 排好序"
         )
     }
+
+    /// UI 侧读「是否手动暂停」的唯一入口 —— 它必须是 `decision.holds` 的派生量。
+    /// 若 Phase 5 在 UI 侧另立一个可变的 `isPaused`，本用例不会红，但
+    /// `test.sh` 的「UI 侧零可变真相源」源码判据会红；两条一起锁。
+    func testIsManuallyPausedIsDerivedFromHolds() {
+        XCTAssertFalse(arbiter.isManuallyPaused, "初始 holds 为空，不是手动暂停")
+        arbiter.set(.manualPause, active: true)
+        XCTAssertTrue(arbiter.isManuallyPaused, "holds 含 manualPause 即为手动暂停")
+        arbiter.set(.manualPause, active: false)
+        XCTAssertFalse(arbiter.isManuallyPaused, "hold 解除后派生量跟着回落")
+    }
 }

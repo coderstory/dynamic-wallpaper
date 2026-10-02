@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 
 /// 播放端的唯一入口（ARCHITECTURE §6.4）。整个协议标 `@MainActor`：
 /// 否则 Swift 6 下 conformance 报 `#ConformanceIsolation`，Phase 1 已实测。
@@ -14,6 +15,7 @@ public protocol PlaybackTarget: AnyObject {
 /// 单向流：Watcher 只产出 `HoldReason` → `HoldArbiter` 决定 `shouldPlay`
 /// → `PlayerController` 执行。仲裁器**永不**直接碰播放器（D-10 / D-11）。
 @MainActor
+@Observable
 public final class HoldArbiter {
     public private(set) var decision: PlaybackDecision
 
@@ -30,6 +32,12 @@ public final class HoldArbiter {
     public func attach(_ target: PlaybackTarget) {
         self.target = target
     }
+
+    /// 「当前是否手动暂停」—— **只读派生量，不是独立真相源**（T-02-08）。
+    ///
+    /// UI 侧（菜单的「暂停 / 继续」文案）只读它。若 UI 另立一个可变的 `isPaused`，
+    /// Phase 3 的 6 个 reason 叠加时就会出现「菜单说在播、仲裁说在停」的第二个真相源。
+    public var isManuallyPaused: Bool { decision.holds.contains(.manualPause) }
 
     public func set(_ reason: HoldReason, active: Bool) {
         let before = decision.holds

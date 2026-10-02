@@ -44,8 +44,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         player.attach(to: layer)
     }
 
-    /// 全仓唯一的「结束进程」落点 —— AppKit 全局对象只有 PicApp 层该碰它，
-    /// `MenuBarModel` 只调闭包。Plan 02-03 的菜单复用本方法。
+    /// 打开设置窗的前置动作：`.accessory` 的 app 没有 Dock 图标也不会被激活，
+    /// 直接 `openWindow` 出来的窗口拿不到焦点。策略切换**只在本文件发生**（T-02-09）。
+    @objc func presentSettingsWindow() {
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    /// 设置窗关闭时把策略改回 `.accessory` —— 少了这一句，Dock 图标会永久留下。
+    /// 异常路径（窗口被系统回收）也走这一个入口，不留半开状态。
+    @objc func hideSettingsAndRestorePolicy() {
+        NSApp.setActivationPolicy(.accessory)
+    }
+
+    /// 全仓唯一的「结束进程」落点。菜单的 quit 闭包与 `--quit-after` 的定时器
+    /// 都调本方法，谁都不许再写第二遍那一句字面量。
     @objc func terminateApp() {
         NSApp.terminate(nil)
     }
@@ -117,7 +130,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func startLoopProbeIfRequested() {
         guard let raw = ProcessInfo.processInfo.environment[LoopProbe.secondsEnvKey],
               let seconds = Int(raw), seconds > 0 else { return }
-        let probe = LoopProbe(player: player.player, durationSeconds: seconds)
+        let probe = LoopProbe(player: player.player, durationSeconds: seconds) { [weak self] in
+            MainActor.assumeIsolated { self?.terminateApp() }
+        }
         loopProbe = probe
         probe.start()
     }
