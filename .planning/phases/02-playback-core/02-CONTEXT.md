@@ -69,7 +69,7 @@ Phase 1 的**全部**测量都在**锁屏会话**内完成（`UserIsActive 0`、
 
 - **D-08:** 桌面层窗口有系统性几何内缩。 —— Phase 2 只做**实测记录**（02-02 T2 产出 `evidence/inset.log`），不据此断言；真正需要据此判定的是 Phase 3 的全屏几何。borderless 桌面层窗口的 `CGWindowList` bounds 比 `NSScreen.frame` 内缩 **14pt/9pt**（叠加刘海 33pt 共 47pt）。Phase 2 若要用覆盖率判断什么，必须先处理这个内缩。
 
-**D-09: 本机常驻 4 个同类动态壁纸 app**（`Dynamic Wallpaper` / `Hanami Live Wallpaper` / `Wallpaper Monster` / `DevDesk`），至少一个同处 `-2147483623`。产品代码必须**按 PID 认领自己的窗口**，且验收时留意 z-order 竞争。
+- **D-09:** 本机装了 4 个同类动态壁纸 app（`Dynamic Wallpaper` / `Hanami Live Wallpaper` / `Wallpaper Monster` / `DevDesk`）。**2026-10-03 编排器更正**：先前依据 Phase 1 转述的「至少一个常驻在 `-2147483623`」**未能复现** —— Phase 2 T2 实测 `FOREIGN_SAME_LEVEL=0`、`FOREIGN_OWNERS=none`、`FOREIGN_DESKTOP_FAMILY=7`；`pgrep` 显示 4 个 app 中**只有 `DevDesk` 在运行**，其余 3 个未运行。**结论修正**：共存风险比原先记录的**低**，但「桌面族里确实还有 7 扇别人的窗口」是事实。**D-09 的可执行部分不变**：按 PID 认领自己的窗口（本机确实存在其他桌面族窗口，按 layer 认领仍会认错），验收仍留意 z-order 竞争。
 
 ### 架构（ROADMAP 已定，照抄）
 
