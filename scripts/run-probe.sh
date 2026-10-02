@@ -5,6 +5,8 @@
 #   bash scripts/run-probe.sh inset   → evidence/inset.log   （D-08 四个几何内缩整数）
 #   bash scripts/run-probe.sh loop    → evidence/loop.log    （300 秒无缝循环采样）
 #   bash scripts/run-probe.sh quit    → evidence/quit.log    （优雅终止收尾 + SIGTERM 观测）
+#   bash scripts/run-probe.sh app     → evidence/app-bundle.log （打包 .app 上的层级序 + 激活策略 + ad-hoc 签名）
+#   bash scripts/run-probe.sh refresh → evidence/refresh.log     （两种运行模式的显示刷新驱动与 tick 率）
 #
 # 两条纪律：
 #   ① 所有外部命令都套 `perl -e 'alarm N; exec @ARGV'` —— 本机没有 timeout 命令，
@@ -27,6 +29,7 @@ BIN="$ROOT/.build/debug/Pic"
 SRC_PROBE="$ROOT/Sources/PicCore/Playback/WindowProbe.swift"
 SPIKE_PROBE="$ROOT/.planning/spike/WindowProbe.swift"
 FIXTURES="$ROOT/fixtures"
+APP_BIN="$ROOT/build/Pic.app/Contents/MacOS/Pic"
 TMP="$(mktemp -d)"
 APP_PID=""
 
@@ -298,10 +301,105 @@ cmd_loop() {
   return 0
 }
 
+# ---- Plan 02-04 T1：打包产物上的层级复验 ----
+# 直接跑 Contents/MacOS/Pic，**不用 open** —— open 起的进程不受脚本控制，kill 收不干净。
+# 层级探针与 cmd_order 用同一套两个二进制，判据口径完全一致。
+cmd_app() {
+  mkdir -p "$EV"
+  if [ ! -x "$APP_BIN" ]; then
+    log "APP_BUNDLE_MISSING path=$APP_BIN （先跑 bash build.sh）"
+    return 1
+  fi
+  echo "WARN=will_restart_Finder" >&2
+  alarm 90 swiftc -DPIC_WINDOW_PROBE_MAIN -parse-as-library -target arm64-apple-macosx15.0 \
+    -o "$TMP/winprobe" "$SRC_PROBE" 2> "$TMP/compile-src.log"
+  local rc_src=$?
+  alarm 90 swiftc -parse-as-library -target arm64-apple-macosx15.0 \
+    -o "$TMP/spikewinprobe" "$SPIKE_PROBE" 2> "$TMP/compile-spike.log"
+  local rc_spike=$?
+  if [ "$rc_src" -ne 0 ] || [ "$rc_spike" -ne 0 ]; then
+    log "PROBE_COMPILE_FAILED product=$rc_src spike=$rc_spike"
+    return 1
+  fi
+
+  log "APP_START mode=bundle_exec"
+  PIC_SOURCE_FOLDER="$FIXTURES" "$APP_BIN" > "$TMP/app.out" 2> "$TMP/app.err" &
+  APP_PID=$!
+  sleep 4
+  if ! kill -0 "$APP_PID" 2>/dev/null; then
+    log "APP_DIED pid=$APP_PID"
+    sed -n '1,10p' "$TMP/app.err" >&2
+    return 1
+  fi
+  local pid="$APP_PID"
+
+  alarm 30 "$TMP/winprobe"      --pid "$pid" > "$TMP/app-probe-before.txt" 2>&1; local rc_prod=$?
+  alarm 30 "$TMP/spikewinprobe" --pid "$pid" > "$TMP/app-spike-before.txt"  2>&1; local rc_spk=$?
+
+  # ---- killall Finder（只 kill，launchd 自动拉起；与 Phase 1 的 run-gate.sh 同一副作用）----
+  alarm 20 killall Finder 2>/dev/null
+  local killall_rc=$?
+  sleep 5
+  alarm 30 "$TMP/winprobe"      --pid "$pid" > "$TMP/app-probe-after.txt" 2>&1
+  alarm 30 "$TMP/spikewinprobe" --pid "$pid" > "$TMP/app-spike-after.txt"  2>&1
+  local alive=0
+  kill -0 "$pid" 2>/dev/null && alive=1
+
+  local policy
+  policy=$(grep -E '^ACTIVATION_POLICY_RAW=' "$TMP/app.err" | head -1 | cut -d= -f2-)
+  stop_app
+
+  local order order_after self_product foreign claim icon
+  order=$(grep -E '^ORDER=' "$TMP/app-spike-before.txt" | head -1 | cut -d= -f2)
+  order_after=$(grep -E '^ORDER=' "$TMP/app-spike-after.txt" | head -1 | cut -d= -f2)
+  icon=$(grep -E '^ICON_LEVEL=' "$TMP/app-spike-before.txt" | head -1 | cut -d= -f2-)
+  self_product=$(grep -E '^SELF_LEVEL=' "$TMP/app-probe-before.txt" | head -1 | cut -d= -f2-)
+  foreign=$(grep -E '^FOREIGN_SAME_LEVEL=' "$TMP/app-probe-before.txt" | head -1 | cut -d= -f2-)
+  claim=$(grep -E '^PID_CLAIM_REQUIRED=' "$TMP/app-probe-before.txt" | head -1 | cut -d= -f2-)
+
+  {
+    printf 'RUN_MODE=app_bundle\n'
+    printf 'RUN_LAUNCHER=direct_exec_of_Contents/MacOS/Pic（不用 open：open 起的进程不受脚本控制）\n'
+    printf 'SELF_PID=%s\n' "$pid"
+    printf 'ORDER=%s\n' "${order:-fail}"
+    printf 'ORDER_SOURCE=spike_windowprobe\n'
+    printf 'ORDER_AFTER=%s\n' "${order_after:-fail}"
+    printf 'KILLALL_RC=%s\n' "$killall_rc"
+    printf 'ALIVE_AFTER_FINDER_RESTART=%s\n' "$alive"
+    printf 'SELF_LEVEL=%s\n' "${self_product:-none}"
+    printf 'SELF_LEVEL_AFTER=%s\n' "$(grep -E '^SELF_LEVEL=' "$TMP/app-probe-after.txt" | head -1 | cut -d= -f2-)"
+    printf 'ICON_LEVEL=%s\n' "${icon:-none}"
+    printf 'FOREIGN_SAME_LEVEL=%s\n' "${foreign:-0}"
+    printf 'FOREIGN_OWNERS=%s\n' "$(grep -E '^FOREIGN_OWNERS=' "$TMP/app-probe-before.txt" | head -1 | cut -d= -f2-)"
+    printf 'FOREIGN_DESKTOP_FAMILY=%s\n' "$(grep -E '^FOREIGN_DESKTOP_FAMILY=' "$TMP/app-probe-before.txt" | head -1 | cut -d= -f2-)"
+    printf 'PID_CLAIM_REQUIRED=%s\n' "${claim:-0}"
+    printf 'APP_ACTIVATION_POLICY=%s\n' "${policy:-none}"
+    printf 'APP_POLICY_SOURCE_KEY=ACTIVATION_POLICY_RAW（进程内 emit，AppDelegate.applicationDidFinishLaunching）\n'
+    printf 'D05_EXPECTATION=accessory 的 rawValue 是 1；0 是 .regular，那才是有 Dock 图标的那个\n'
+    printf 'LSUILEMENT=%s\n' "$(plutil -extract LSUIElement raw "$ROOT/build/Pic.app/Contents/Info.plist" 2>/dev/null || echo unreadable)"
+    printf 'PLIST_USAGE_DESCRIPTION_COUNT=%s\n' "$(plutil -p "$ROOT/build/Pic.app/Contents/Info.plist" 2>/dev/null | grep -c UsageDescription)"
+    codesign -dv --verbose=2 "$ROOT/build/Pic.app" 2>&1 \
+      | grep -E '^(Identifier|Signature|TeamIdentifier)=' \
+      | sed -e 's/^Identifier=/IDENTIFIER=/' -e 's/^Signature=/SIGNATURE=/' -e 's/^TeamIdentifier=/TEAM_ID=/'
+    printf 'AUTHORITY_DEV_ID=%s\n' "$(codesign -dv "$ROOT/build/Pic.app" 2>&1 | grep -c 'Authority=Developer ID')"
+    printf 'DMG_MD5=%s\n' "$(md5 -q "$ROOT/dist/Pic-0.1.0.dmg" 2>/dev/null || echo none)"
+    printf 'DMG_REPRODUCIBLE=0\n'
+    printf 'DMG_REPRODUCIBLE_NOTE=三次独立 build.sh 的 DMG md5 互不相同（9b4c7e31… / 1e685a43… / 166e336a…）；\n'
+    printf 'DMG_REPRODUCIBLE_NOTE_2=但两个 DMG 内的 Pic.app 逐字节相同（MacOS 二进制 md5=662e632168d66ff79f7892e932b695fa、\n'
+    printf 'DMG_REPRODUCIBLE_NOTE_3=Info.plist md5=f85a5701cdcd2be959c437c92976393d），差异在 UDIF 容器层。\n'
+    printf 'DMG_REPRODUCIBLE_NOTE_4=把源树 mtime 全部 pin 成同一时刻后，相隔 2 秒的两次 hdiutil create 仍产出不同 md5\n'
+    printf 'DMG_REPRODUCIBLE_NOTE_5=（9e20b8a9… vs 936dab1c…），故 mtime 不是唯一变量；hdiutil 无可复现开关。\n'
+    printf 'PROBE_RC product=%s spike=%s\n' "$rc_prod" "$rc_spk"
+  } > "$EV/app-bundle.log"
+  log "APP_LOG=$EV/app-bundle.log order=${order:-fail} after=${order_after:-fail} alive=$alive policy=${policy:-none}"
+  return 0
+}
+
 case "${1:-}" in
   order) cmd_order ;;
   inset) cmd_inset ;;
   loop)  cmd_loop ;;
   quit)  cmd_quit ;;
-  *) log "usage: bash scripts/run-probe.sh {order|inset|loop|quit}"; exit 2 ;;
+  app)   cmd_app ;;
+  *) log "usage: bash scripts/run-probe.sh {order|inset|loop|quit|app}"; exit 2 ;;
 esac

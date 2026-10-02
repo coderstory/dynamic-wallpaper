@@ -21,6 +21,12 @@ let package = Package(
         .executableTarget(
             name: "PicApp",
             dependencies: ["PicCore"],
+            // 这份 plist 由 build.sh 的 `cp` 打进 .app，不进 SwiftPM 的资源 bundle。
+            // 不 exclude 的话 swift build 每次都打一行 "found 1 file(s) which are
+            // unhandled; … Info.plist" —— 非 error，但它会掩盖真正的告警。
+            // 刻意**不**改成 resources: 那样它会同时被复制进 Pic_PicApp.bundle/Info.plist，
+            // 两处同名 plist 比一处更难排查。
+            exclude: ["Resources/Info.plist"],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .testTarget(
