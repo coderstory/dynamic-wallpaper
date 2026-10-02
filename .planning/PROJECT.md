@@ -60,6 +60,7 @@
 - **转码目的（已定）**：**只为格式兼容**，不为省资源。目标产物是 AVFoundation 能硬件解码的容器+编码。
 - **画质标准（已定）**：**视觉无损** —— 人眼基本看不出差异。数学无损（`-qp 0`）会让文件大 2–5 倍、编码极慢，不采用。具体 CRF / preset / 编码器（libx264 vs libx265 vs svt-av1 vs VideoToolbox hw）待调研拍板。
 - **转码产物位置（已定）**：落在用户选择的壁纸目录内，原视频保留不删。**命名 / 目录规则必须避免"产物被再次扫成待转码输入"的无限循环**——扫描器需排除产物，具体规则待设计。
+- **转码质量参数（源码已验证）**：读 `ffmpeg-kit-next` 源码确认，它**不硬编码任何编码质量参数**，`apple/src/` 全部是 API 包装、质量参数由调用方传入——所以「视觉无损」的 CRF/preset 完全是本项目自己的决策。同时确认 macOS 包带 `macos-videotoolbox`（硬件编码，`LIBRARY_APPLE_VIDEOTOOLBOX=55`），但**硬件编码的画质控制达不到视觉无损**。→ **转码侧软编保质量（libx264/libx265 + CRF 调优），播放侧硬解（AVFoundation）**，两边不冲突。
 - **耗电**：视频壁纸吃 GPU。用户要开关而非硬编码，电池供电时默认不播。
 - **设置窗口**：用户要求先调研再规划 UI，不要先写代码再改。
 - **工具链（已实测）**：本机原本只有 CommandLineTools（无完整 Xcode）。实测 CLT 可编译 `swiftc` / macOS 27 SDK / `codesign` / `notarytool` / `stapler` / AppKit / `ObservableObject` + `@StateObject`；**只有 SwiftUI 的 `@State` 和 `@Observable` 两个宏编译不过**，`actool` 也缺失。用户已开始安装完整 Xcode，装完这两个宏即可用。**"必须装 Xcode 才能开工"不成立** —— 纯 CLT 也能编（避开那两个宏）。
