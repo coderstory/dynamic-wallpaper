@@ -42,7 +42,7 @@ final class MenuBarSpikeDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         let ok = NSApp.setActivationPolicy(.accessory)
         let policy = NSApp.activationPolicy().rawValue
-        print("PIC_MENU policy=\(policy) ok=\(ok) menubarExtra=ok dock=hidden_by_policy")
+        print("PIC_MENU policy=\(policy) ok=\(ok) menubarExtra=not_verified_by_spike dock=hidden_by_policy")
         fflush(stdout)
     }
 }

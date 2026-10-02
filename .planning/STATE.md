@@ -83,7 +83,7 @@ Recent decisions affecting current work:
 **判定 `GATE=A` —— 路线 A（desktop-level NSWindow）在本机成立，Phase 2 可启动。**
 PDCA 全文：`.planning/phases/01-spike/01-PDCA.md`
 
-**最重要的未闭合项（PDCA-C1）**：Phase 1 的**全部**测量都在**锁屏会话**内完成（`UserIsActive 0`，每条日志带 `LOCK=1`）。门禁结论的适用边界**未在有前台进程的环境验证** → 已列为 **Phase 2 的第一个强制前置任务**（ROADMAP Phase 2 已写死）。
+**最重要的未闭合项（PDCA-C1）**：Phase 1 的**全部**测量都在**锁屏会话**内完成（`UserIsActive 0`，`loginwindow` PID 489 自采集起未变）。注意：逐行自带 `LOCK=` 标注的只有 `fullscreen-scenarios.log` 与 `ab-verdict.txt`，其余日志靠上述三处独立佐证。门禁结论的适用边界**未在有前台进程的环境验证** → 已列为 **Phase 2 的第一个强制前置任务**（ROADMAP Phase 2 已写死）。
 
 **已落进 ROADMAP 的硬约束：**
 - Phase 2：解锁会话重跑 `run-gate.sh` 为强制前置；层级写法照抄 VERDICT；`.accessory` 断言用 1；用 `NSScreen.displayLink`

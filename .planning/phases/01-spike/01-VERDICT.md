@@ -32,7 +32,7 @@ GATE=B  ⟸  上述任一不成立
 | SC1 层级方案成立 | PASS | `.planning/spike/out/gate-01.log:SELF_LEVEL` `:ICON_LEVEL` `:FINDER_RESTART_ALIVE` `:FRAME_LAST` | 我方 -2147483623 严格低于 Finder 图标层 -2147483603；KILLALL_RC=0、SPIKE_ALIVE=1、FINDER_RESTART_ALIVE=1、ORDER_AFTER=ok；FRAME_FIRST=1 → FRAME_LAST=225。「可点选可拖动」的人工 10 秒项未做，见「已知障碍」第 2 行 |
 | SC2 层级写法定案 | PASS | `.planning/spike/out/task1-selftest.log:SOURCE_CGWindowLevelForKey_desktopWindow` `:SOURCE_hardcoded_-21474836` `:SOURCE_desktopIconWindow` | 运行值 WINDOW_LEVEL_REPORTED=-2147483623；源码计数 CGWindowLevelForKey_desktopWindow=1、hardcoded_-21474836=0、desktopIconWindow=0；COMPILE_RC=0 errors=0 |
 | SC3 菜单栏路线 | PASS | `.planning/spike/out/menubar.log:MENUBAR_VERDICT` | MENUBAR_VERDICT=ok；两个变体 `VARIANT` alive=1 layer0=0；`VARIANT_PIC_MENU` policy=1；阳性对照 CONTROL_REGULARWINDOW layer0=1 |
-| SC4 全屏几何原型 | PASS，但已实测到误判 | `.planning/spike/out/fullscreen-scenarios.log:SCENARIO=` — s0 live 1.000、s1 blocked 0.886、s2 synthetic 1.000、s3 synthetic 1.000、s4 synthetic 0.840 | SELFTEST_VERDICT=pass（whole=1.000 chrome=1.000 split=1.000 split_per_window_best=0.600）；FALSE_POSITIVE_OBSERVED=1；COORD=confirmed |
+| SC4 全屏几何原型 | **PARTIAL** —— 几何原型跑通，但 ROADMAP 点名的三个场景 **0/3 有真机样本**；且 SC4 后半句「误判方向为宁可少暂停」**已被实测证伪**，实测方向是**误暂停** | `.planning/spike/out/fullscreen-scenarios.log:SCENARIO=` — s0 live 1.000、s1 blocked 0.886、s2 synthetic 1.000、s3 synthetic 1.000、s4 synthetic 0.840 | SELFTEST_VERDICT=pass（whole=1.000 chrome=1.000 split=1.000 split_per_window_best=0.600）；FALSE_POSITIVE_OBSERVED=1；COORD=confirmed |
 | SC5 锁屏触发与耗电四组 | BLOCKED | 未采集，本机无免密 sudo，powermetrics 需 root | SCREENLOCK=unknown；OPAQUE_DELTA=SKIPPED=human_checkpoint；AB_GROUPS_PLANNED=4 AB_GROUPS_MEASURED=0 |
 
 SC5-注：SC5 的兜底产物在 `.planning/spike/out/ab-verdict.txt`，首行 `AB_STATUS=skipped reason=human_checkpoint_not_run`。SC5 的两半都不算采集完成 —— `screenIsLocked` 探针跑满 120 秒但屏幕全程已锁、无跃迁可观察，结论只能是 `SCREENLOCK=unknown`（不是 `fires`，也不是 `silent`）；四组 300 秒 A/B 一个都没量到。SC5 不参与 `GATE=` 判定，已在「已知障碍」第 7、8 行各占一行。
@@ -131,7 +131,7 @@ AppKit 无 `NSDesktopWindowLevel` 常量，`CGWindowLevelForKey` 是唯一来源
 |---|---|---|
 | `screencapture` 的屏幕录制权限状态 | 假定它不可用 —— 已知返回固定占位图（与对照抓图 md5 逐字节相同） | 没有申请过该权限。下游任何依赖截图的判定都要先解这一项 |
 | `powermetrics` 的 root 凭据 | 假定它拿不到 —— `sudo -n true` 与 `powermetrics` 两条都 rc=1 | 未输入过密码，不知道补上密码后四组 300 秒能否跑完 |
-| `CGWindowListCopyWindowInfo` 在无 GUI 前台会话下的行为 | 本 Phase 全部测量都在锁屏会话内完成（每条日志带 `LOCK=1`） | 有前台进程时的窗口列表行为未验证 |
+| `CGWindowListCopyWindowInfo` 在无 GUI 前台会话下的行为 | 本 Phase 全部测量都在锁屏会话内完成。**带 `LOCK=` 标注的只有 `fullscreen-scenarios.log`（6 处）与 `ab-verdict.txt`（1 处）；`gate-01.log` / `menubar.log` / `task1-selftest.log` / `lock.log` 不含该字段** —— 锁定上下文由 `SCREEN_WAS_LOCKED_AT_PROBE_START=1`、`loginwindow` PID 489、`UserIsActive 0` 三处独立佐证，非逐行自带 | 有前台进程时的窗口列表行为未验证 |
 | 第三方壁纸 app 的窗口层级 | 假定其中至少一个常驻在 -2147483623（编排器实测） | 未逐个复测四个 app 的层级 |
 
 ## 交给下游的三条硬约束

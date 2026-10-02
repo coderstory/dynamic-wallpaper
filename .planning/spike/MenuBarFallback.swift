@@ -8,7 +8,7 @@
 // 不调 NSApplication.shared.activate —— 会抢焦点，违背 .accessory 语义（T-01-05）。
 // 菜单体与 MenuBarSpike.swift 完全同形：固定 5 条、无子层级，退出含在这 5 条之内。
 // Divider 不是菜单项。菜单里不出现文件名。本 spike 只验证能否挂上并弹出，行为是空实现。
-// menubarExtra=fallback 是 menubar-check.sh 区分两条路径的唯一标记，不要写成 ok。
+// menubarExtra=not_verified_by_spike 是 menubar-check.sh 区分两条路径的唯一标记，不要写成 ok。
 //
 // 激活策略 rawValue 本机实测（2026-10-03）：regular=0 / accessory=1 / prohibited=2，
 // 所以打印的是 setActivationPolicy 之后的生效策略，accessory 期望值是 1 而不是 0。
@@ -35,7 +35,7 @@ final class StatusMain: NSObject {
         menu.addItem(NSMenuItem(title: "退出", action: #selector(terminateApp), keyEquivalent: "q"))
         item.menu = menu
 
-        print("PIC_MENU policy=\(policy) ok=\(ok) menubarExtra=fallback dock=hidden_by_policy")
+        print("PIC_MENU policy=\(policy) ok=\(ok) menubarExtra=not_verified_by_spike dock=hidden_by_policy")
         fflush(stdout)
 
         app.run()
