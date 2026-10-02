@@ -384,7 +384,7 @@ cmd_app() {
     printf 'AUTHORITY_DEV_ID=%s\n' "$(codesign -dv "$ROOT/build/Pic.app" 2>&1 | grep -c 'Authority=Developer ID')"
     printf 'DMG_MD5=%s\n' "$(md5 -q "$ROOT/dist/Pic-0.1.0.dmg" 2>/dev/null || echo none)"
     printf 'DMG_REPRODUCIBLE=0\n'
-    printf 'DMG_REPRODUCIBLE_NOTE=三次独立 build.sh 的 DMG md5 互不相同（9b4c7e31… / 1e685a43… / 166e336a…）；\n'
+    printf 'DMG_REPRODUCIBLE_NOTE=多次独立 build.sh 的 DMG md5 互不相同（实测样例 9b4c7e31… / 1e685a43… / 166e336a… / e391cb5f…，以及本行上方 DMG_MD5 的每一次）；\n'
     printf 'DMG_REPRODUCIBLE_NOTE_2=但两个 DMG 内的 Pic.app 逐字节相同（MacOS 二进制 md5=662e632168d66ff79f7892e932b695fa、\n'
     printf 'DMG_REPRODUCIBLE_NOTE_3=Info.plist md5=f85a5701cdcd2be959c437c92976393d），差异在 UDIF 容器层。\n'
     printf 'DMG_REPRODUCIBLE_NOTE_4=把源树 mtime 全部 pin 成同一时刻后，相隔 2 秒的两次 hdiutil create 仍产出不同 md5\n'

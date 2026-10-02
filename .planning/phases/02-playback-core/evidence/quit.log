@@ -1,10 +1,10 @@
 QUIT_MODE=graceful_request
-QUIT_PID=78599
+QUIT_PID=86933
 QUIT_HOOK_SEEN=1
 QUIT_EXITED=1
 QUIT_TRIGGER=--quit-after 3 启动参数（测试脚手架，不是产品能力）
 QUIT_WALL_SECONDS=4
-QUIT_EVIDENCE=terminated_line=PIC_TERMINATED pid=78599 reason=application_will_terminate
+QUIT_EVIDENCE=terminated_line=PIC_TERMINATED pid=86933 reason=application_will_terminate
 SIGTERM_MODE=kil
 SIGTERM_HOOK_SEEN=0
 SIGTERM_EXITED=1

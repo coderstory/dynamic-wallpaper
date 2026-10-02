@@ -1,9 +1,23 @@
 #!/usr/bin/env bash
 # 能自动化的验证都在这。需要人眼/真机的（全屏暂停、桌面层级、耗电）不在此列。
 cd "$(dirname "$0")"
-PASS=0; FAIL=0
+
+# 本脚本自己把 LC_CTYPE 固定成 C。原因（实测，非推断）：
+# 在 UTF-8 locale 下跑本脚本，输出会被**按字节偏移**丢掉 2 字节，且丢点与脚本内容无关 ——
+# 同一份脚本在 C locale 下输出逐字节有效。最小复现：33 行中文填充 + 一行
+# `ok "…（Button 行数 $MB = ForEach 行数 $MF）"`，UTF-8 locale 下 `1）` 变成 `\xbc\x89`
+# （丢了 `31 EF` 两个字节），C locale 下不丢。
+# 后果很实际：输出里只要有一个非法字节，`grep` 就会中止整份文件，
+# 于是「test.sh 的输出能不能被 grep」这件事变得不可靠 —— 判据会假红。
+# 固定 C locale 只影响脚本自身的字节处理，不改变任何一条判据的语义。
+export LC_ALL=C
+
+PASS=0; FAIL=0; SKIP=0
 ok(){ printf "  ✅ %s\n" "$1"; PASS=$((PASS+1)); }
 no(){ printf "  ❌ %s\n     %s\n" "$1" "${2:-}"; FAIL=$((FAIL+1)); }
+# 干净 clone 里没有 build/ 与 dist/。这几项不是「不通过」，是「没东西可查」——
+# 判成 no 会让一台没跑过 build.sh 的机器永远红，对交付没有任何信息量。
+skip(){ printf "  ⏭️ %s\n     %s\n" "$1" "${2:-}"; SKIP=$((SKIP+1)); }
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 
 echo "── 工具链 ─────────────────────────────"
@@ -177,7 +191,41 @@ swiftc -O -parse-as-library -target arm64-apple-macosx15.0 -o "$TMP/render" $SRC
   || no "设置窗渲染失败" ""
 
 echo ""
+echo "── 打包产物 ───────────────────────────"
+# Plan 02-04 T3：build.sh 的产出本身也要被验，不能只验源码。
+# 五项全是本地命令，不起 GUI 进程。干净 clone 下走 skip 分支（跳过 N 项），
+# 退出码仍是 0 —— test.sh 必须能在没打过包的机器上跑完。
+if [ ! -d build ]; then
+  skip ".app 二进制非空（build/ 不存在）"      "跑 bash build.sh 后再验"
+  skip ".dmg 非空（dist/ 不存在）"             "跑 bash build.sh 后再验"
+  skip "Info.plist 的 LSUIElement 为 true"     "build/Pic.app 不存在"
+  skip "Info.plist 无任何 UsageDescription"    "build/Pic.app 不存在"
+  skip "ad-hoc 签名且非 Developer ID"          "build/Pic.app 不存在"
+else
+  APPB="build/Pic.app"
+  test -s "$APPB/Contents/MacOS/Pic" \
+    && ok ".app 二进制非空（$(stat -f%z "$APPB/Contents/MacOS/Pic") bytes）" \
+    || no ".app 二进制缺失或为空" "$APPB/Contents/MacOS/Pic"
+  ls dist/Pic-*.dmg >/dev/null 2>&1 && test -s "$(ls dist/Pic-*.dmg | head -1)" \
+    && ok ".dmg 非空（$(stat -f%z "$(ls dist/Pic-*.dmg | head -1)") bytes）" \
+    || no "DMG 缺失或为空" "dist/Pic-*.dmg"
+  # plist 布尔在 plutil 里渲染成 true 不是 1；写成 1 会把正确值判成失败。
+  [ "$(plutil -extract LSUIElement raw "$APPB/Contents/Info.plist" 2>/dev/null)" = "true" ] \
+    && ok "Info.plist 的 LSUIElement 为 true（Dock 无图标的打包期落点）" \
+    || no "LSUIElement 不是 true" "得到 [$(plutil -extract LSUIElement raw "$APPB/Contents/Info.plist" 2>/dev/null)]，plist 布尔读出来是字面量 true"
+  NU=$(plutil -p "$APPB/Contents/Info.plist" 2>/dev/null | grep -c UsageDescription)
+  [ "$NU" = "0" ] && ok "Info.plist 无任何 UsageDescription（T-02-11）" \
+    || no "Info.plist 出现权限声明" "UsageDescription 计数 = $NU，期望 0"
+  CS=$(codesign -dv "$APPB" 2>&1)
+  if echo "$CS" | grep -q 'Signature=adhoc' && ! echo "$CS" | grep -q 'Authority=Developer ID'; then
+    ok "ad-hoc 签名且无 Developer ID 授权"
+  else
+    no "签名形态不符" "$(echo "$CS" | grep -E 'Signature=|Authority=' | tr '\n' ' ')"
+  fi
+fi
+
+echo ""
 echo "───────────────────────────────────────"
-printf "  通过 %d  失败 %d\n" "$PASS" "$FAIL"
+printf "  通过 %d  失败 %d  跳过 %d\n" "$PASS" "$FAIL" "$SKIP"
 [ "$FAIL" -eq 0 ] && echo "  ✅ 全绿" || echo "  ❌ 有失败项"
 exit "$FAIL"
