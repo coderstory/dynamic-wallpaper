@@ -1,3 +1,4 @@
 ffmpeg-kit-next/
 build/
 dist/
+.planning/spike/out/
