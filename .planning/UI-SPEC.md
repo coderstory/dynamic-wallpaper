@@ -268,11 +268,18 @@ Spike 里在右列加了「运行状态」卡（已暂停 + 原因 / ffmpeg 状�
 
 ### 产出
 - **App 图标**：`.planning/design/assets/` 下 10 个 PNG（16→1024 全套）+ `Contents.json`，可直接当 `AppIcon.appiconset` 用
-- **菜单栏图标**：两版待选
-  - `menubar-v1*.png` —— 单窗 + 三角，16px 下最清楚
-  - `menubar-v2*.png` —— 双窗 + 三角，与 app 图标更同源
+- **菜单栏图标（已定稿）**：`menubar-v1*.png`（@1x/@2x/@3x）—— **单窗 + 三角**
+  - `menubar-v2*.png`（双窗 + 三角）**不采用**，保留在设计目录作对照，**不进 app bundle**
 - **生成器**：`tools/make-icons.swift`，可重跑
 - **检查图**：`.planning/design/shots/icons-app.png` / `icons-menubar.png`
 
-### 待定
-**菜单栏图标 v1 还是 v2** —— 未拍板。
+### 定稿（2026-10-03）
+
+**菜单栏图标 = v1（单窗 + 三角）。** 用户拍板。
+
+理由：模板图只有 22pt 高，v2 的双窗描边在 @1x 下两根窗框线会挤在 4–5 像素里，辨识度不如 v1 的开阔单窗。v1 与 app 图标不同源是可接受的代价 —— 菜单栏要的是**一眼认得出**，不是**和图标长得像**。
+
+**打包时的落地要求（Phase 5 / Phase 7）：**
+- app bundle 内只放 v1 的 `@1x/@2x/@3x` 三张，命名 `MenuBarIcon.png` / `@2x` / `@3x`
+- 必须设 `isTemplate = true`（`NSImage`），否则深色菜单栏下是黑块
+- app 图标走 `.planning/design/assets/` 的 10 张 PNG + `Contents.json`（`AppIcon.appiconset` 格式），由 `build.sh` 里的 `actool` 编成 `.icns` 或直接放进 bundle
