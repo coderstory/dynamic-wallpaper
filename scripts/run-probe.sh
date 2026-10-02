@@ -4,6 +4,7 @@
 #   bash scripts/run-probe.sh order   → evidence/order.log   （层级判定 + 按 PID 认领的证据）
 #   bash scripts/run-probe.sh inset   → evidence/inset.log   （D-08 四个几何内缩整数）
 #   bash scripts/run-probe.sh loop    → evidence/loop.log    （300 秒无缝循环采样）
+#   bash scripts/run-probe.sh quit    → evidence/quit.log    （优雅终止收尾 + SIGTERM 观测）
 #
 # 两条纪律：
 #   ① 所有外部命令都套 `perl -e 'alarm N; exec @ARGV'` —— 本机没有 timeout 命令，
@@ -186,6 +187,88 @@ cmd_inset() {
   return 0
 }
 
+cmd_quit() {
+  mkdir -p "$EV"
+  ensure_binary || return 1
+
+  # ---- 第一轮：优雅请求（判据的主体）----
+  # 用 `--quit-after <秒>` 触发**同一个** terminateApp()，也就是菜单「退出」闭包走的那条路。
+  # 刻意直接跑二进制、不套 swift run wrapper —— wrapper 的 PID 与子进程 PID 不同，
+  # 上一版就是这么把 PID 判据测假的。
+  #
+  # 为什么不用 kill -TERM：本机实测 AppKit 不为 SIGTERM 装 handler，零 delegate 回调、
+  # 进程立即死亡，走不到 applicationWillTerminate。见下面第二轮与 SIGTERM_HOOK_NOTE。
+  log "QUIT_START mode=graceful_request via=--quit-after"
+  PIC_SOURCE_FOLDER="$FIXTURES" "$BIN" --quit-after 3 > "$TMP/quit.out" 2> "$TMP/quit.err" &
+  APP_PID=$!
+
+  local waited=0
+  while kill -0 "$APP_PID" 2>/dev/null && [ "$waited" -lt 30 ]; do
+    sleep 1
+    waited=$((waited + 1))
+  done
+
+  local qpid qhook qexit
+  qpid=$(grep -E '^PIC_TERMINATED pid=[0-9]+' "$TMP/quit.err" | head -1 | sed -E 's/^PIC_TERMINATED pid=([0-9]+).*/\1/')
+  # 收尾行里的 PID 必须就是我们起的那个进程 —— 对不上说明量错了对象。
+  [ "$qpid" = "$APP_PID" ] || log "QUIT_PID_MISMATCH expected=$APP_PID got=${qpid:-none}"
+  if [ -n "$qpid" ]; then qhook=1; else qhook=0; fi
+
+  if kill -0 "$APP_PID" 2>/dev/null; then qexit=0; else qexit=1; fi
+  APP_PID=""
+
+  # ---- 第二轮：信号路径（只观测，不断言）----
+  # SIGTERM_HOOK_SEEN 取实测值、不设期望值：这是 AppKit 的既有行为，不是本 app 的判据，
+  # 换框架时它会变。把它写成断言等于把框架实现细节钉死成产品契约。
+  log "QUIT_START mode=sigterm_observation"
+  PIC_SOURCE_FOLDER="$FIXTURES" "$BIN" > "$TMP/sigterm.out" 2> "$TMP/sigterm.err" &
+  APP_PID=$!
+  sleep 4
+  kill -0 "$APP_PID" 2>/dev/null || { log "APP_DIED pid=$APP_PID"; return 1; }
+  kill -TERM "$APP_PID" 2>/dev/null
+  local swaited=0
+  while kill -0 "$APP_PID" 2>/dev/null && [ "$swaited" -lt 10 ]; do
+    sleep 1
+    swaited=$((swaited + 1))
+  done
+  local shook sexit
+  # 注意别写 `grep -c ... || echo 0` —— grep 命中 0 行时**同时**打印 0 并以 1 退出，
+  # 那样 shook 会变成 "0\n0"，后面的整数比较直接报错（第一版就是这么炸的）。
+  shook=$(grep -cE '^PIC_TERMINATED ' "$TMP/sigterm.err" 2>/dev/null)
+  shook=${shook:-0}
+  [ "$shook" -gt 0 ] 2>/dev/null && shook=1 || shook=0
+  if kill -0 "$APP_PID" 2>/dev/null; then
+    sexit=0
+    stop_app
+  else
+    sexit=1
+    APP_PID=""
+  fi
+
+  {
+    printf 'QUIT_MODE=graceful_request\n'
+    printf 'QUIT_PID=%s\n' "${qpid:-none}"
+    printf 'QUIT_HOOK_SEEN=%s\n' "$qhook"
+    printf 'QUIT_EXITED=%s\n' "$qexit"
+    printf 'QUIT_TRIGGER=--quit-after 3 启动参数（测试脚手架，不是产品能力）\n'
+    printf 'QUIT_WALL_SECONDS=%s\n' "$waited"
+    printf 'QUIT_EVIDENCE=terminated_line=%s\n' "$(grep -E '^PIC_TERMINATED ' "$TMP/quit.err" | head -1 || echo none)"
+    printf 'SIGTERM_MODE=kil\n'
+    printf 'SIGTERM_HOOK_SEEN=%s\n' "$shook"
+    printf 'SIGTERM_EXITED=%s\n' "$sexit"
+    printf 'SIGTERM_HOOK_NOTE=AppKit 不为 SIGTERM 装 handler；走 applicationWillTerminate 的是 NSApp.terminate 路径，本探针的 QUIT_HOOK_SEEN 判据以那条路径为准。SIGTERM_HOOK_SEEN 为实测观测值，不作断言。\n'
+  } > "$EV/quit.log"
+
+  log "QUIT_LOG=$EV/quit.log hook=$qhook exited=$qexit sigterm_hook=$shook sigterm_exited=$sexit"
+  # 判据只挂优雅路径那一轮；SIGTERM 两行是观测记录。
+  if [ "$qhook" -ne 1 ] || [ "$qexit" -ne 1 ]; then
+    log "QUIT_VERDICT=fail hook=$qhook exited=$qexit"
+    return 1
+  fi
+  log "QUIT_VERDICT=pass"
+  return 0
+}
+
 cmd_loop() {
   mkdir -p "$EV"
   ensure_binary || return 1
@@ -219,5 +302,6 @@ case "${1:-}" in
   order) cmd_order ;;
   inset) cmd_inset ;;
   loop)  cmd_loop ;;
-  *) log "usage: bash scripts/run-probe.sh {order|inset|loop}"; exit 2 ;;
+  quit)  cmd_quit ;;
+  *) log "usage: bash scripts/run-probe.sh {order|inset|loop|quit}"; exit 2 ;;
 esac

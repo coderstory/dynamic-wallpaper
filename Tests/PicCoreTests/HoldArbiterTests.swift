@@ -111,4 +111,27 @@ final class HoldArbiterTests: XCTestCase {
         arbiter.set(.manualPause, active: false)
         XCTAssertFalse(arbiter.isManuallyPaused, "hold 解除后派生量跟着回落")
     }
+
+    /// D-15 的正面判据：手动暂停后解除，续播点是**暂停时**的那一秒，
+    /// 不是片头。判据是 `FakeTarget.seeks` 里的具体秒数，不是「播起来了」。
+    func testManualPauseResumesFromAnchorNotFromZero() {
+        target.position = 42.0
+        arbiter.set(.manualPause, active: true)
+        arbiter.set(.manualPause, active: false)
+
+        XCTAssertEqual(target.seeks, [42.0], "必须从暂停时的位置续播")
+        XCTAssertNotEqual(target.seeks.first, 0.0, "从 0 续播就是从头播")
+        XCTAssertTrue(arbiter.decision.shouldPlay, "hold 清空后应当恢复播放")
+    }
+
+    /// D-15 的第二半：锚点只在 ∅→非∅ 写入一次。暂停期间位置被别处改掉
+    /// （Phase 3 的系统 hold、Phase 4 的换片都会这样），解除后仍从原锚点续播。
+    func testAnchorNotOverwrittenBySecondHold() {
+        target.position = 42.0
+        arbiter.set(.manualPause, active: true)
+        target.position = 55.0          // 模拟暂停期间另一路改了位置
+        arbiter.set(.manualPause, active: false)
+
+        XCTAssertEqual(target.seeks, [42.0], "锚点不得被暂停期间的位置变化覆盖")
+    }
 }
