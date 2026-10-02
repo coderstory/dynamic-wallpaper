@@ -82,6 +82,12 @@
 - [ ] **PACK-03**: 提供 `build.sh` —— 一条命令完成编译 + 打包 `.app` + 生成 DMG
 - [ ] **PACK-04**: 提供 `test.sh` —— 一条命令跑完所有可自动化的验证
 
+### 视觉资产 (ASSET)
+
+- [ ] **ASSET-01**: 设计 **app 图标** —— macOS 风格圆角方图标，需产出 1024×1024 源图 + `AppIcon.appiconset` 全套尺寸（16/32/128/256/512 及 @2x）
+- [ ] **ASSET-02**: 设计 **菜单栏（托盘）图标** —— 必须是 **template image**（纯黑 + alpha，由系统自动适配深浅色菜单栏），16×16pt / 32×32@2x。要在 16px 下依然可辨认
+- [ ] **ASSET-03**: 两套图标视觉上同源 —— 一眼能看出是同一个 app
+
 ### 测试覆盖 (TEST)
 
 用户要求：**单测和 UI 测试覆盖全部功能。** 但「全部功能」里有一半在技术上无法自动化，必须分清。
@@ -170,7 +176,7 @@
 | （待 ROADMAP 生成后回填） | | |
 
 **Coverage:**
-- v1 requirements: 61 total
+- v1 requirements: 64 total
 - Mapped to phases: 待填
 - Unmapped: 待填
 
