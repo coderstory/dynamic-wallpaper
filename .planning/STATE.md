@@ -60,6 +60,17 @@ Recent decisions affecting current work:
 - **设置窗尺寸以 UI-SPEC 为准**：780pt 固定宽 / min 680pt（FEATURES 的 460pt 已过时）
 - **UI 已有可编译 spike**：`.planning/spike/SettingsSpike.swift`（自绘分段控件/滑杆/ToggleStyle/图标瓷砖发光全部实跑过）
 
+### Autonomous Run Directives (2026-10-03, `/gsd-autonomous`)
+
+用户睡觉期间授权自主推进，三条硬性指令：
+
+1. **卡住就跳过，别停** —— 任何需拍板的阻塞点（blocker / verification gaps / audit gaps）**自行裁决**，不反问。默认「跳过该阶段 / 继续不修 / 接受差距」，并记入 `## Deferred Verification` / `## Needs Human`。重试上限压缩到 1 次即跳（工作流默认 3 次）。
+   **唯一例外：删除文件的操作（cleanup）必须停下来问。**
+
+2. **每阶段完成后跑一次 PDCA 审计** —— Plan（must_haves 声称要什么）→ Do（实际产出什么）→ Check（差距）→ Act（下阶段怎么改，改动落到 CONTEXT.md / ROADMAP.md）。结果记入本文件。
+
+3. **Phase 1 门禁证伪 → 自动转路线 B（.saver bundle）**，不回头问，做完再报。
+
 ### Pending Todos
 
 None yet.
