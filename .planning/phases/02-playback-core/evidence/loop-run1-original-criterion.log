@@ -1,0 +1,13 @@
+# 第一轮 300 秒观察（判据①写作 endedCount == 0，即被 02-02 纠正的那条）
+# 保留原因：LOOP_ENDED=37 与 LOOP_CYCLES=37 是两个独立测法互相印证，
+#           说明「播完一条」通知每圈一次是 looper 正常换片，不是播放缺陷。
+LOOP_SAMPLES=150
+LOOP_ENDED=37
+LOOP_STALLED=0
+LOOP_FAILED=0
+LOOP_VERDICT=fail
+LOOP_FAIL_REASON=notification_ended=37_failed=0
+LOOP_CYCLES=37
+LOOP_POS_MONOTONIC=0
+LOOP_DURATION=300
+BLACKFRAME=blocked reason=detector_not_implemented_in_phase_02

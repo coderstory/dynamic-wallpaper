@@ -1,0 +1,316 @@
+ACTIVATION_POLICY_RAW=1
+LOOP_PROBE_START duration=300 interval=2.0 pid=74298
+LOOP_SAMPLE n=1 t=2.0 pos=1.738 status=playing items=3 hasItem=1
+TICK seq=1 pos=1.739 status=playing items=3
+LOOP_SAMPLE n=2 t=4.0 pos=3.738 status=playing items=3 hasItem=1
+TICK seq=2 pos=3.739 status=playing items=3
+LOOP_SAMPLE n=3 t=6.0 pos=5.738 status=playing items=3 hasItem=1
+TICK seq=3 pos=5.739 status=playing items=3
+LOOP_SAMPLE n=4 t=8.0 pos=7.738 status=playing items=3 hasItem=1
+TICK seq=4 pos=7.738 status=playing items=3
+LOOP_SAMPLE n=5 t=10.0 pos=1.738 status=playing items=3 hasItem=1
+TICK seq=5 pos=1.739 status=playing items=3
+LOOP_SAMPLE n=6 t=12.0 pos=3.737 status=playing items=3 hasItem=1
+TICK seq=6 pos=3.737 status=playing items=3
+LOOP_SAMPLE n=7 t=14.0 pos=5.738 status=playing items=3 hasItem=1
+TICK seq=7 pos=5.739 status=playing items=3
+LOOP_SAMPLE n=8 t=16.0 pos=7.738 status=playing items=3 hasItem=1
+TICK seq=8 pos=7.739 status=playing items=3
+LOOP_SAMPLE n=9 t=18.0 pos=1.738 status=playing items=3 hasItem=1
+TICK seq=9 pos=1.739 status=playing items=3
+LOOP_SAMPLE n=10 t=20.0 pos=3.737 status=playing items=3 hasItem=1
+TICK seq=10 pos=3.737 status=playing items=3
+LOOP_SAMPLE n=11 t=22.0 pos=5.739 status=playing items=3 hasItem=1
+TICK seq=11 pos=5.739 status=playing items=3
+LOOP_SAMPLE n=12 t=24.0 pos=7.738 status=playing items=3 hasItem=1
+TICK seq=12 pos=7.739 status=playing items=3
+LOOP_SAMPLE n=13 t=26.0 pos=1.738 status=playing items=3 hasItem=1
+TICK seq=13 pos=1.739 status=playing items=3
+LOOP_SAMPLE n=14 t=28.0 pos=3.738 status=playing items=3 hasItem=1
+TICK seq=14 pos=3.738 status=playing items=3
+LOOP_SAMPLE n=15 t=30.0 pos=5.738 status=playing items=3 hasItem=1
+TICK seq=15 pos=5.739 status=playing items=3
+LOOP_SAMPLE n=16 t=32.0 pos=7.737 status=playing items=3 hasItem=1
+TICK seq=16 pos=7.738 status=playing items=3
+LOOP_SAMPLE n=17 t=34.0 pos=1.737 status=playing items=3 hasItem=1
+TICK seq=17 pos=1.737 status=playing items=3
+LOOP_SAMPLE n=18 t=36.0 pos=3.739 status=playing items=3 hasItem=1
+TICK seq=18 pos=3.739 status=playing items=3
+LOOP_SAMPLE n=19 t=38.0 pos=5.739 status=playing items=3 hasItem=1
+TICK seq=19 pos=5.739 status=playing items=3
+LOOP_SAMPLE n=20 t=40.0 pos=7.739 status=playing items=3 hasItem=1
+TICK seq=20 pos=7.739 status=playing items=3
+LOOP_SAMPLE n=21 t=42.0 pos=1.738 status=playing items=3 hasItem=1
+TICK seq=21 pos=1.739 status=playing items=3
+LOOP_SAMPLE n=22 t=44.0 pos=3.737 status=playing items=3 hasItem=1
+TICK seq=22 pos=3.737 status=playing items=3
+LOOP_SAMPLE n=23 t=46.0 pos=5.738 status=playing items=3 hasItem=1
+TICK seq=23 pos=5.739 status=playing items=3
+LOOP_SAMPLE n=24 t=48.0 pos=7.739 status=playing items=3 hasItem=1
+TICK seq=24 pos=7.739 status=playing items=3
+LOOP_SAMPLE n=25 t=50.0 pos=1.738 status=playing items=3 hasItem=1
+TICK seq=25 pos=1.739 status=playing items=3
+LOOP_SAMPLE n=26 t=52.0 pos=3.739 status=playing items=3 hasItem=1
+TICK seq=26 pos=3.739 status=playing items=3
+LOOP_SAMPLE n=27 t=54.0 pos=5.737 status=playing items=3 hasItem=1
+TICK seq=27 pos=5.737 status=playing items=3
+LOOP_SAMPLE n=28 t=56.0 pos=7.739 status=playing items=3 hasItem=1
+TICK seq=28 pos=7.739 status=playing items=3
+LOOP_SAMPLE n=29 t=58.0 pos=1.738 status=playing items=3 hasItem=1
+TICK seq=29 pos=1.738 status=playing items=3
+LOOP_SAMPLE n=30 t=60.0 pos=3.739 status=playing items=3 hasItem=1
+TICK seq=30 pos=3.739 status=playing items=3
+LOOP_SAMPLE n=31 t=62.0 pos=5.738 status=playing items=3 hasItem=1
+TICK seq=31 pos=5.739 status=playing items=3
+LOOP_SAMPLE n=32 t=64.0 pos=7.739 status=playing items=3 hasItem=1
+TICK seq=32 pos=7.739 status=playing items=3
+LOOP_SAMPLE n=33 t=66.0 pos=1.737 status=playing items=3 hasItem=1
+TICK seq=33 pos=1.737 status=playing items=3
+LOOP_SAMPLE n=34 t=68.0 pos=3.739 status=playing items=3 hasItem=1
+TICK seq=34 pos=3.739 status=playing items=3
+LOOP_SAMPLE n=35 t=70.0 pos=5.739 status=playing items=3 hasItem=1
+TICK seq=35 pos=5.739 status=playing items=3
+LOOP_SAMPLE n=36 t=72.0 pos=7.739 status=playing items=3 hasItem=1
+TICK seq=36 pos=7.739 status=playing items=3
+LOOP_SAMPLE n=37 t=74.0 pos=1.737 status=playing items=3 hasItem=1
+TICK seq=37 pos=1.737 status=playing items=3
+LOOP_SAMPLE n=38 t=76.0 pos=3.737 status=playing items=3 hasItem=1
+TICK seq=38 pos=3.737 status=playing items=3
+LOOP_SAMPLE n=39 t=78.0 pos=5.738 status=playing items=3 hasItem=1
+TICK seq=39 pos=5.739 status=playing items=3
+LOOP_SAMPLE n=40 t=80.0 pos=7.739 status=playing items=3 hasItem=1
+TICK seq=40 pos=7.739 status=playing items=3
+LOOP_SAMPLE n=41 t=82.0 pos=1.739 status=playing items=3 hasItem=1
+TICK seq=41 pos=1.739 status=playing items=3
+LOOP_SAMPLE n=42 t=84.0 pos=3.739 status=playing items=3 hasItem=1
+TICK seq=42 pos=3.739 status=playing items=3
+LOOP_SAMPLE n=43 t=86.0 pos=5.739 status=playing items=3 hasItem=1
+TICK seq=43 pos=5.739 status=playing items=3
+LOOP_SAMPLE n=44 t=88.0 pos=7.739 status=playing items=3 hasItem=1
+TICK seq=44 pos=7.739 status=playing items=3
+LOOP_SAMPLE n=45 t=90.0 pos=1.739 status=playing items=3 hasItem=1
+TICK seq=45 pos=1.739 status=playing items=3
+LOOP_SAMPLE n=46 t=92.0 pos=3.740 status=playing items=3 hasItem=1
+TICK seq=46 pos=3.740 status=playing items=3
+LOOP_SAMPLE n=47 t=94.0 pos=5.739 status=playing items=3 hasItem=1
+TICK seq=47 pos=5.739 status=playing items=3
+LOOP_SAMPLE n=48 t=96.0 pos=7.739 status=playing items=3 hasItem=1
+TICK seq=48 pos=7.739 status=playing items=3
+LOOP_SAMPLE n=49 t=98.0 pos=1.739 status=playing items=3 hasItem=1
+TICK seq=49 pos=1.739 status=playing items=3
+LOOP_SAMPLE n=50 t=100.0 pos=3.739 status=playing items=3 hasItem=1
+TICK seq=50 pos=3.739 status=playing items=3
+LOOP_SAMPLE n=51 t=102.0 pos=5.738 status=playing items=3 hasItem=1
+TICK seq=51 pos=5.739 status=playing items=3
+LOOP_SAMPLE n=52 t=104.0 pos=7.739 status=playing items=3 hasItem=1
+TICK seq=52 pos=7.739 status=playing items=3
+LOOP_SAMPLE n=53 t=106.0 pos=1.739 status=playing items=3 hasItem=1
+TICK seq=53 pos=1.739 status=playing items=3
+LOOP_SAMPLE n=54 t=108.0 pos=3.738 status=playing items=3 hasItem=1
+TICK seq=54 pos=3.739 status=playing items=3
+LOOP_SAMPLE n=55 t=110.0 pos=5.739 status=playing items=3 hasItem=1
+TICK seq=55 pos=5.739 status=playing items=3
+LOOP_SAMPLE n=56 t=112.0 pos=7.739 status=playing items=3 hasItem=1
+TICK seq=56 pos=7.739 status=playing items=3
+LOOP_SAMPLE n=57 t=114.0 pos=1.739 status=playing items=3 hasItem=1
+TICK seq=57 pos=1.739 status=playing items=3
+LOOP_SAMPLE n=58 t=116.0 pos=3.739 status=playing items=3 hasItem=1
+TICK seq=58 pos=3.739 status=playing items=3
+LOOP_SAMPLE n=59 t=118.0 pos=5.739 status=playing items=3 hasItem=1
+TICK seq=59 pos=5.739 status=playing items=3
+LOOP_SAMPLE n=60 t=120.0 pos=7.739 status=playing items=3 hasItem=1
+TICK seq=60 pos=7.739 status=playing items=3
+LOOP_SAMPLE n=61 t=122.0 pos=1.739 status=playing items=3 hasItem=1
+TICK seq=61 pos=1.739 status=playing items=3
+LOOP_SAMPLE n=62 t=124.0 pos=3.739 status=playing items=3 hasItem=1
+TICK seq=62 pos=3.739 status=playing items=3
+LOOP_SAMPLE n=63 t=126.0 pos=5.739 status=playing items=3 hasItem=1
+TICK seq=63 pos=5.739 status=playing items=3
+LOOP_SAMPLE n=64 t=128.0 pos=7.739 status=playing items=3 hasItem=1
+TICK seq=64 pos=7.739 status=playing items=3
+LOOP_SAMPLE n=65 t=130.0 pos=1.739 status=playing items=3 hasItem=1
+TICK seq=65 pos=1.739 status=playing items=3
+LOOP_SAMPLE n=66 t=132.0 pos=3.739 status=playing items=3 hasItem=1
+TICK seq=66 pos=3.739 status=playing items=3
+LOOP_SAMPLE n=67 t=134.0 pos=5.739 status=playing items=3 hasItem=1
+TICK seq=67 pos=5.739 status=playing items=3
+LOOP_SAMPLE n=68 t=136.0 pos=7.739 status=playing items=3 hasItem=1
+TICK seq=68 pos=7.739 status=playing items=3
+LOOP_SAMPLE n=69 t=138.0 pos=1.738 status=playing items=3 hasItem=1
+TICK seq=69 pos=1.739 status=playing items=3
+LOOP_SAMPLE n=70 t=140.0 pos=3.739 status=playing items=3 hasItem=1
+TICK seq=70 pos=3.739 status=playing items=3
+LOOP_SAMPLE n=71 t=142.0 pos=5.738 status=playing items=3 hasItem=1
+TICK seq=71 pos=5.739 status=playing items=3
+LOOP_SAMPLE n=72 t=144.0 pos=7.739 status=playing items=3 hasItem=1
+TICK seq=72 pos=7.739 status=playing items=3
+LOOP_SAMPLE n=73 t=146.0 pos=1.739 status=playing items=3 hasItem=1
+TICK seq=73 pos=1.739 status=playing items=3
+LOOP_SAMPLE n=74 t=148.0 pos=3.739 status=playing items=3 hasItem=1
+TICK seq=74 pos=3.739 status=playing items=3
+LOOP_SAMPLE n=75 t=150.0 pos=5.739 status=playing items=3 hasItem=1
+TICK seq=75 pos=5.739 status=playing items=3
+LOOP_SAMPLE n=76 t=152.0 pos=7.739 status=playing items=3 hasItem=1
+TICK seq=76 pos=7.739 status=playing items=3
+LOOP_SAMPLE n=77 t=154.0 pos=1.738 status=playing items=3 hasItem=1
+TICK seq=77 pos=1.739 status=playing items=3
+LOOP_SAMPLE n=78 t=156.0 pos=3.739 status=playing items=3 hasItem=1
+TICK seq=78 pos=3.739 status=playing items=3
+LOOP_SAMPLE n=79 t=158.0 pos=5.738 status=playing items=3 hasItem=1
+TICK seq=79 pos=5.739 status=playing items=3
+LOOP_SAMPLE n=80 t=160.0 pos=7.739 status=playing items=3 hasItem=1
+TICK seq=80 pos=7.739 status=playing items=3
+LOOP_SAMPLE n=81 t=162.0 pos=1.739 status=playing items=3 hasItem=1
+TICK seq=81 pos=1.739 status=playing items=3
+LOOP_SAMPLE n=82 t=164.0 pos=3.739 status=playing items=3 hasItem=1
+TICK seq=82 pos=3.739 status=playing items=3
+LOOP_SAMPLE n=83 t=166.0 pos=5.739 status=playing items=3 hasItem=1
+TICK seq=83 pos=5.739 status=playing items=3
+LOOP_SAMPLE n=84 t=168.0 pos=7.739 status=playing items=3 hasItem=1
+TICK seq=84 pos=7.740 status=playing items=3
+LOOP_SAMPLE n=85 t=170.0 pos=1.739 status=playing items=3 hasItem=1
+TICK seq=85 pos=1.739 status=playing items=3
+LOOP_SAMPLE n=86 t=172.0 pos=3.738 status=playing items=3 hasItem=1
+TICK seq=86 pos=3.738 status=playing items=3
+LOOP_SAMPLE n=87 t=174.0 pos=5.739 status=playing items=3 hasItem=1
+TICK seq=87 pos=5.739 status=playing items=3
+LOOP_SAMPLE n=88 t=176.0 pos=7.739 status=playing items=3 hasItem=1
+TICK seq=88 pos=7.740 status=playing items=3
+LOOP_SAMPLE n=89 t=178.0 pos=1.739 status=playing items=3 hasItem=1
+TICK seq=89 pos=1.740 status=playing items=3
+LOOP_SAMPLE n=90 t=180.0 pos=3.739 status=playing items=3 hasItem=1
+TICK seq=90 pos=3.740 status=playing items=3
+LOOP_SAMPLE n=91 t=182.0 pos=5.738 status=playing items=3 hasItem=1
+TICK seq=91 pos=5.739 status=playing items=3
+LOOP_SAMPLE n=92 t=184.0 pos=7.739 status=playing items=3 hasItem=1
+TICK seq=92 pos=7.740 status=playing items=3
+LOOP_SAMPLE n=93 t=186.0 pos=1.739 status=playing items=3 hasItem=1
+TICK seq=93 pos=1.739 status=playing items=3
+LOOP_SAMPLE n=94 t=188.0 pos=3.739 status=playing items=3 hasItem=1
+TICK seq=94 pos=3.740 status=playing items=3
+LOOP_SAMPLE n=95 t=190.0 pos=5.738 status=playing items=3 hasItem=1
+TICK seq=95 pos=5.739 status=playing items=3
+LOOP_SAMPLE n=96 t=192.0 pos=7.739 status=playing items=3 hasItem=1
+TICK seq=96 pos=7.739 status=playing items=3
+LOOP_SAMPLE n=97 t=194.0 pos=1.739 status=playing items=3 hasItem=1
+TICK seq=97 pos=1.740 status=playing items=3
+LOOP_SAMPLE n=98 t=196.0 pos=3.739 status=playing items=3 hasItem=1
+TICK seq=98 pos=3.740 status=playing items=3
+LOOP_SAMPLE n=99 t=198.0 pos=5.739 status=playing items=3 hasItem=1
+TICK seq=99 pos=5.740 status=playing items=3
+LOOP_SAMPLE n=100 t=200.0 pos=7.739 status=playing items=3 hasItem=1
+TICK seq=100 pos=7.740 status=playing items=3
+LOOP_SAMPLE n=101 t=202.0 pos=1.739 status=playing items=3 hasItem=1
+TICK seq=101 pos=1.739 status=playing items=3
+LOOP_SAMPLE n=102 t=204.0 pos=3.738 status=playing items=3 hasItem=1
+TICK seq=102 pos=3.738 status=playing items=3
+LOOP_SAMPLE n=103 t=206.0 pos=5.739 status=playing items=3 hasItem=1
+TICK seq=103 pos=5.740 status=playing items=3
+LOOP_SAMPLE n=104 t=208.0 pos=7.739 status=playing items=3 hasItem=1
+TICK seq=104 pos=7.740 status=playing items=3
+LOOP_SAMPLE n=105 t=210.0 pos=1.738 status=playing items=3 hasItem=1
+TICK seq=105 pos=1.739 status=playing items=3
+LOOP_SAMPLE n=106 t=212.0 pos=3.739 status=playing items=3 hasItem=1
+TICK seq=106 pos=3.740 status=playing items=3
+LOOP_SAMPLE n=107 t=214.0 pos=5.739 status=playing items=3 hasItem=1
+TICK seq=107 pos=5.739 status=playing items=3
+LOOP_SAMPLE n=108 t=216.0 pos=7.740 status=playing items=3 hasItem=1
+TICK seq=108 pos=7.740 status=playing items=3
+LOOP_SAMPLE n=109 t=218.0 pos=1.740 status=playing items=3 hasItem=1
+TICK seq=109 pos=1.740 status=playing items=3
+LOOP_SAMPLE n=110 t=220.0 pos=3.740 status=playing items=3 hasItem=1
+TICK seq=110 pos=3.740 status=playing items=3
+LOOP_SAMPLE n=111 t=222.0 pos=5.740 status=playing items=3 hasItem=1
+TICK seq=111 pos=5.740 status=playing items=3
+LOOP_SAMPLE n=112 t=224.0 pos=7.740 status=playing items=3 hasItem=1
+TICK seq=112 pos=7.740 status=playing items=3
+LOOP_SAMPLE n=113 t=226.0 pos=1.740 status=playing items=3 hasItem=1
+TICK seq=113 pos=1.740 status=playing items=3
+LOOP_SAMPLE n=114 t=228.0 pos=3.740 status=playing items=3 hasItem=1
+TICK seq=114 pos=3.740 status=playing items=3
+LOOP_SAMPLE n=115 t=230.0 pos=5.738 status=playing items=3 hasItem=1
+TICK seq=115 pos=5.739 status=playing items=3
+LOOP_SAMPLE n=116 t=232.0 pos=7.740 status=playing items=3 hasItem=1
+TICK seq=116 pos=7.740 status=playing items=3
+LOOP_SAMPLE n=117 t=234.0 pos=1.739 status=playing items=3 hasItem=1
+TICK seq=117 pos=1.739 status=playing items=3
+LOOP_SAMPLE n=118 t=236.0 pos=3.740 status=playing items=3 hasItem=1
+TICK seq=118 pos=3.740 status=playing items=3
+LOOP_SAMPLE n=119 t=238.0 pos=5.739 status=playing items=3 hasItem=1
+TICK seq=119 pos=5.739 status=playing items=3
+LOOP_SAMPLE n=120 t=240.0 pos=7.740 status=playing items=3 hasItem=1
+TICK seq=120 pos=7.740 status=playing items=3
+LOOP_SAMPLE n=121 t=242.0 pos=1.739 status=playing items=3 hasItem=1
+TICK seq=121 pos=1.739 status=playing items=3
+LOOP_SAMPLE n=122 t=244.0 pos=3.740 status=playing items=3 hasItem=1
+TICK seq=122 pos=3.740 status=playing items=3
+LOOP_SAMPLE n=123 t=246.0 pos=5.740 status=playing items=3 hasItem=1
+TICK seq=123 pos=5.740 status=playing items=3
+LOOP_SAMPLE n=124 t=248.0 pos=7.738 status=playing items=3 hasItem=1
+TICK seq=124 pos=7.738 status=playing items=3
+LOOP_SAMPLE n=125 t=250.0 pos=1.740 status=playing items=3 hasItem=1
+TICK seq=125 pos=1.740 status=playing items=3
+LOOP_SAMPLE n=126 t=252.0 pos=3.740 status=playing items=3 hasItem=1
+TICK seq=126 pos=3.740 status=playing items=3
+LOOP_SAMPLE n=127 t=254.0 pos=5.739 status=playing items=3 hasItem=1
+TICK seq=127 pos=5.739 status=playing items=3
+LOOP_SAMPLE n=128 t=256.0 pos=7.740 status=playing items=3 hasItem=1
+TICK seq=128 pos=7.740 status=playing items=3
+LOOP_SAMPLE n=129 t=258.0 pos=1.740 status=playing items=3 hasItem=1
+TICK seq=129 pos=1.740 status=playing items=3
+LOOP_SAMPLE n=130 t=260.0 pos=3.740 status=playing items=3 hasItem=1
+TICK seq=130 pos=3.740 status=playing items=3
+LOOP_SAMPLE n=131 t=262.0 pos=5.740 status=playing items=3 hasItem=1
+TICK seq=131 pos=5.740 status=playing items=3
+LOOP_SAMPLE n=132 t=264.0 pos=7.740 status=playing items=3 hasItem=1
+TICK seq=132 pos=7.740 status=playing items=3
+LOOP_SAMPLE n=133 t=266.0 pos=1.739 status=playing items=3 hasItem=1
+TICK seq=133 pos=1.739 status=playing items=3
+LOOP_SAMPLE n=134 t=268.0 pos=3.740 status=playing items=3 hasItem=1
+TICK seq=134 pos=3.740 status=playing items=3
+LOOP_SAMPLE n=135 t=270.0 pos=5.739 status=playing items=3 hasItem=1
+TICK seq=135 pos=5.739 status=playing items=3
+LOOP_SAMPLE n=136 t=272.0 pos=7.740 status=playing items=3 hasItem=1
+TICK seq=136 pos=7.740 status=playing items=3
+LOOP_SAMPLE n=137 t=274.0 pos=1.740 status=playing items=3 hasItem=1
+TICK seq=137 pos=1.740 status=playing items=3
+LOOP_SAMPLE n=138 t=276.0 pos=3.740 status=playing items=3 hasItem=1
+TICK seq=138 pos=3.740 status=playing items=3
+LOOP_SAMPLE n=139 t=278.0 pos=5.740 status=playing items=3 hasItem=1
+TICK seq=139 pos=5.740 status=playing items=3
+LOOP_SAMPLE n=140 t=280.0 pos=7.740 status=playing items=3 hasItem=1
+TICK seq=140 pos=7.740 status=playing items=3
+LOOP_SAMPLE n=141 t=282.0 pos=1.738 status=playing items=3 hasItem=1
+TICK seq=141 pos=1.738 status=playing items=3
+LOOP_SAMPLE n=142 t=284.0 pos=3.738 status=playing items=3 hasItem=1
+TICK seq=142 pos=3.738 status=playing items=3
+LOOP_SAMPLE n=143 t=286.0 pos=5.740 status=playing items=3 hasItem=1
+TICK seq=143 pos=5.740 status=playing items=3
+LOOP_SAMPLE n=144 t=288.0 pos=7.740 status=playing items=3 hasItem=1
+TICK seq=144 pos=7.740 status=playing items=3
+LOOP_SAMPLE n=145 t=290.0 pos=1.740 status=playing items=3 hasItem=1
+TICK seq=145 pos=1.740 status=playing items=3
+LOOP_SAMPLE n=146 t=292.0 pos=3.738 status=playing items=3 hasItem=1
+TICK seq=146 pos=3.738 status=playing items=3
+LOOP_SAMPLE n=147 t=294.0 pos=5.738 status=playing items=3 hasItem=1
+TICK seq=147 pos=5.738 status=playing items=3
+LOOP_SAMPLE n=148 t=296.0 pos=7.740 status=playing items=3 hasItem=1
+TICK seq=148 pos=7.740 status=playing items=3
+LOOP_SAMPLE n=149 t=298.0 pos=1.739 status=playing items=3 hasItem=1
+TICK seq=149 pos=1.739 status=playing items=3
+LOOP_SAMPLE n=150 t=300.0 pos=3.740 status=playing items=3 hasItem=1
+TICK seq=150 pos=3.740 status=playing items=3
+LOOP_SAMPLES=150
+LOOP_ENDED=37
+LOOP_ENDED_PER_CYCLE=1.000
+LOOP_STALLED=0
+LOOP_FAILED=0
+LOOP_VERDICT=pass
+LOOP_CYCLES=37
+LOOP_POS_MONOTONIC=0
+LOOP_POS_NOTE=AVPlayerLooper 在 loop 边界克隆 item 并把 currentTime 归零，故 pos 非单调是探针 artifact；播放是否正常由 endedCount/failedCount/status/items 四项判定
+LOOP_DURATION=300
+PIC_TERMINATED pid=74298 reason=application_will_terminate
+BLACKFRAME=blocked reason=no_screen_recording_permission
+BLACKFRAME_EVIDENCE=capture_a_md5=aa30b1bd89445ed437c1d362c18156b4 capture_b_md5=5db576317c6943a778ef5eae2181fb0f capture_a_yavg=16 capture_b_yavg=16.0027 white_control_yavg=235 threshold=23.5
+LOOP_PROBE_WALL_SECONDS=300

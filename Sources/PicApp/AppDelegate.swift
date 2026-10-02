@@ -18,6 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var ticker: Timer?
     private var tickSeq = 0
+    private var loopProbe: LoopProbe?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // D-05：菜单栏 app 无 Dock 图标。断言时注意 .accessory 的 rawValue 是 1 不是 0。
@@ -27,6 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         emit("ACTIVATION_POLICY_RAW=\(NSApp.activationPolicy().rawValue)")
         wiring()
         startWallpaper()
+        startLoopProbeIfRequested()
         startObservability()
     }
 
@@ -107,19 +109,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         tickSeq += 1
         let seconds = player.player.currentTime().seconds
         let pos = seconds.isFinite ? String(format: "%.3f", seconds) : "nan"
-        emit("TICK seq=\(tickSeq) pos=\(pos) status=\(AppDelegate.statusToken(player.player.timeControlStatus)) items=\(player.player.items().count)")
+        emit("TICK seq=\(tickSeq) pos=\(pos) status=\(LoopProbe.statusToken(player.player.timeControlStatus)) items=\(player.player.items().count)")
     }
 
-    /// `AVPlayer.TimeControlStatus` 在 Swift 里反射出来是
-    /// `AVPlayerTimeControlStatus(rawValue: N)`，不可 grep。映射成固定词，
-    /// T2 的循环判定与 T3 的验收脚本都按这个词读。
-    private static func statusToken(_ s: AVPlayer.TimeControlStatus) -> String {
-        switch s {
-        case .paused: return "paused"
-        case .waitingToPlayAtSpecifiedRate: return "waiting"
-        case .playing: return "playing"
-        @unknown default: return "unknown(\(s.rawValue))"
-        }
+    /// `scripts/run-probe.sh loop` 设 `PIC_LOOP_SECONDS=300` 才启动 300 秒观察；
+    /// 不设这个变量时代码一行都不跑，tracer 与日常开发零开销。
+    private func startLoopProbeIfRequested() {
+        guard let raw = ProcessInfo.processInfo.environment[LoopProbe.secondsEnvKey],
+              let seconds = Int(raw), seconds > 0 else { return }
+        let probe = LoopProbe(player: player.player, durationSeconds: seconds)
+        loopProbe = probe
+        probe.start()
     }
 
     private func emit(_ line: String) {
