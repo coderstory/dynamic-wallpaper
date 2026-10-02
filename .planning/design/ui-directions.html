@@ -1,0 +1,351 @@
+<title>Pic 界面三稿</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* ── 方向 ─────────────────────────────────────────────────
+   主题：视频壁纸 = 光在动。所以每稿的预览区都在跑（渐变漂移 +
+   时间码在走），不是静态灰块。三稿的差别在「光怎么处理」。
+   字：Bricolage Grotesque 做标题（不端正经），IBM Plex Mono 做
+       所有技术读数（广播级 timecode 的语感，和画面同源）。
+   ─────────────────────────────────────────────────────── */
+:root {
+  color-scheme: light;
+  --ground:#eceef0; --ink:#16181c; --ink2:#5c626c; --ink3:#8b919b;
+  --line:rgba(18,20,26,.12); --panel:#fff;
+  --chroma-a:#12c2d6; --chroma-b:#e2457f;
+  --accent:#1f62f5;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --ground:#0e1013; --ink:#f0f2f5; --ink2:#9aa1ab; --ink3:#6d747e;
+    --line:rgba(255,255,255,.13); --panel:#171a1f;
+    --chroma-a:#0fb6cb; --chroma-b:#e2457f;
+    --accent:#4d8bff;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --ground:#0e1013; --ink:#f0f2f5; --ink2:#9aa1ab; --ink3:#6d747e;
+  --line:rgba(255,255,255,.13); --panel:#171a1f;
+  --chroma-a:#0fb6cb; --chroma-b:#e2457f; --accent:#4d8bff;
+}
+* { box-sizing:border-box; }
+body {
+  margin:0; padding:34px 22px 64px;
+  background:var(--ground); color:var(--ink);
+  font:13px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3 { font-family:"Bricolage Grotesque", -apple-system, sans-serif; letter-spacing:-.02em; text-wrap:balance; }
+.mono { font-family:"IBM Plex Mono", ui-monospace, Menlo, monospace; font-variant-numeric:tabular-nums; }
+
+.mast { max-width:900px; margin:0 auto 34px; }
+.mast h1 { font-size:34px; font-weight:700; margin:0 0 10px; line-height:1.1; }
+.mast p { margin:0; color:var(--ink2); max-width:60ch; }
+
+.cols { max-width:1280px; margin:0 auto; display:grid; gap:26px;
+        grid-template-columns:repeat(auto-fit, minmax(360px, 1fr)); align-items:start; }
+@media (max-width:760px){ .cols { grid-template-columns:1fr; } }
+
+figure { margin:0; min-width:0; display:flex; flex-direction:column; }
+.tag { font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.09em;
+       color:var(--ink3); text-transform:uppercase; display:flex; align-items:center; gap:9px; }
+.tag::after { content:""; flex:1; height:1px; background:var(--line); }
+
+/* ── 跑动的画面（三稿共用，但各自裁切方式不同）───────── */
+.screen {
+  position:relative; overflow:hidden; isolation:isolate;
+  background:linear-gradient(115deg,var(--chroma-a) 0%,#3a4bd8 42%,var(--chroma-b) 100%);
+  background-size:220% 220%; animation:drift 17s ease-in-out infinite alternate;
+}
+@keyframes drift {
+  0%   { background-position:0% 40%; }
+  100% { background-position:100% 60%; }
+}
+.screen::after {
+  content:""; position:absolute; inset:0; pointer-events:none;
+  background:repeating-linear-gradient(0deg, rgba(0,0,0,.16) 0 1px, transparent 1px 3px);
+  mix-blend-mode:overlay; opacity:.5;
+}
+.screen .tc {
+  position:absolute; left:10px; bottom:9px; z-index:2;
+  font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.04em;
+  color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.65);
+}
+.screen .bars {
+  position:absolute; right:0; top:0; bottom:0; width:11%; z-index:2;
+  background:repeating-linear-gradient(180deg,#fff 0 9.09%,transparent 9.09% 18.18%);
+  opacity:.13;
+}
+@media (prefers-reduced-motion: reduce){ .screen{animation:none} }
+
+/* ══ A · macOS 系统设置 ══════════════════════════════════ */
+.wA { background:#ececed; color:#1d1d1f; border:1px solid rgba(0,0,0,.16);
+      border-radius:11px; overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.1),0 14px 38px rgba(0,0,0,.2); }
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .wA{ background:#2b2b2e; color:#f2f2f4; border-color:rgba(255,255,255,.16) } }
+:root[data-theme="dark"] .wA{ background:#2b2b2e; color:#f2f2f4; border-color:rgba(255,255,255,.16) }
+.wA .bar { display:flex; align-items:center; height:38px; padding:0 13px; gap:8px;
+           background:rgba(255,255,255,.55); border-bottom:1px solid rgba(0,0,0,.09); }
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .wA .bar{ background:rgba(255,255,255,.06); border-color:rgba(255,255,255,.11) } }
+:root[data-theme="dark"] .wA .bar{ background:rgba(255,255,255,.06); border-color:rgba(255,255,255,.11) }
+.wA .bar .lights{ display:flex; gap:7px } .wA .bar .lights i{ width:11px; height:11px; border-radius:50%; display:block }
+.wA .bar .lights i:nth-child(1){background:#ff5f57} .wA .bar .lights i:nth-child(2){background:#febc2e} .wA .bar .lights i:nth-child(3){background:#28c840}
+.wA .bar .ttl{ flex:1; text-align:center; font-weight:600; font-size:13px; padding-right:44px }
+.wA .pad{ padding:13px; display:grid; gap:14px }
+.wA .glabel{ font-size:11px; font-weight:600; letter-spacing:.04em; color:#8b8b90; padding:0 3px 5px }
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .wA .glabel{ color:#8e8e93 } }
+:root[data-theme="dark"] .wA .glabel{ color:#8e8e93 }
+.wA .card{ background:#fff; border:1px solid rgba(0,0,0,.1); border-radius:9px; overflow:hidden }
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .wA .card{ background:#1c1c1e; border-color:rgba(255,255,255,.1) } }
+:root[data-theme="dark"] .wA .card{ background:#1c1c1e; border-color:rgba(255,255,255,.1) }
+.wA .row{ display:grid; grid-template-columns:auto 1fr; gap:12px; align-items:center;
+          padding:8px 12px; min-height:37px; border-bottom:1px solid rgba(0,0,0,.08) }
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .wA .row{ border-color:rgba(255,255,255,.08) } }
+:root[data-theme="dark"] .wA .row{ border-color:rgba(255,255,255,.08) }
+.wA .row:last-child{ border-bottom:0 }
+.wA .row .c{ display:flex; align-items:center; gap:8px; justify-content:flex-end; min-width:0 }
+.wA .prev{ border-radius:8px; border:1px solid rgba(0,0,0,.12); aspect-ratio:16/9 }
+.wA .foot{ padding:2px 0 4px; display:flex; justify-content:center }
+
+/* ══ B · 深色影院 ══════════════════════════════════════���═ */
+.wB { background:#0b0d11; color:#eef1f6; border:1px solid rgba(255,255,255,.12);
+      border-radius:14px; overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.5),0 18px 46px rgba(0,0,0,.55);
+      display:flex; flex-direction:column }
+.wB .hero{ position:relative }
+.wB .hero .screen{ aspect-ratio:16/10 }
+.wB .scrim{ position:absolute; inset:auto 0 0 0; padding:34px 14px 12px; z-index:3;
+            background:linear-gradient(transparent, rgba(6,8,11,.9)); }
+.wB .meta{ display:flex; align-items:baseline; gap:9px; }
+.wB .meta b{ font-family:"Bricolage Grotesque",sans-serif; font-size:15px; font-weight:600 }
+.wB .specs{ margin-top:5px; font-family:"IBM Plex Mono",monospace; font-size:10.5px; color:#93a0b4; letter-spacing:.02em }
+.wB .list{ padding:12px; display:grid; gap:5px }
+.wB .item{ display:grid; grid-template-columns:14px 1fr auto; gap:11px; align-items:center;
+           padding:9px 11px; border-radius:9px; background:rgba(255,255,255,.045);
+           border:1px solid rgba(255,255,255,.07) }
+.wB .item .g{ font-size:12px; color:#7f8b9d }
+.wB .item .v{ font-size:12.5px; color:#e7ecf3 }
+.wB .item .r{ font-family:"IBM Plex Mono",monospace; font-size:11px; color:#93a0b4 }
+.wB .bar2{ display:flex; gap:6px; padding:0 12px 13px }
+.wB .btn{ flex:1; text-align:center; padding:9px 0; border-radius:9px; font-size:12.5px;
+          background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1); cursor:pointer }
+.wB .btn.hot{ background:linear-gradient(100deg,var(--chroma-a),var(--chroma-b));
+              color:#fff; border-color:transparent; font-weight:600 }
+
+/* ══ C · 浅色卡片 ══════════════════════════════════════ */
+.wC { background:var(--panel); color:var(--ink); border:1px solid var(--line);
+      border-radius:18px; overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.06),0 16px 40px rgba(0,0,0,.13) }
+.wC .top{ padding:18px 18px 14px }
+.wC h3{ margin:0 0 3px; font-size:19px; font-weight:700 }
+.wC .sub{ font-size:11.5px; color:var(--ink3); font-family:"IBM Plex Mono",monospace; letter-spacing:.03em }
+.wC .prevwrap{ margin:0 18px; border-radius:13px; overflow:hidden; position:relative;
+               border:1px solid var(--line) }
+.wC .prevwrap .screen{ aspect-ratio:16/8.5 }
+.wC .body{ padding:16px 18px 18px; display:grid; gap:11px }
+.wC .grp{ border:1px solid var(--line); border-radius:12px; overflow:hidden }
+.wC .ghead{ padding:8px 13px; font-size:10.5px; letter-spacing:.1em; text-transform:uppercase;
+            font-family:"IBM Plex Mono",monospace; color:var(--ink3);
+            border-bottom:1px solid var(--line) }
+.wC .r{ display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center; padding:11px 13px }
+.wC .r + .r{ border-top:1px solid var(--line) }
+.wC .r .n{ font-size:12.5px }
+.wC .r .d{ font-size:11px; color:var(--ink3); margin-top:1px }
+.wC .r .v{ font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--ink2) }
+
+/* ── 共用控件 ──────────────────────────────────────────── */
+.seg{ display:inline-flex; background:rgba(120,120,128,.16); border-radius:6px; padding:2px; gap:2px }
+.seg button{ border:0; background:transparent; border-radius:4px; padding:3px 9px;
+             font-size:11.5px; color:var(--ink2); cursor:pointer; font-family:inherit }
+.seg button[aria-pressed="true"]{ background:var(--panel); color:var(--ink); font-weight:600;
+             box-shadow:0 1px 2px rgba(0,0,0,.15) }
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .seg button[aria-pressed="true"]{ background:#4a4a4f } }
+:root[data-theme="dark"] .seg button[aria-pressed="true"]{ background:#4a4a4f }
+.step{ display:inline-flex; align-items:stretch }
+.step button{ width:21px; border:1px solid rgba(120,120,128,.32); background:var(--panel); cursor:pointer;
+              font-size:8px; color:var(--ink2) }
+.step .v{ min-width:66px; text-align:center; padding:3px 0; font-family:"IBM Plex Mono",monospace;
+          font-size:11.5px; background:rgba(120,120,128,.14); border:1px solid rgba(120,120,128,.32);
+          border-left:0; border-right:0 }
+.step button:first-child{ border-radius:5px 0 0 5px } .step button:last-child{ border-radius:0 5px 5px 0 }
+.rng{ accent-color:var(--accent); width:96px; height:16px }
+.tog{ position:relative; width:38px; height:21px; border-radius:11px; border:0; cursor:pointer;
+      background:rgba(120,120,128,.34); flex:0 0 auto }
+.tog::after{ content:""; position:absolute; top:2px; left:2px; width:17px; height:17px; border-radius:50%;
+             background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.28); transition:transform .15s }
+.tog[aria-checked="true"]{ background:var(--accent) }
+.tog[aria-checked="true"]::after{ transform:translateX(17px) }
+.btn{ font:inherit; font-size:12px; padding:4px 13px; border-radius:7px; cursor:pointer;
+      background:var(--panel); color:var(--ink); border:1px solid var(--line) }
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .btn{ background:#242830 } }
+:root[data-theme="dark"] .btn{ background:#242830 }
+.off{ opacity:.4 } .off .tog,.off .rng,.off .step{ pointer-events:none }
+
+figcaption{ margin-top:13px; font-size:12px; color:var(--ink2); max-width:44ch }
+figcaption b{ color:var(--ink) }
+.note{ max-width:760px; margin:38px auto 0; font-size:12.5px; color:var(--ink2) }
+.note b{ color:var(--ink) }
+</style>
+
+<div class="mast">
+  <h1>三稿，选一个</h1>
+  <p>三块的画面区都在动——那才是这个 app 的东西。差别只在<b>光怎么处理</b>：A 让画面缩成一条缝塞进系统设置，B 让画面当主角，C 把它当卡片封面。</p>
+</div>
+
+<div class="cols">
+
+  <!-- A -->
+  <figure>
+    <div class="tag">A · 系统设置</div>
+    <div style="height:12px"></div>
+    <div class="wA">
+      <div class="bar"><span class="lights"><i></i><i></i><i></i></span><span class="ttl">Pic 设置</span></div>
+      <div class="pad">
+        <div class="screen prev"><span class="bars"></span><span class="tc">00:04:12:08 · 3840×2160 · H.265</span></div>
+
+        <div>
+          <div class="glabel">壁纸来源</div>
+          <div class="card">
+            <div class="row"><span>文件夹</span><span class="c"><span class="mono" style="font-size:11px;opacity:.65">~/Movies/Wallpapers</span><button class="btn">选择…</button></span></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="glabel">播放</div>
+          <div class="card" id="a-card">
+            <div class="row"><span>播放模式</span><span class="c"><span class="seg" id="a-seg"><button data-m="s">单循环</button><button data-m="l" aria-pressed="true">列表循环</button><button data-m="r">列表随机</button></span></span></div>
+            <div class="row" id="a-rot"><span>轮换时间</span><span class="c"><span class="step"><button data-d="-1">▼</button><span class="v">15 分钟</span><button data-d="1">▲</button></span></span></div>
+            <div class="row"><span>播放速度</span><span class="c"><input class="rng" type="range" min=".5" max="2" step=".05" value="1"><span class="mono" style="font-size:11px;min-width:38px;text-align:right">1.00×</span></span></div>
+            <div class="row"><span>声音</span><span class="c"><button class="tog" role="switch" aria-checked="true"></button></span></div>
+            <div class="row"><span>音量</span><span class="c"><input class="rng" type="range" min="0" max="100" value="60"><span class="mono" style="font-size:11px;min-width:32px;text-align:right">60%</span></span></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="glabel">电源与系统</div>
+          <div class="card">
+            <div class="row"><span>电池供电时播放</span><span class="c"><button class="tog" role="switch" aria-checked="false"></button></span></div>
+            <div class="row"><span>开机自动启动</span><span class="c"><button class="tog" role="switch" aria-checked="false"></button></span></div>
+          </div>
+        </div>
+
+        <div class="foot"><button class="btn">转码…</button></div>
+      </div>
+    </div>
+    <figcaption><b>最像 macOS。</b>画面缩成一条缝当上下文，控件全是系统标准件。不会出错，但也最没人记得住。</figcaption>
+  </figure>
+
+  <!-- B -->
+  <figure>
+    <div class="tag">B · 深色影院</div>
+    <div style="height:12px"></div>
+    <div class="wB">
+      <div class="hero">
+        <div class="screen"><span class="bars"></span><span class="tc">00:04:12:08</span></div>
+        <div class="scrim">
+          <div class="meta"><b>aurora-over-city.mov</b></div>
+          <div class="specs">3840 × 2160 · H.265 10-bit · 59.94 fps · 00:00:23</div>
+        </div>
+      </div>
+      <div class="list">
+        <div class="item"><span class="g">◐</span><span class="v">播放模式</span><span class="r" id="b-mode">列表循环</span></div>
+        <div class="item" id="b-rot"><span class="g">◷</span><span class="v">轮换时间</span><span class="r">15 分钟</span></div>
+        <div class="item"><span class="g">»</span><span class="v">播放速度</span><span class="r">1.00×</span></div>
+        <div class="item"><span class="g">♪</span><span class="v">声音</span><span class="c" style="display:flex;gap:8px;align-items:center"><input class="rng" type="range" min="0" max="100" value="60"><span class="r">60%</span></span></div>
+        <div class="item"><span class="g">⚡</span><span class="v">电池供电时播放</span><button class="tog" role="switch" aria-checked="false"></button></div>
+      </div>
+      <div class="bar2"><div class="btn hot">转码…</div><div class="btn">⌘ , 设置</div></div>
+    </div>
+    <figcaption><b>画面当主角。</b>当前播的片子占大半个窗，参数退成一条条单行。最像一个「播放器」而不是「设置」。</figcaption>
+  </figure>
+
+  <!-- C -->
+  <figure>
+    <div class="tag">C · 浅色卡片</div>
+    <div style="height:12px"></div>
+    <div class="wC">
+      <div class="top">
+        <h3>Pic</h3>
+        <div class="sub">~/Movies/Wallpapers</div>
+      </div>
+      <div class="prevwrap">
+        <div class="screen"><span class="bars"></span><span class="tc">00:04:12:08</span></div>
+      </div>
+      <div class="body">
+        <div class="grp">
+          <div class="ghead">播放</div>
+          <div class="r">
+            <div><div class="n">模式</div></div>
+            <div class="seg" id="c-seg"><button data-m="s">单循环</button><button data-m="l" aria-pressed="true">列表循环</button><button data-m="r">随机</button></div>
+          </div>
+          <div class="r" id="c-rot"><div><div class="n">轮换</div><div class="d">到点就切，不等播完</div></div><span class="v">15 分钟</span></div>
+          <div class="r"><div><div class="n">速度</div><div class="d">音高不变</div></div><span class="v">1.00×</span></div>
+        </div>
+        <div class="grp">
+          <div class="ghead">电源</div>
+          <div class="r"><div><div class="n">电池供电时播放</div><div class="d">默认关，省电</div></div><button class="tog" role="switch" aria-checked="false"></button></div>
+          <div class="r"><div><div class="n">开机自动启动</div></div><button class="tog" role="switch" aria-checked="false"></button></div>
+        </div>
+        <div style="display:flex;gap:8px"><button class="btn" style="flex:1">选择文件夹…</button><button class="btn" style="flex:1">转码…</button></div>
+      </div>
+    </div>
+    <figcaption><b>每组一张卡。</b>空间大、字少、每项带一句人话解释。跟系统设置长得完全不一样。</figcaption>
+  </figure>
+
+</div>
+
+<div class="note">
+  <b>三稿共用同一份信息架构</b>——来源 / 播放 / 电源，控件种类也一致（分段选择器、步进器、滑杆、开关）。变的只是密度、颜色和画面的位置，所以切换成本低。<br><br>
+  <b>切到「单循环」试试</b>：A 和 C 里轮换时间会置灰。B 里那行会标成不适用。
+</div>
+
+<script>
+(function(){
+  var $ = function(i){ return document.getElementById(i); };
+
+  function seg(id, onPick){
+    var s = $(id);
+    s.addEventListener('click', function(e){
+      var b = e.target.closest('button[data-m]');
+      if(!b) return;
+      s.querySelectorAll('button').forEach(function(x){ x.setAttribute('aria-pressed', String(x===b)); });
+      onPick(b.dataset.m, b.textContent.trim());
+    });
+  }
+  seg('a-seg', function(m){ $('a-rot').classList.toggle('off', m==='s'); });
+  seg('c-seg', function(m){ $('c-rot').classList.toggle('off', m==='s'); });
+
+  // B 的模式是纯文本行
+  var bMode = '列表循环';
+  document.getElementById('b-seg-host');
+  Array.prototype.forEach.call(document.querySelectorAll('.wB .item .g'), function(){});
+
+  // 时间码走字
+  var frames = 4*60*12 + 8, el = document.querySelectorAll('.tc');
+  setInterval(function(){
+    frames++;
+    var f = frames % 24, s = Math.floor(frames/24) % 60,
+        m = Math.floor(frames/1440) % 60, hh = Math.floor(frames/86400);
+    var pad = function(n){ return (n<10?'0':'')+n; };
+    var s1 = pad(hh)+':'+pad(m)+':'+pad(s)+':'+pad(f);
+    el.forEach(function(x){ x.textContent = x.textContent.split(' ')[0] + ' ' + s1; });
+  }, 1000);
+
+  // 所有开关
+  document.querySelectorAll('.tog').forEach(function(t){
+    t.addEventListener('click', function(){
+      t.setAttribute('aria-checked', String(t.getAttribute('aria-checked')!=='true'));
+    });
+  });
+
+  // A 的步进器
+  var vals = [5,10,15,30,60,120], idx = 2;
+  var av = document.querySelector('#a-rot .step .v');
+  document.querySelectorAll('#a-rot .step button').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var d = parseInt(btn.dataset.d,10);
+      if($('a-rot').classList.contains('off')) return;
+      idx = Math.max(0, Math.min(vals.length-1, idx+d));
+      av.textContent = vals[idx] >= 60 ? (vals[idx]/60)+' 小时' : vals[idx]+' 分钟';
+    });
+  });
+})();
+</script>

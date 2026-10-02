@@ -1,0 +1,212 @@
+<title>Pic 设置窗 · 蓝色四稿</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:30px 20px 70px;background:#0a0d12;color:#e6ecf3;
+  font:13px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;
+  -webkit-font-smoothing:antialiased}
+.mast{max-width:960px;margin:0 auto 26px}
+.mast h1{font-size:28px;font-weight:700;letter-spacing:-.022em;margin:0 0 10px}
+.mast p{margin:0;color:#8f9aa8;max-width:64ch}
+.jump{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.jump a{font-size:12px;color:#c2ccd8;text-decoration:none;padding:5px 12px;border-radius:999px;
+  border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.05)}
+.stack{max-width:960px;margin:0 auto;display:grid;gap:44px}
+figure{margin:0;scroll-margin-top:20px}
+.tag{display:flex;align-items:baseline;gap:11px;margin-bottom:12px}
+.tag em{font-style:normal;font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.1em;
+  text-transform:uppercase;color:#75808f;font-weight:500}
+.tag s{text-decoration:none;font-size:12px;color:#8792a0}
+figcaption{margin-top:14px;font-size:12.5px;color:#8f9aa8;max-width:66ch}
+figcaption b{color:#e6ecf3;font-weight:600}
+
+.w{position:relative;border-radius:13px;overflow:hidden;isolation:isolate}
+.w>*{position:relative;z-index:2}
+.tb{display:flex;align-items:center;gap:8px;height:42px;padding:0 15px}
+.lt{display:flex;gap:7px}.lt i{width:11px;height:11px;border-radius:50%;display:block}
+.lt i:nth-child(1){background:#ff5f57}.lt i:nth-child(2){background:#febc2e}.lt i:nth-child(3){background:#28c840}
+.tb .t{flex:1;text-align:center;font-size:13px;font-weight:600;padding-right:46px}
+.bd{padding:16px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:15px;align-items:start}
+@media (max-width:760px){.cols{grid-template-columns:1fr}}
+.gh{font-size:10.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;padding:0 4px 7px}
+.card{border-radius:10px;overflow:hidden}
+.r{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:center;padding:10px 14px 10px 11px;min-height:48px}
+.r+.r{border-top:1px solid var(--sep)}
+.n{font-family:"IBM Plex Mono",monospace;font-size:12px;white-space:nowrap}
+.s{font-family:"IBM Plex Mono",monospace;font-size:10.5px;margin-top:2px;opacity:.62}
+.rt{display:flex;align-items:center;gap:9px;justify-content:flex-end;min-width:0;flex-wrap:wrap}
+.tile{width:27px;height:27px;border-radius:6px;display:grid;place-items:center;flex:0 0 auto}
+.tile svg{width:15px;height:15px;fill:none;stroke:#fff;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.seg{display:inline-flex;border-radius:7px;padding:2px;gap:2px}
+.seg button{border:0;background:transparent;border-radius:5px;padding:4px 11px;font:inherit;
+  font-family:"IBM Plex Mono",monospace;font-size:11.5px;cursor:pointer}
+.step{display:inline-flex;align-items:stretch}
+.step button{width:23px;border:1px solid var(--sep);cursor:pointer;font-size:8px;line-height:1;
+  font-family:inherit;background:transparent;color:var(--acc)}
+.step .v{min-width:74px;text-align:center;padding:5px 0;font-size:11.5px;font-variant-numeric:tabular-nums;
+  font-family:"IBM Plex Mono",monospace;border-block:1px solid var(--sep);color:var(--acc)}
+.step button:first-child{border-radius:6px 0 0 6px}.step button:last-child{border-radius:0 6px 6px 0}
+.rng{accent-color:var(--acc);width:104px;height:16px;flex:0 1 104px;min-width:56px}
+.val{font-family:"IBM Plex Mono",monospace;font-size:11.5px;min-width:44px;text-align:right;opacity:.75}
+.tog{position:relative;width:40px;height:23px;border-radius:12px;border:0;cursor:pointer;flex:0 0 auto}
+.tog::after{content:"";position:absolute;top:2px;left:2px;width:19px;height:19px;border-radius:50%;
+  background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.4);transition:transform .15s}
+.tog[aria-checked="true"]::after{transform:translateX(17px)}
+.btn{font-family:"IBM Plex Mono",monospace;font-size:11.5px;padding:5px 14px;border-radius:7px;cursor:pointer;
+  background:transparent;border:1px solid var(--edge);color:var(--acc)}
+.off{opacity:.34}.off .rng,.off .step,.off .tog{pointer-events:none}
+
+/* ── 共用的蓝色变量与呼吸光 ─────────────────────────── */
+.sk{background:var(--bg);color:var(--fg);border:1px solid var(--edge-outer);box-shadow:var(--sh)}
+.sk::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:var(--amb);
+  animation:pulse 10s ease-in-out infinite alternate}
+@keyframes pulse{0%{opacity:.5}100%{opacity:1}}
+@media (prefers-reduced-motion:reduce){.sk::before{animation:none}}
+.sk .tb{background:var(--tbb);border-bottom:1px solid var(--sep)}
+.sk .gh{color:var(--ghead)}
+.sk .card{background:var(--card);border:1px solid var(--sep)}
+.sk .tile{background:var(--tile);box-shadow:0 0 0 1px var(--edge),0 0 15px var(--glow)}
+.sk .seg{background:var(--seg);box-shadow:inset 0 0 0 1px var(--edge)}
+.sk .seg button{color:var(--segfg)}
+.sk .seg button[aria-pressed="true"]{background:var(--acc);color:var(--accfg);font-weight:600;
+  box-shadow:0 0 16px var(--glow)}
+.sk .tog{background:var(--togoff)}
+.sk .tog[aria-checked="true"]{background:var(--acc);box-shadow:0 0 15px var(--glow)}
+.sk .btn.pri{background:var(--acc);color:var(--accfg);border-color:transparent;font-weight:600;
+  box-shadow:0 0 20px var(--glow)}
+
+/* ═══ 1 · 深海 ═══════════════════════════════════════ */
+.sk-deep{--bg:#0a1826;--fg:#dce8f4;--sep:rgba(90,170,240,.16);--edge:rgba(90,190,255,.32);
+  --edge-outer:rgba(90,190,255,.22);--ghead:rgba(120,200,255,.62);--card:rgba(13,32,52,.92);
+  --tbb:rgba(90,190,255,.06);--acc:#4cc4f5;--accfg:#04202e;--glow:rgba(76,196,245,.32);
+  --seg:rgba(90,190,255,.08);--segfg:rgba(220,232,244,.6);--togoff:rgba(120,180,240,.16);
+  --tile:linear-gradient(160deg,#5ac8fa,#1668b8);
+  --amb:linear-gradient(180deg,rgba(76,196,245,.14),transparent 40%),
+        radial-gradient(46% 44% at 90% 94%,rgba(30,120,220,.30) 0,transparent 62%);
+  --sh:0 0 0 1px rgba(0,0,0,.5),0 22px 56px rgba(0,0,0,.6),0 0 44px rgba(76,196,245,.10)}
+
+/* ═══ 2 · 湖蓝·亮 ════════════════════════════════════ */
+.sk-lake{--bg:#123047;--fg:#eaf6fb;--sep:rgba(140,230,250,.22);--edge:rgba(140,235,255,.42);
+  --edge-outer:rgba(140,235,255,.3);--ghead:rgba(150,240,255,.7);--card:rgba(21,58,84,.9);
+  --tbb:rgba(140,235,255,.09);--acc:#5ee7f5;--accfg:#052730;--glow:rgba(94,231,245,.38);
+  --seg:rgba(140,235,255,.11);--segfg:rgba(234,246,251,.66);--togoff:rgba(150,220,245,.22);
+  --tile:linear-gradient(160deg,#6cf0f7,#1b7fb8);
+  --amb:linear-gradient(180deg,rgba(94,231,245,.18),transparent 42%),
+        radial-gradient(46% 44% at 88% 96%,rgba(50,170,235,.32) 0,transparent 60%);
+  --sh:0 0 0 1px rgba(0,0,0,.4),0 22px 56px rgba(0,20,35,.6),0 0 46px rgba(94,231,245,.14)}
+
+/* ═══ 3 · 午夜·双色 ══════════════════════════════════ */
+.sk-mid{--bg:#0c1424;--fg:#dfe7f5;--sep:rgba(110,150,240,.18);--edge:rgba(110,160,250,.34);
+  --edge-outer:rgba(110,160,250,.24);--ghead:rgba(140,175,255,.62);--card:rgba(16,26,48,.92);
+  --tbb:rgba(110,160,250,.07);--acc:#5aa8ff;--accfg:#04162e;--glow:rgba(90,168,255,.34);
+  --seg:rgba(110,160,250,.09);--segfg:rgba(223,231,245,.6);--togoff:rgba(130,165,240,.18);
+  --tile:linear-gradient(160deg,#6ea8ff,#5b3df0);
+  --amb:linear-gradient(180deg,rgba(90,168,255,.15),transparent 40%),
+        radial-gradient(44% 42% at 88% 94%,rgba(122,86,235,.30) 0,transparent 60%);
+  --sh:0 0 0 1px rgba(0,0,0,.5),0 22px 56px rgba(0,0,0,.6),0 0 44px rgba(90,168,255,.11)}
+
+/* ═══ 4 · 钢蓝·克制 ══════════════════════════════════ */
+.sk-steel{--bg:#1b2430;--fg:#e3e9f0;--sep:rgba(160,190,220,.16);--edge:rgba(160,200,235,.26);
+  --edge-outer:rgba(160,200,235,.2);--ghead:rgba(180,205,230,.6);--card:rgba(30,40,54,.94);
+  --tbb:rgba(160,200,235,.06);--acc:#79b8e8;--accfg:#0a1a28;--glow:rgba(121,184,232,.22);
+  --seg:rgba(160,200,235,.09);--segfg:rgba(227,233,240,.62);--togoff:rgba(160,190,220,.2);
+  --tile:linear-gradient(160deg,#7fb4dd,#3d6f9e);
+  --amb:linear-gradient(180deg,rgba(121,184,232,.10),transparent 40%);
+  --sh:0 0 0 1px rgba(0,0,0,.45),0 20px 48px rgba(0,0,0,.5)}
+.sk-steel .tile{box-shadow:0 1px 3px rgba(0,0,0,.4)}
+.sk-steel .seg button[aria-pressed="true"]{box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.sk-steel .tog[aria-checked="true"]{box-shadow:none}
+.sk-steel .btn.pri{box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.sk-steel::before{animation:none;opacity:.7}
+</style>
+
+<div class="mast">
+  <h1>S3 蓝色系 · 四稿</h1>
+  <p>把原来的墨绿底换掉。四种蓝，从深到亮、从荧光到克制，内容一字不差。</p>
+  <div class="jump"><a href="#b1">深海</a><a href="#b2">湖蓝·亮</a><a href="#b3">午夜·双色</a><a href="#b4">钢蓝·克制</a></div>
+</div>
+
+<div class="stack">
+<script>
+var BODY=`
+  <div class="tb"><span class="lt"><i></i><i></i><i></i></span><span class="t">Pic 设置</span></div>
+  <div class="bd"><div class="cols">
+    <div>
+      <div class="gh">壁纸来源</div>
+      <div class="card" style="margin-bottom:15px">
+        <div class="r"><span class="tile"><svg viewBox="0 0 24 24"><path d="M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/></svg></span>
+          <span class="rt" style="justify-content:space-between"><span><span class="n">~/Movies/Wallpapers</span><span class="s" style="display:block">递归扫子目录 · MP4 / MOV / M4V</span></span><button class="btn">选择…</button></span></div>
+      </div>
+      <div class="gh">播放</div>
+      <div class="card">
+        <div class="r"><span class="tile"><svg viewBox="0 0 24 24"><path d="M4 12h7M17 12h3"/><circle cx="14" cy="12" r="3"/></svg></span>
+          <span class="rt" style="justify-content:space-between"><span class="n">播放模式</span>
+            <span class="seg" data-seg><button data-m="s">单循环</button><button data-m="l" aria-pressed="true">列表循环</button><button data-m="r">随机</button></span></span></div>
+        <div class="r" data-rot><span class="tile"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/></svg></span>
+          <span class="rt" style="justify-content:space-between"><span class="n">轮换时间</span>
+            <span class="step"><button data-d="-1">▼</button><span class="v">15 分钟</span><button data-d="1">▲</button></span></span></div>
+        <div class="r"><span class="tile"><svg viewBox="0 0 24 24"><path d="M5 12h4l2-5 2 10 2-5h4"/></svg></span>
+          <span class="rt" style="justify-content:space-between"><span><span class="n">播放速度</span><span class="s" style="display:block">音高不变</span></span>
+            <span class="rt"><input class="rng" type="range" min=".5" max="2" step=".05" value="1"><span class="val">1.00×</span></span></span></div>
+        <div class="r"><span class="tile"><svg viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M16 9a4 4 0 0 1 0 6"/></svg></span>
+          <span class="rt" style="justify-content:space-between"><span class="n">声音</span>
+            <span class="rt"><input class="rng" data-vol type="range" min="0" max="100" value="60"><span class="val">60%</span><button class="tog" role="switch" aria-checked="true"></button></span></span></div>
+      </div>
+    </div>
+    <div>
+      <div class="gh">电源与系统</div>
+      <div class="card" style="margin-bottom:15px">
+        <div class="r"><span class="tile"><svg viewBox="0 0 24 24"><rect x="2" y="8" width="16" height="9" rx="2.5"/><path d="M21 11v3"/></svg></span>
+          <span class="rt" style="justify-content:space-between"><span><span class="n">电池供电时播放</span><span class="s" style="display:block">默认关，省电</span></span><button class="tog" role="switch" aria-checked="false"></button></span></div>
+        <div class="r"><span class="tile"><svg viewBox="0 0 24 24"><path d="M12 3v9"/><path d="M6.5 7a8 8 0 1 0 11 0"/></svg></span>
+          <span class="rt" style="justify-content:space-between"><span class="n">开机自动启动</span><button class="tog" role="switch" aria-checked="false"></button></span></div>
+      </div>
+      <div class="gh">维护</div>
+      <div class="card">
+        <div class="r"><span class="tile"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2 5.5"/><path d="M20 5v6h-6"/></svg></span>
+          <span class="rt" style="justify-content:space-between"><span class="n">重新扫描</span><button class="btn">扫描</button></span></div>
+        <div class="r"><span class="tile"><svg viewBox="0 0 24 24"><path d="M4 8h11l-3-3M20 16H9l3 3"/></svg></span>
+          <span class="rt" style="justify-content:space-between"><span><span class="n">转码</span><span class="s" style="display:block">视觉无损</span></span><button class="btn pri">打开…</button></span></div>
+      </div>
+    </div>
+  </div></div>`;
+
+var SKINS=[
+ ["b1","deep","深海","深藏青底 + 天蓝荧光。原 S3 的蓝版，最深的一稿。"],
+ ["b2","lake","湖蓝·亮","整块提亮，底色是正经的湖蓝。最容易看清，也最不像「黑软件」。"],
+ ["b3","mid","午夜·双色","深蓝主光 + 一点淡紫副光。比单色多一点层次。"],
+ ["b4","steel","钢蓝·克制","去掉大部分荧光，蓝偏灰。最像正经工具软件，最不扎眼。"]
+];
+var host=document.currentScript.parentNode;
+SKINS.forEach(function(s){
+  var f=document.createElement("figure"); f.id=s[0];
+  f.innerHTML='<div class="tag"><em>'+s[0].toUpperCase()+'</em><s>'+s[2]+'</s></div>'+
+    '<div class="w sk sk-'+s[1]+'">'+BODY+'</div>'+
+    '<figcaption><b>'+s[2]+'。</b>'+s[3]+'</figcaption>';
+  host.appendChild(f);
+});
+document.addEventListener("click",function(e){
+  var b=e.target.closest("button[data-m]");
+  if(b){var seg=b.parentElement;
+    Array.prototype.forEach.call(seg.children,function(x){x.setAttribute("aria-pressed",String(x===b))});
+    var rot=seg.closest(".card").querySelector("[data-rot]");
+    if(rot)rot.classList.toggle("off",b.dataset.m==="s");return;}
+  var t=e.target.closest(".tog");
+  if(t){t.setAttribute("aria-checked",String(t.getAttribute("aria-checked")!=="true"));
+    var c=t.closest(".card"),v=c&&c.querySelector("[data-vol]");
+    if(v)v.classList.toggle("off",t.getAttribute("aria-checked")!=="true");return;}
+  var s=e.target.closest("button[data-d]");
+  if(s){var st=s.parentElement,v=st.querySelector(".v");
+    if(st.closest(".off"))return;
+    var V=[5,10,15,30,60,120],i=parseInt(v.dataset.i||"2",10);
+    i=Math.max(0,Math.min(5,i+parseInt(s.dataset.d,10)));v.dataset.i=i;
+    v.textContent=V[i]>=60?(V[i]/60)+" 小时":V[i]+" 分钟";}
+});
+document.addEventListener("input",function(e){
+  if(!e.target.classList.contains("rng"))return;
+  var o=e.target.parentElement.querySelector(".val");if(!o)return;
+  o.textContent=e.target.max==="2"?Number(e.target.value).toFixed(2)+"×":e.target.value+"%";
+});
+</script>
+</div>

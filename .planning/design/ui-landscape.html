@@ -1,0 +1,396 @@
+<title>Pic 设置窗三稿</title>
+<style>
+/* ── 约束 ───────────────────────────────────────────────
+   窗体一律横着。不放任何视频/预览/缩略图 —— 这个 app 的界面里
+   不该出现画面，画面在桌面上。
+   三稿共用同一批控件（分段选择器/步进器/滑杆/开关），只有排布不同。
+   ─────────────────────────────────────────────────────── */
+:root{
+  color-scheme:light;
+  --ground:#e9eaec; --ink:#1a1c20; --ink2:#5f656f; --ink3:#8f959e;
+  --line:rgba(15,17,22,.12); --panel:#fff; --accent:#1f62f5;
+  --win:#ececed; --winhi:#f6f6f7; --card:#fff; --ctlfill:#e6e6e8; --ctloff:#b6b6bc;
+  --shadow:0 1px 2px rgba(0,0,0,.10),0 14px 36px rgba(0,0,0,.20);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --ground:#101215; --ink:#f1f3f6; --ink2:#9ba2ad; --ink3:#737a85;
+    --line:rgba(255,255,255,.13); --panel:#181b20; --accent:#4d8bff;
+    --win:#2b2b2e; --winhi:#343438; --card:#1c1c1e; --ctlfill:#4a4a4e; --ctloff:#6a6a70;
+    --shadow:0 1px 2px rgba(0,0,0,.45),0 16px 40px rgba(0,0,0,.55);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --ground:#101215; --ink:#f1f3f6; --ink2:#9ba2ad; --ink3:#737a85;
+  --line:rgba(255,255,255,.13); --panel:#181b20; --accent:#4d8bff;
+  --win:#2b2b2e; --winhi:#343438; --card:#1c1c1e; --ctlfill:#4a4a4e; --ctloff:#6a6a70;
+  --shadow:0 1px 2px rgba(0,0,0,.45),0 16px 40px rgba(0,0,0,.55);
+}
+*{box-sizing:border-box}
+body{margin:0;padding:32px 20px 64px;background:var(--ground);color:var(--ink);
+     font:13px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;
+     -webkit-font-smoothing:antialiased}
+
+.mast{max-width:900px;margin:0 auto 30px}
+.mast h1{font-size:27px;font-weight:700;letter-spacing:-.021em;margin:0 0 9px;text-wrap:balance}
+.mast p{margin:0;color:var(--ink2);max-width:64ch}
+.mast .rule{display:flex;flex-wrap:wrap;gap:14px;margin-top:15px;font-size:11.5px;color:var(--ink3)}
+.mast .rule span{display:flex;align-items:center;gap:5px}
+.mast .rule span::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--accent)}
+
+.stack{max-width:940px;margin:0 auto;display:grid;gap:38px}
+
+/* ── 窗口外壳 ─────────────────────────────────────────── */
+.win{background:var(--win);border-radius:11px;overflow:hidden;box-shadow:var(--shadow);
+     border:1px solid var(--line)}
+.tbar{display:flex;align-items:center;gap:8px;height:39px;padding:0 14px;
+      background:var(--winhi);border-bottom:1px solid var(--line)}
+.lights{display:flex;gap:7px}.lights i{width:11px;height:11px;border-radius:50%;display:block}
+.lights i:nth-child(1){background:#ff5f57}.lights i:nth-child(2){background:#febc2e}.lights i:nth-child(3){background:#28c840}
+.tbar .t{flex:1;text-align:center;font-size:13px;font-weight:600;padding-right:46px}
+.body{padding:14px}
+
+/* ── 分组卡 ───────────────────────────────────────────── */
+.grp{margin-bottom:13px}
+.grp:last-child{margin-bottom:0}
+.gh{font-size:11px;font-weight:600;letter-spacing:.045em;text-transform:uppercase;
+    color:var(--ink3);padding:0 4px 6px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.r{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:center;
+   padding:9px 13px;min-height:38px;border-bottom:1px solid var(--line)}
+.r:last-child{border-bottom:0}
+.r>.l{white-space:nowrap;color:var(--ink)}
+.r>.c{display:flex;align-items:center;gap:9px;justify-content:flex-end;min-width:0;flex-wrap:wrap}
+.r.two{grid-template-columns:1fr auto}
+.sub{font-size:11px;color:var(--ink3);margin-top:2px}
+.note{font-size:11px;color:var(--ink3);padding:8px 13px 10px;border-top:1px solid var(--line);line-height:1.55}
+.path{font-size:11.5px;color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+      max-width:230px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.read{font-size:11.5px;color:var(--ink2);min-width:44px;text-align:right;
+      font-variant-numeric:tabular-nums}
+.off{opacity:.4}
+.off .rng,.off .step,.off .tog{pointer-events:none}
+
+/* ── 控件 ─────────────────────────────────────────────── */
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:none;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 30%,transparent);border-radius:5px}
+.seg{display:inline-flex;background:var(--ctlfill);border-radius:6px;padding:2px;gap:2px}
+.seg button{border:0;background:transparent;border-radius:4px;padding:3px 10px;font-size:12px;
+            color:var(--ink2);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--card);color:var(--ink);font-weight:600;
+            box-shadow:0 1px 2px rgba(0,0,0,.15)}
+.step{display:inline-flex;align-items:stretch}
+.step button{width:22px;border:1px solid var(--line);background:var(--card);cursor:pointer;
+             font-size:8px;color:var(--ink2);line-height:1}
+.step .v{min-width:70px;text-align:center;padding:4px 0;font-size:11.5px;
+         background:var(--ctlfill);border:1px solid var(--line);border-left:0;border-right:0;
+         font-variant-numeric:tabular-nums}
+.step button:first-child{border-radius:5px 0 0 5px}
+.step button:last-child{border-radius:0 5px 5px 0}
+.rng{accent-color:var(--accent);width:104px;height:16px;flex:0 1 104px;min-width:60px}
+.tog{position:relative;width:39px;height:22px;border-radius:11px;border:0;cursor:pointer;
+     background:var(--ctloff);flex:0 0 auto}
+.tog::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;
+            background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:transform .15s}
+.tog[aria-checked="true"]{background:var(--accent)}
+.tog[aria-checked="true"]::after{transform:translateX(17px)}
+.btn{font-size:12px;padding:4px 13px;border-radius:6px;cursor:pointer;
+     background:var(--card);border:1px solid var(--line);box-shadow:0 1px 1.5px rgba(0,0,0,.08)}
+.btn:active{background:var(--ctlfill)}
+.btn.wide{padding:5px 16px}
+
+/* ── 布局变体 ─────────────────────────────────────────── */
+.cols2{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+@media (max-width:720px){.cols2{grid-template-columns:1fr}}
+.inline{display:grid;grid-template-columns:auto 1fr auto 1fr;gap:10px 14px;align-items:center;
+        padding:9px 13px;border-bottom:1px solid var(--line)}
+.inline:last-child{border-bottom:0}
+@media (max-width:720px){.inline{grid-template-columns:auto 1fr}}
+.rowbtns{display:flex;gap:9px;justify-content:flex-end;padding-top:12px}
+
+/* 变体 C 的顶部工具条 */
+.tabs{display:flex;gap:2px;padding:0 12px;background:var(--winhi);border-bottom:1px solid var(--line)}
+.tabs button{border:0;background:transparent;padding:7px 12px 8px;font-size:12.5px;color:var(--ink2);
+             cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs button[aria-pressed="true"]{color:var(--ink);font-weight:600;border-bottom-color:var(--accent)}
+.pane{display:none}.pane.on{display:block}
+
+figcaption{margin-top:13px;font-size:12px;color:var(--ink2);max-width:62ch}
+figcaption b{color:var(--ink);font-weight:600}
+figure{margin:0}
+.tag{display:flex;align-items:baseline;gap:10px;margin-bottom:11px}
+.tag em{font-style:normal;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink3);
+        font-weight:600}
+.tag s{text-decoration:none;font-size:11.5px;color:var(--ink3)}
+</style>
+
+<div class="mast">
+  <h1>设置窗 · 横版三稿</h1>
+  <p>全部横着，全部不含任何视频、预览或缩略图。控件种类三稿一致，只有排布不同——所以选哪个都不推翻前面的决定。</p>
+  <div class="rule">
+    <span>无视频</span><span>无列表</span><span>无侧边栏</span><span>改设置立即生效</span>
+  </div>
+</div>
+
+<div class="stack">
+
+  <!-- A -->
+  <figure>
+    <div class="tag"><em>A</em><s>双列 · 左右各一组，窗最方</s></div>
+    <div class="win">
+      <div class="tbar"><span class="lights"><i></i><i></i><i></i></span><span class="t">Pic 设置</span></div>
+      <div class="body">
+        <div class="cols2">
+          <div>
+            <div class="grp">
+              <div class="gh">壁纸来源</div>
+              <div class="card">
+                <div class="r"><span class="l">文件夹</span><span class="c">
+                  <span class="path">~/Movies/Wallpapers</span>
+                  <button class="btn">选择…</button></span></div>
+                <div class="note">递归扫描子目录 · 支持 MP4 / MOV / M4V</div>
+              </div>
+            </div>
+            <div class="grp">
+              <div class="gh">播放</div>
+              <div class="card" id="a-play">
+                <div class="r"><span class="l">播放模式</span><span class="c">
+                  <span class="seg" id="a-seg"><button data-m="s">单循环</button><button data-m="l" aria-pressed="true">列表循环</button><button data-m="r">随机</button></span></span></div>
+                <div class="r" id="a-rot"><span class="l">轮换时间</span><span class="c">
+                  <span class="step"><button data-d="-1">▼</button><span class="v">15 分钟</span><button data-d="1">▲</button></span></span></div>
+                <div class="r"><span class="l">播放速度</span><span class="c">
+                  <input class="rng" type="range" min=".5" max="2" step=".05" value="1"><span class="read">1.00×</span></span></div>
+                <div class="r"><span class="l">声音</span><span class="c">
+                  <button class="tog" role="switch" aria-checked="true"></button></span></div>
+                <div class="r" id="a-vol"><span class="l">音量</span><span class="c">
+                  <input class="rng" type="range" min="0" max="100" value="60"><span class="read">60%</span></span></div>
+              </div>
+              <div class="note">变速时音高保持不变</div>
+            </div>
+          </div>
+          <div>
+            <div class="grp">
+              <div class="gh">电源与系统</div>
+              <div class="card">
+                <div class="r"><span class="l">电池供电时播放</span><span class="c">
+                  <button class="tog" role="switch" aria-checked="false"></button></span></div>
+                <div class="r"><span class="l">开机自动启动</span><span class="c">
+                  <button class="tog" role="switch" aria-checked="false"></button></span></div>
+                <div class="note">开启开机自启后，macOS 首次会弹一次授权</div>
+              </div>
+            </div>
+            <div class="grp">
+              <div class="gh">维护</div>
+              <div class="card">
+                <div class="r"><span class="l">重新扫描文件夹</span><span class="c">
+                  <button class="btn">扫描</button></span></div>
+                <div class="r"><span class="l">转码</span><span class="c">
+                  <button class="btn">打开…</button></span></div>
+                <div class="note">转码把 MKV / AVI 转成能硬解的 MP4，原文件保留</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption><b>双列。</b>左边管播放、右边管系统，一屏装完不用滚。窗口比例最方，接近正方形。</figcaption>
+  </figure>
+
+  <!-- B -->
+  <figure>
+    <div class="tag"><em>B</em><s>单列 · 最像系统设置，窗最扁</s></div>
+    <div class="win">
+      <div class="tbar"><span class="lights"><i></i><i></i><i></i></span><span class="t">Pic 设置</span></div>
+      <div class="body">
+        <div class="grp">
+          <div class="gh">壁纸来源</div>
+          <div class="card">
+            <div class="r"><span class="l">文件夹</span><span class="c">
+              <span class="path">~/Movies/Wallpapers</span><button class="btn">选择…</button></span></div>
+          </div>
+        </div>
+        <div class="grp">
+          <div class="gh">播放</div>
+          <div class="card" id="b-play">
+            <div class="r"><span class="l">播放模式</span><span class="c">
+              <span class="seg" id="b-seg"><button data-m="s">单循环</button><button data-m="l" aria-pressed="true">列表循环</button><button data-m="r">列表随机</button></span></span></div>
+            <div class="inline" id="b-rot">
+              <span class="l">轮换时间</span>
+              <span class="c" style="justify-content:flex-start">
+                <span class="step"><button data-d="-1">▼</button><span class="v">15 分钟</span><button data-d="1">▲</button></span></span>
+              <span class="l">播放速度</span>
+              <span class="c"><input class="rng" type="range" min=".5" max="2" step=".05" value="1"><span class="read">1.00×</span></span>
+            </div>
+            <div class="inline" id="b-vol">
+              <span class="l">声音</span>
+              <span class="c" style="justify-content:flex-start"><button class="tog" role="switch" aria-checked="true"></button></span>
+              <span class="l">音量</span>
+              <span class="c"><input class="rng" type="range" min="0" max="100" value="60"><span class="read">60%</span></span>
+            </div>
+          </div>
+          <div class="note">变速时音高保持不变 · 轮换到点就切，不等播完</div>
+        </div>
+        <div class="grp">
+          <div class="gh">电源与系统</div>
+          <div class="card">
+            <div class="inline">
+              <span class="l">电池供电时播放</span>
+              <span class="c" style="justify-content:flex-start"><button class="tog" role="switch" aria-checked="false"></button></span>
+              <span class="l">开机自动启动</span>
+              <span class="c" style="justify-content:flex-start"><button class="tog" role="switch" aria-checked="false"></button></span>
+            </div>
+          </div>
+        </div>
+        <div class="rowbtns">
+          <button class="btn">重新扫描文件夹</button>
+          <button class="btn wide">转码…</button>
+        </div>
+      </div>
+    </div>
+    <figcaption><b>单列。</b>一行塞两组「标签 + 控件」，所以窗最扁。最接近 macOS 系统设置本人的排法。</figcaption>
+  </figure>
+
+  <!-- C -->
+  <figure>
+    <div class="tag"><em>C</em><s>顶部分段 · 一屏一组，窗最矮</s></div>
+    <div class="win">
+      <div class="tbar"><span class="lights"><i></i><i></i><i></i></span><span class="t">Pic 设置</span></div>
+      <div class="tabs" id="c-tabs">
+        <button data-p="0" aria-pressed="true">来源</button>
+        <button data-p="1" aria-pressed="false">播放</button>
+        <button data-p="2" aria-pressed="false">电源</button>
+        <button data-p="3" aria-pressed="false">转码</button>
+      </div>
+      <div class="body">
+        <div class="pane on" data-pane="0">
+          <div class="card">
+            <div class="r"><span class="l">壁纸文件夹</span><span class="c">
+              <span class="path">~/Movies/Wallpapers</span><button class="btn">选择…</button></span></div>
+            <div class="r"><span class="l">重新扫描</span><span class="c"><button class="btn">立即扫描</button></span></div>
+            <div class="note">递归扫描子目录 · 支持 MP4 / MOV / M4V · 没有可播文件时露出系统壁纸</div>
+          </div>
+        </div>
+        <div class="pane" data-pane="1">
+          <div class="card" id="c-play">
+            <div class="r"><span class="l">播放模式</span><span class="c">
+              <span class="seg" id="c-seg"><button data-m="s">单循环</button><button data-m="l" aria-pressed="true">列表循环</button><button data-m="r">列表随机</button></span></span></div>
+            <div class="inline" id="c-rot">
+              <span class="l">轮换时间</span>
+              <span class="c" style="justify-content:flex-start">
+                <span class="step"><button data-d="-1">▼</button><span class="v">15 分钟</span><button data-d="1">▲</button></span></span>
+              <span class="l">播放速度</span>
+              <span class="c"><input class="rng" type="range" min=".5" max="2" step=".05" value="1"><span class="read">1.00×</span></span>
+            </div>
+            <div class="inline" id="c-vol">
+              <span class="l">声音</span>
+              <span class="c" style="justify-content:flex-start"><button class="tog" role="switch" aria-checked="true"></button></span>
+              <span class="l">音量</span>
+              <span class="c"><input class="rng" type="range" min="0" max="100" value="60"><span class="read">60%</span></span>
+            </div>
+          </div>
+        </div>
+        <div class="pane" data-pane="2">
+          <div class="card">
+            <div class="r"><span class="l">电池供电时播放</span><span class="c">
+              <button class="tog" role="switch" aria-checked="false"></button></span></div>
+            <div class="r"><span class="l">开机自动启动</span><span class="c">
+              <button class="tog" role="switch" aria-checked="false"></button></span></div>
+            <div class="note">全屏应用 / 锁屏 / 熄屏 / 系统睡眠时自动暂停，条件解除后从暂停处续播</div>
+          </div>
+        </div>
+        <div class="pane" data-pane="3">
+          <div class="card">
+            <div class="r"><span class="l">ffmpeg</span><span class="c">
+              <span class="read" style="min-width:auto;color:var(--ink3)">已安装 · 9.0.2</span></span></div>
+            <div class="r"><span class="l">待转码文件</span><span class="c">
+              <span class="read" style="min-width:auto">3 个</span><button class="btn wide">开始转码</button></span></div>
+            <div class="note">转成 MP4 + H.264（视觉无损），输出到壁纸目录，原文件保留</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption><b>顶部分段。</b>一屏只显示一组，所以窗口可以做得最矮最宽。设置分组多的时候最省地方。</figcaption>
+  </figure>
+
+</div>
+
+<script>
+(function(){
+  var $=function(s,r){return (r||document).querySelector(s)};
+  var $$=function(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s))};
+
+  // 分段控制器：切到「单循环」就把轮换时间置灰
+  function hookSeg(segId,rotId){
+    var seg=$('#'+segId),rot=rotId?$('#'+rotId):null;
+    seg.addEventListener('click',function(e){
+      var b=e.target.closest('button[data-m]'); if(!b)return;
+      $$('button',seg).forEach(function(x){x.setAttribute('aria-pressed',String(x===b))});
+      if(rot) rot.classList.toggle('off', b.dataset.m==='s');
+    });
+  }
+  hookSeg('a-seg','a-rot');
+  hookSeg('b-seg','b-rot');
+  hookSeg('c-seg','c-rot');
+
+  // 开关：关掉声音就把音量置灰
+  function hookTog(cardId,volId){
+    var card=$('#'+cardId),vol=volId?$('#'+volId):null;
+    var t=card.querySelector('.tog');
+    if(!t)return;
+    t.addEventListener('click',function(){
+      var on=t.getAttribute('aria-checked')!=='true';
+      t.setAttribute('aria-checked',String(on));
+      if(vol) vol.classList.toggle('off',!on);
+    });
+  }
+  hookTog('a-play','a-vol');
+  hookTog('b-play','b-vol');
+  hookTog('c-play','c-vol');
+
+  // 除声音外的开关
+  $$('.tog').forEach(function(t){
+    if(t.dataset.wired)return;
+    if(t.closest('#a-play')||t.closest('#b-play')||t.closest('#c-play'))return;
+    t.addEventListener('click',function(){
+      t.setAttribute('aria-checked',String(t.getAttribute('aria-checked')!=='true'));
+    });
+  });
+
+  // 步进器
+  var VALS=[5,10,15,30,60,120];
+  function hookStep(scopeId,rotId){
+    var scope=$('#'+scopeId),rot=$('#'+rotId);
+    var v=scope.querySelector('.step .v'); if(!v)return;
+    var i=VALS.indexOf(15);
+    $$('.step button',scope).forEach(function(b){
+      b.addEventListener('click',function(){
+        if(rot&&rot.classList.contains('off'))return;
+        i=Math.max(0,Math.min(VALS.length-1,i+parseInt(b.dataset.d,10)));
+        v.textContent=VALS[i]>=60?(VALS[i]/60)+' 小时':VALS[i]+' 分钟';
+      });
+    });
+  }
+  hookStep('a-rot','a-rot');
+  hookStep('b-rot','b-rot');
+  hookStep('c-rot','c-rot');
+
+  // 滑杆读数
+  $$('.rng').forEach(function(r){
+    var out=r.parentElement.querySelector('.read');
+    if(!out||r.max!=='2'&&r.max!=='100')return;
+    r.addEventListener('input',function(){
+      out.textContent = r.max==='2' ? Number(r.value).toFixed(2)+'×' : r.value+'%';
+    });
+  });
+
+  // 变体 C 的分段页签
+  var tabs=$('#c-tabs');
+  tabs.addEventListener('click',function(e){
+    var b=e.target.closest('button[data-p]'); if(!b)return;
+    $$('button',tabs).forEach(function(x){x.setAttribute('aria-pressed',String(x===b))});
+    $$('.pane').forEach(function(p){ p.classList.toggle('on', p.dataset.pane===b.dataset.p); });
+  });
+})();
+</script>
