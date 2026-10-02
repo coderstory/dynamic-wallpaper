@@ -180,8 +180,17 @@ struct FullscreenProbeMain {
         print("USAGE=fullscreenprobe --spawn-fullscreen")
     }
 
+    /// 会话锁屏状态。锁屏时 CGWindowList 报出的几何仍然真实，但它不代表「桌面当前可见」。
+    /// 覆盖率数字不带这个上下文就会误导，所以每条 inspect / replay 都打一行 LOCK=。
+    static func lockState() -> String {
+        guard let dict = CGSessionCopyCurrentDictionary() as? [String: Any],
+              let v = dict["CGSSessionScreenIsLocked"] as? NSNumber else { return "unknown" }
+        return v.boolValue ? "1" : "0"
+    }
+
     static func header(_ env: Env) {
         print("SCREEN frame=\(env.screen.text) visible=\(env.visible.text) scale=\(fmt(env.scale))")
+        print("LOCK=\(lockState()) source=CGSessionCopyCurrentDictionary.CGSSessionScreenIsLocked")
     }
 
     // MARK: --inspect
