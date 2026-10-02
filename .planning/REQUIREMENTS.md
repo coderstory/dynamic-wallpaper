@@ -169,16 +169,65 @@
 
 ## Traceability
 
-*Roadmap 生成时填充*
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| （待 ROADMAP 生成后回填） | | |
+| SOURCE-01 | Phase 4 | Pending |
+| SOURCE-02 | Phase 4 | Pending |
+| SOURCE-03 | Phase 4 | Pending |
+| SOURCE-04 | Phase 5 | Pending |
+| SOURCE-05 | Phase 4 | Pending |
+| SOURCE-06 | Phase 4 | Pending |
+| SOURCE-07 | Phase 4 | Pending |
+| SOURCE-08 | Phase 4 | Pending |
+| PLAY-01 | Phase 2 | Pending |
+| PLAY-02 | Phase 2 | Pending |
+| PLAY-03 | Phase 4 | Pending |
+| PLAY-04 | Phase 4 | Pending |
+| PLAY-05 | Phase 4 | Pending |
+| PLAY-06 | Phase 4 | Pending |
+| PLAY-07 | Phase 5 | Pending |
+| PLAY-08 | Phase 5 | Pending |
+| PLAY-09 | Phase 5 | Pending |
+| PLAY-10 | Phase 5 | Pending |
+| PAUSE-01 | Phase 3 | Pending |
+| PAUSE-02 | Phase 3 | Pending |
+| PAUSE-03 | Phase 3 | Pending |
+| PAUSE-04 | Phase 3 | Pending |
+| PAUSE-05 | Phase 3 | Pending |
+| PAUSE-06 | Phase 3 | Pending |
+| PAUSE-07 | Phase 3 | Pending |
+| PAUSE-08 | Phase 2 | Pending |
+| MENUBAR-01 | Phase 2 | Pending |
+| MENUBAR-02 | Phase 5 | Pending |
+| MENUBAR-03 | Phase 2 | Pending |
+| MENUBAR-04 | Phase 4 | Pending |
+| MENUBAR-05 | Phase 4 | Pending |
+| MENUBAR-06 | Phase 5 | Pending |
+| MENUBAR-07 | Phase 2 | Pending |
+| MENUBAR-08 | Phase 2 | Pending |
+| SYS-01 | Phase 7 | Pending |
+| SYS-02 | Phase 2 | Pending |
+| SYS-03 | Phase 4 | Pending |
+| TRANS-01 | Phase 6 | Pending |
+| TRANS-02 | Phase 6 | Pending |
+| TRANS-03 | Phase 6 | Pending |
+| TRANS-04 | Phase 6 | Pending |
+| TRANS-05 | Phase 6 | Pending |
+| TRANS-06 | Phase 6 | Pending |
+| UI-01 | Phase 5 | Pending |
+| UI-02 | Phase 5 | Pending |
+| UI-03 | Phase 5 | Pending |
+| UI-04 | Phase 5 | Pending |
+| PACK-01 | Phase 7 | Pending |
+| PACK-02 | Phase 7 | Pending |
+| PACK-03 | Phase 7 | Pending |
+| PACK-04 | Phase 7 | Pending |
 
 **Coverage:**
-- v1 requirements: 64 total
-- Mapped to phases: 待填
-- Unmapped: 待填
+- v1 requirements: 51 total
+- Mapped to phases: 51
+- Unmapped: 0
+- Phase 1（桌面层级门禁 spike）不交付需求 —— 它是 throwaway 验证阶段，消解 PLAY-01 / PLAY-02 / PAUSE-01 / PAUSE-02 / SYS-02 的可行性风险
 
 ---
 
@@ -192,8 +241,9 @@
 | 用户问答中确认 | PLAY-02（裁剪填满）, PLAY-06（到点就切）, PLAY-07（保持原音高）, PAUSE-05（开关默认关）, SYS-02（跟随系统）, TRANS-03（视觉无损） |
 | 调研发现（ARCHITECTURE / PITFALLS） | PLAY-01（层级常量）, PAUSE-07（veto set 仲裁）, TRANS-05（防扫描死循环） |
 | UI-SPEC 定稿 | UI-01~03, SOURCE-04（视频计数） |
+| 用户补充（2026-10-03）—— 要 DMG、要两条脚本 | PACK-01（由「.app」改为「DMG」）, PACK-03（build.sh）, PACK-04（test.sh） |
 
 ---
 
 *Requirements defined: 2026-10-03*
-*Last updated: 2026-10-03 after initial definition*
+*Last updated: 2026-10-03 after ROADMAP.md generation (Traceability filled, 51/51 mapped)*
