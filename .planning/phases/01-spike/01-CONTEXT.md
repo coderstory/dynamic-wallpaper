@@ -131,3 +131,13 @@ D-02 已定：「桌面图标仍可点选/可拖动」无法自动化，**本次
 - 含 "Artifacts this phase produces" 段
 
 </orchestrator_directives>
+
+---
+
+<planner_partial_findings>
+## Planner 中途发现（agent 被中止前的实测观察，**未完成验证，标注为待复核**）
+
+- **坐标系陷阱（重要，影响 Phase 3 全屏检测）**：`CGWindowListCopyWindowInfo` 返回的窗口 bounds 是**左上角原点**（实测主屏 Y=33），而 `NSScreen.frame` 是**左下角原点**。两者直接比较会得到错误的「全屏覆盖比例」。全屏判定必须先做坐标翻转（`y_converted = screenHeight - (y + height)`）再比。
+  —— 来源：planner agent 实测观察后被中止，**本 Phase 必须复现并给出确认数字**，不能直接当既成事实用。
+
+</planner_partial_findings>
