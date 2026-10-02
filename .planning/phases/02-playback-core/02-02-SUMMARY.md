@@ -46,6 +46,10 @@ status: complete
 
 # Phase 02 Plan 02: tracer 竖切 —— 一条命令从零到「桌面图标后面有视频在循环」
 
+> **提交计数口径**（与 02-01 一致）：`commits: 3` 与 `plan_head_after` 数的是**三个任务提交**。
+> 本文件自身的那次 `docs(02-02)` 提交是第四个，因此事后用
+> `git rev-list --count 875741d..HEAD` 量到 **4**。两个数都不是猜的，各自对应一次可复现的命令。
+
 一条路走通：`AppDelegate.wiring()` → 桌面层窗口 → `AVPlayerLayer` → `AVQueuePlayer` 循环 → 菜单栏常驻 → 无 Dock 图标。
 SC2 的三个可自动判定部分全部落成数字；两条不可自动判定的部分如实登记为 BLOCKED。
 
