@@ -29,6 +29,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 ## Phase Details
 
 ### Phase 1: 桌面层级门禁 spike 🚧
+
 **Goal:** 用几小时的一次性 throwaway app 证明「视频待在桌面图标后面」这条路线在本机成立；证伪则整个架构作废，Phase 2–7 全部不启动。
 **Mode:** mvp
 **Depends on**: Nothing (first phase)
@@ -41,12 +42,21 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. `MenuBarExtra` 在 `.accessory` 激活策略 + 无 Dock 图标下实测可用；若不可用，`NSStatusItem` 退路已验证可编译
   4. 全屏检测几何原型在**刘海屏 / Chrome 全屏 / 超宽屏**三种场景各产出一次判定结果，误判方向确认为「宁可少暂停，不要误暂停」
   5. `com.apple.screenIsLocked` 在本机 macOS 27 上是否触发有明确实测结论（决定 Phase 3 走标准模式还是升级为需调研）；`isOpaque = true` 的 `powermetrics` A/B 有数字结论
+
 **Plans**: 5 plans
+**Wave 1**
 - [ ] 01-01-PLAN.md — 桌面层级门禁 tracer：desktop-level NSWindow + 帧号 + 层级序/Finder 重启存活四项强证据 + D-08 两条对照路线（路线 C 私有框架 / 路线 D 硬编码 level）
 - [ ] 01-02-PLAN.md — `MenuBarExtra` + `.accessory` 主路线与 `NSStatusItem` 退路各跑一次并核对无 Dock 图标
-- [ ] 01-03-PLAN.md — 全屏几何原型：坐标系陷阱复现 + 三条内置几何自检（证明按 pid 聚合生效）+ 刘海屏/Chrome/超宽屏五场景各一条 coverage 数字
+
+**Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 01-04-PLAN.md — WallpaperSpike 三种播放模式 + 锁屏通知探针 + `powermetrics` 四组 5 分钟 A/B（含人工 checkpoint，带 `AB_STATUS=skipped` 兜底产物）
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [ ] 01-03-PLAN.md — 全屏几何原型：坐标系陷阱复现 + 三条内置几何自检（证明按 pid 聚合生效）+ 刘海屏/Chrome/超宽屏五场景各一条 coverage 数字
+
+**Wave 4** *(blocked on Wave 3 completion)*
 - [ ] 01-05-PLAN.md — 门禁判定 `GATE=A|B` 收口 + `test.sh` 探针从 12 条增至 15 条
+
 **Notes**:
 - **throwaway，不进产品代码库** —— 产出是 `.planning/spike/` 下的一次性验证脚本/小 app
 - `powermetrics` A/B 四组：不播 / v1 配置 / `isOpaque=false` / `AVPlayerView`，每组 5 分钟
@@ -54,6 +64,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - 它本身**就是研究**，不是需要调研 —— 需要的是执行，不是 research-phase
 
 ### Phase 2: 播放内核竖切 🧱
+
 **Goal:** 用户看到一个真正的菜单栏 app —— 桌面图标后面有视频在无缝循环播放，菜单栏能暂停/继续和退出，没有 Dock 图标；`SettingsStore` / `HoldArbiter` / `PlayerController` 三个接口在此定死，后续全部阶段依赖它。
 **Mode:** mvp
 **Depends on**: Phase 1（门禁通过）
@@ -64,6 +75,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. 菜单项「暂停/继续」可用，且**从原处续播**不从头发；菜单项「退出」能真正结束进程
   4. 菜单**不显示当前播放的文件名**，只有固定的菜单项
   5. 切换 Space / 进台前调度后壁纸按系统默认行为表现（不消失、不报错），且未做任何 Space 级特殊处理
+
 **Plans**: TBD
 **Notes**:
 - 分层：`State/` + `Playback/` + `Render/`；`AppDelegate.wiring()` 是唯一装配点
@@ -75,6 +87,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - 本 Phase 不交付：声音/速度控件（Phase 5）、文件夹选择面板（Phase 4）—— 开发期用 `UserDefaults` 直接指一个测试目录
 
 ### Phase 3: 系统事件仲裁（veto 状态机）
+
 **Goal:** 壁纸在用户不需要的时候自动让路，且**每次暂停都能说出为什么** —— 各类系统事件各自独立可测，多条件叠加时按 veto 集合正确仲裁，解除后从原处续播。
 **Mode:** mvp
 **Depends on**: Phase 2（接口）· **与 Phase 4 零耦合，可并行**
@@ -85,6 +98,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. 「电池供电时暂停」开关**默认关闭**；打开后拔电源暂停、插回续播
   4. **veto 仲裁正确**：锁屏状态下退出全屏，壁纸**不**恢复播放；多条件叠加时只有集合清空才续播
   5. 续播锚点不漂移：锚点在 `holds` 由空变非空时写入、由非空变空时消费，叠加暂停期间不被二次覆盖
+
 **Plans**: TBD
 **Notes**:
 - 4 个 Watcher（`FullscreenDetector` / `LockWatcher` / `PowerWatcher` / `DisplayWatcher`）**只产出 `HoldReason`，不直接碰播放器**；单向流 `Watcher → HoldArbiter → PlayerController`
@@ -95,6 +109,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - ⚠️ 若 Phase 1 的锁屏通知实测失败，本 Phase **升级为需要 research**（真正的降级方案未找到公开资料）
 
 ### Phase 4: 媒体库与轮换
+
 **Goal:** 用户指定一个文件夹，app 递归扫出里面所有能播的视频，按他选的模式循环/随机播放，到点就切；文件夹没了就干净地让出桌面，露出系统原壁纸。
 **Mode:** mvp
 **Depends on**: Phase 2（接口）· **与 Phase 3 零耦合，可并行**
@@ -105,6 +120,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. 三种模式（单循环 / 列表循环 / 列表随机）切换当场生效；轮换时间**到点就切**不等当前视频播完；菜单项「立即下一个」即时生效
   4. 下次启动自动读取已配置文件夹并开始播放；换文件夹后立即播新目录；菜单项「重新扫描文件夹」可用，且扫描结果被缓存而非每次切片重扫
   5. 目录里没有可用视频、或文件夹被删/被移动 → **壁纸窗口隐藏，露出系统原壁纸**（不留黑屏、不崩溃）
+
 **Plans**: TBD
 **Notes**:
 - `FileManager.enumerator` 递归扫描 + 扩展名过滤 + `AVURLAsset` 校验可加载视频轨
@@ -114,6 +130,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - SOURCE-04（计数与空态**显示**）归 Phase 5 —— 它的呈现形态由 UI-SPEC §6 定义，属于界面工作；行为部分（扫描、降级）留在本 Phase
 
 ### Phase 5: 设置窗口与即时生效
+
 **Goal:** 用户有一个按 UI-SPEC 定稿的设置窗；所有可调项改完**当场生效**；扫不到视频时界面明确告诉他壁纸已隐藏；任何时候都能看到「现在为什么暂停」。
 **Mode:** mvp
 **Depends on**: Phase 2（`SettingsStore`）· Phase 3（暂停原因）· Phase 4（可调项）
@@ -124,6 +141,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. 两条置灰联动正确且**禁用交互**（非只调透明度）：单循环 → 轮换时间整行置灰；声音关闭 → 音量滑杆置灰
   4. 速度（0.5×–2×，**保持原音高** —— 实际听 0.5× / 2× 的人声确认不变调）与声音开关/音量**改动当场生效**，不重启、不等下次换片，且重启 app 后保留
   5. 运行状态卡显示：当前是否暂停 + **暂停原因**（全屏/锁屏/熄屏/睡眠/电池）+ ffmpeg 可用性
+
 **Plans**: TBD
 **UI hint**: yes
 **Notes**:
@@ -137,6 +155,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - 不需要外部 research（UI-SPEC 已定稿）；但需要 `/gsd-ui-phase` 把 UI-SPEC 转成 UI 契约
 
 ### Phase 6: 转码与独立窗口 ⚠️
+
 **Goal:** 用户能把 mkv/avi/webm 转成能硬解的 MP4，画质视觉无损，产物落在壁纸目录内且不会被当成新的待转码输入；没有 ffmpeg 时功能降级而不是阻断。
 **Mode:** mvp
 **Depends on**: Phase 4（`MediaLibrary`）
@@ -147,6 +166,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. MKV / AVI / WebM 转成 MP4（H.264）后能被硬解播放，与源片对比**人眼基本看不出差异**
   4. 产物落在**用户选择的壁纸目录内**，原视频保留不删
   5. 产物**不会被再次扫描**成待转码输入（反复扫描不产生死循环），半成品 `.tmp` 不进播放目录，转完的 MP4 立即可被壁纸播到
+
 **Plans**: TBD
 **UI hint**: yes
 **Notes**:
@@ -159,6 +179,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - 参考 `.planning/UI-SPEC.md` §8
 
 ### Phase 7: 打包、开机自启与整机验收
+
 **Goal:** 产出用户真的能装能用的东西 —— 一条命令构建出 DMG，一条命令跑完所有自动化验证，未签名 app 上的开机自启有明确结论，整机长跑验收通过。
 **Mode:** mvp
 **Depends on**: Phase 3 · Phase 4 · Phase 5 · Phase 6
@@ -169,6 +190,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. 未签名 app 的开机自启有**实测结论**并落地：「需手动设一次」的 `requiresApproval` 分支有引导；若 `SMAppService` 在未签名 app 上不可用，退路是写 `~/Library/LaunchAgents/` plist，开关仍能真实生效
   4. 压力验收：连续换片 **50 次内存回到基线 ±10%**；连续 **20 轮 休眠/唤醒/锁屏/解锁** 播放状态 100% 正确、无黑屏灰屏
   5. 长跑验收：DMG 装出的 `.app` 连续运行 **≥7 天**不重启、不崩溃、内存无单调上涨；电池供电时按设置正确让路，且整段时间内看不出壁纸在播视频
+
 **Plans**: TBD
 **Notes**:
 - **不签名、不公证**（用户已定），但**要 DMG**；本机已装 `create-dmg` 1.3.0（`/opt/homebrew/bin/create-dmg`）—— 打包是小任务，不是大 Phase
