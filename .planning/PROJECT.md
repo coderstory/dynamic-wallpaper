@@ -62,10 +62,14 @@
 - **转码产物位置（已定）**：落在用户选择的壁纸目录内，原视频保留不删。**命名 / 目录规则必须避免"产物被再次扫成待转码输入"的无限循环**——扫描器需排除产物，具体规则待设计。
 - **转码质量参数（源码已验证）**：读 `ffmpeg-kit-next` 源码确认，它**不硬编码任何编码质量参数**，`apple/src/` 全部是 API 包装、质量参数由调用方传入——所以「视觉无损」的 CRF/preset 完全是本项目自己的决策。同时确认 macOS 包带 `macos-videotoolbox`（硬件编码，`LIBRARY_APPLE_VIDEOTOOLBOX=55`），但**硬件编码的画质控制达不到视觉无损**。→ **转码侧软编保质量（libx264/libx265 + CRF 调优），播放侧硬解（AVFoundation）**，两边不冲突。
 - **耗电**：视频壁纸吃 GPU。用户要开关而非硬编码，电池供电时默认不播。
-- **设置窗口**：用户要求先调研再规划 UI，不要先写代码再改。
+- **设置窗口 IA（已定）**：一个 Settings scene、一个 `Form`、4 个 Section、无侧边栏。① 壁纸来源（`NSOpenPanel` + 格式说明）② 播放（模式 = `.segmented` 三段控件；轮换时间 = `Stepper`，**单循环时 `.disabled(true)`**；速度/音量 = `LabeledContent` + `Slider`，**数值写进 label**）③ 电源与系统（电池供电时播放、开机自启）④ 底部 `[ 转码… ]` 按钮开独立窗口。递归子目录**不做成开关**（已定死行为，做成 toggle 是给用户不该有的选择）。宽固定 460 / 高默认 560 / min 440。
+- **菜单栏点开 = 直接弹设置窗口**，无独立菜单层级。菜单项固定为：暂停/继续、立即下一个、重新扫描文件夹、打开设置窗口、退出。
+- **首次启动 = 直接弹文件选择框**，选完开始播，不做引导流程。
+- **多 Space / 台前调度 = 跟随系统默认**，不做差异化处理。
 - **工具链（已装好并实测通过）**：Xcode 27.0（Build 27A266a）已安装并通过 `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer` 切换生效，`xcodebuild` / `actool` / macOS 27 SDK 全部可用。此前"只有 CommandLineTools、`@State` 和 `@Observable` 编不过"的限制**已解除**——两者现在都能编译，`Form` + `.formStyle(.grouped)` + `Slider` + `@State` + `@Observable` 组合已 `-typecheck` 通过。开发无工具链约束。
 - **纯 Rust 路线的结论（已评估）**：技术上可行（`objc2` + `core-graphics` crate），但**避不开 AppKit** —— 桌面层级壁纸本质上就是 `NSWindow` 挂在 `kCGDesktopWindowLevel`，换语言不换 API。额外代价是 AVFoundation 异步 API 在 `objc2` 下远不如 Swift 顺手。已定为 **Swift 路线**。
 - **`ffmpeg-kit` 已归档、官方接棒为 `ffmpeg-kit-next`（均已验证，GitHub API 实测）**：原仓库 `arthenica/ffmpeg-kit` `archived: true`，最后推送 `2026-07-02`。接棒仓库 `arthenica/ffmpeg-kit-next` `archived: false`，最后推送 `2026-10-01`，描述为 "Official continuation of FFmpegKit"，许可证同为 `LGPL-3.0`，明确支持 macOS。**本项目不用它**（走系统 `ffmpeg` 调用路线），仅作记录：若将来要改进程内转码以摆脱 PATH 依赖，这是官方可用途径。
+- **SwiftUI 换肤能力（已编译 + SDK 头文件验证）**：SDK `SwiftUI.swiftinterface` 里共 27 个 public `*Style` 协议，`ToggleStyle` / `PickerStyle` / `ButtonStyle` / `FormStyle` 均在，**但没有 `SliderStyle`**（grep 结果 0，写出来直接编译报 `cannot find type 'SliderStyle' in scope`）。→ 滑杆无法自定义样式，`.tint()` 只能改填充色；要做到设计稿那种完全换肤需用 `DragGesture` 自绘。其余全部实测通过：`.shadow(color:radius:)` 双层发光、`.overlay` + `.stroke` 描边、`LinearGradient` + `.animation(.repeatForever)` 呼吸光、自定义 `ToggleStyle`、`.ultraThinMaterial` + `NSVisualEffectView(.hudWindow, .behindWindow)`、`.font(.system(design:.monospaced))`。**成本注意**：发光 = 阴影 + 模糊，吃 GPU，设置窗偶尔开无所谓，不要做成常驻动画。
 - **API 存在性已编译验证**（macOS 27 SDK）：`AVPlayerItem` 无 `rate`/`defaultRate`（速度在 `AVPlayer`）；保音高要设 item，`.lowQualityZeroLatency` 在 macOS unavailable，`.varispeed` 会变调；`SMAppService.register()` 是 throwing；`SMAppService.Status` 无 `.disabled`（是 `notRegistered`/`enabled`/`requiresApproval`/`notFound`）；`NSWindow` 无 `isIgnoringMouseEvents`（在 `NSView`）；`FormInspector` 不存在；`CGWindowLevelForKey(.desktopWindow)` 可用，需 `NSWindow.Level(rawValue:)` 转换。
 
 ## Constraints
