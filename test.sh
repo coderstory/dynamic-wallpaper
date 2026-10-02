@@ -74,6 +74,60 @@ w.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopWindow)))
 w.contentView!.layer?.addSublayer(AVPlayerLayer())'
 
 echo ""
+echo "── 产品代码 ───────────────────────────"
+# Plan 02-02 T3：把「产品代码长成该长的样子」变成每次都自动重验的判据。
+#
+# ⚠️ 两条纪律，踩过就记住：
+#   ① 扫描对象**一律是 Sources/ 或产品源码文件**。判据持有字面量是判据的定义，
+#      绝不允许反过来扫 test.sh 自己 —— 那样这条检查会恒红。
+#   ② 下面每个 token 在本文件里都以字面量出现（它们就是 grep 模式）。
+#      源码侧计数前先剥掉行注释与块注释：把 token 写进注释会让门禁自己作废。
+
+# 剥注释后在指定目录里数某个字面量。目录不存在时返回 -1，让检查项报红而不是读 stdin 挂住。
+src_count(){
+  local token="$1" dir="${2:-Sources}"
+  [ -d "$dir" ] || { echo "-1"; return; }
+  find "$dir" -name '*.swift' -exec grep -h -v \
+      -e '^[[:space:]]*//' -e '^[[:space:]]*/\*' -e '^[[:space:]]*\*' -e '^[[:space:]]*\*/' {} + \
+    | grep -c -F -- "$token" || true
+}
+
+if swift build --package-path . > "$TMP/build.log" 2>&1; then
+  ok "产品代码 swift build 通过"
+else
+  no "产品代码 swift build 失败" "$(grep -E 'error:' "$TMP/build.log" | head -2)"
+fi
+
+if swift test --package-path . > "$TMP/test.log" 2>&1; then
+  TESTN=$(grep -oE 'Executed [0-9]+ tests, with 0 failures' "$TMP/test.log" | tail -1 | grep -oE '[0-9]+' | head -1)
+  if [ -n "${TESTN:-}" ]; then
+    ok "产品单测全绿（${TESTN} 项）"
+  else
+    no "产品单测未跑出通过汇总" "$(grep -E 'Executed|error:' "$TMP/test.log" | tail -2)"
+  fi
+else
+  no "产品单测失败" "$(grep -E 'error:|failed' "$TMP/test.log" | head -2)"
+fi
+
+N=$(src_count '-21474836')
+[ "$N" = "0" ] && ok "Sources/ 无硬编码桌面层级字面量（D-04）" || no "Sources/ 出现硬编码层级字面量" "剥注释后计数 = $N，期望 0"
+
+N=$(src_count 'desktopIconWindow')
+[ "$N" = "0" ] && ok "Sources/ 不出现被禁用的图标层级标识符（D-04）" || no "Sources/ 出现图标层级标识符" "剥注释后计数 = $N，期望 0"
+
+N=$(src_count 'import AVFoundation' 'Sources/PicCore/State')
+[ "$N" = "0" ] && ok "State/ 零 AVFoundation 依赖（ARCHITECTURE §9）" || no "State/ 依赖了 AVFoundation" "剥注释后计数 = $N，期望 0"
+
+N=$(src_count 'absoluteString')
+[ "$N" = "0" ] && ok "Sources/ 不用 URL 的字符串形式做存在性检查（D-14 / Pitfall 5）" || no "Sources/ 出现 URL 字符串形式" "剥注释后计数 = $N，期望 0"
+
+N=$(src_count 'activeSpaceDidChangeNotification')
+[ "$N" = "0" ] && ok "Sources/ 零 Space 级特殊处理（SYS-02 自动判据）" || no "Sources/ 出现 Space 变更通知订阅" "剥注释后计数 = $N，期望 0"
+
+N=$(src_count 'kCGWindowName')
+[ "$N" = "0" ] && ok "Sources/ 不读窗口标题（T-02-03 隐私）" || no "Sources/ 读了窗口标题键" "剥注释后计数 = $N，期望 0"
+
+echo ""
 echo "── 渲染 ───────────────────────────────"
 swiftc -O -parse-as-library -target arm64-apple-macosx15.0 -o "$TMP/render" $SRC 2>/dev/null \
   && "$TMP/render" "$TMP/out.png" >/dev/null 2>&1 \
