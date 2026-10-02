@@ -74,7 +74,8 @@
 - **`ffmpeg-kit` 已归档、官方接棒为 `ffmpeg-kit-next`（均已验证，GitHub API 实测）**：原仓库 `arthenica/ffmpeg-kit` `archived: true`，最后推送 `2026-07-02`。接棒仓库 `arthenica/ffmpeg-kit-next` `archived: false`，最后推送 `2026-10-01`，描述为 "Official continuation of FFmpegKit"，许可证同为 `LGPL-3.0`，明确支持 macOS。**本项目不用它**（走系统 `ffmpeg` 调用路线），仅作记录：若将来要改进程内转码以摆脱 PATH 依赖，这是官方可用途径。
 - **SwiftUI 换肤能力（已编译 + SDK 头文件验证）**：SDK `SwiftUI.swiftinterface` 里共 27 个 public `*Style` 协议，`ToggleStyle` / `PickerStyle` / `ButtonStyle` / `FormStyle` 均在，**但没有 `SliderStyle`**（grep 结果 0，写出来直接编译报 `cannot find type 'SliderStyle' in scope`）。→ 滑杆无法自定义样式，`.tint()` 只能改填充色；要做到设计稿那种完全换肤需用 `DragGesture` 自绘。其余全部实测通过：`.shadow(color:radius:)` 双层发光、`.overlay` + `.stroke` 描边、`LinearGradient` + `.animation(.repeatForever)` 呼吸光、自定义 `ToggleStyle`、`.ultraThinMaterial` + `NSVisualEffectView(.hudWindow, .behindWindow)`、`.font(.system(design:.monospaced))`。**成本注意**：发光 = 阴影 + 模糊，吃 GPU，设置窗偶尔开无所谓，不要做成常驻动画。
 - **窗口层级写法（已定案，2026-10-03）**：`CGWindowLevelForKey(.desktopWindow)` **在 Swift 里可用**，返回 `-2147483623`。实测编译+运行通过；`.desktopIconWindow` = `-2147483603`，两者差 20。`NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopWindow)))` 赋值给 `NSWindow.level` 成功。**不需要硬编码数字**（SUMMARY.md 记录的 STACK vs ARCHITECTURE 冲突以此定案，ARCHITECTURE 正确）。
-- **签名与分发（已定，2026-10-03）**：**不签名、不公证、不做 DMG。** 用户明确不需要。产出就是一个能在本机 Xcode Run / 直接跑的 `.app`。省掉 Apple Developer Program（$99/年）、`notarytool` 流程、Gatekeeper 处理。与"最少代码"方针一致。
+- **签名与分发（已定，2026-10-03）**：**不签名、不公证**，但**要做 DMG**。用户明确：dmg 需要，只是不搞签名。产出是打包成 DMG 的 `.app`，省掉 Apple Developer Program（$99/年）与 `notarytool` 公证流程。
+- **打包工具已就绪**：本机已装 `create-dmg`（Homebrew），打包脚本几乎零成本。
 - **未签名 app 的开机自启有风险【待验证】**：`SMAppService.mainApp` 在未签名 app 上的行为需实测 —— 登录项注册可能因签名缺失而失败或被系统拒绝。这是 SYS-01 的最大不确定点，Phase 必须实测。若不可行，退路是写一个 `LaunchAgent` plist 到 `~/Library/LaunchAgents/`。
 - **转码的 ffmpeg 现实约束**：实测 macOS 27 上 `brew install ffmpeg` **会失败**（`lame` / `dav1d` 无预编译包，连锁缺 bottle）。本机最终是用 evermeet.cx 的**静态二进制**装成的（9.0.2）。→ 安装提示不能只写 `brew install ffmpeg`，必须给出静态二进制等替代途径。
 - **API 存在性已编译验证**（macOS 27 SDK）：`AVPlayerItem` 无 `rate`/`defaultRate`（速度在 `AVPlayer`）；保音高要设 item，`.lowQualityZeroLatency` 在 macOS unavailable，`.varispeed` 会变调；`SMAppService.register()` 是 throwing；`SMAppService.Status` 无 `.disabled`（是 `notRegistered`/`enabled`/`requiresApproval`/`notFound`）；`NSWindow` 无 `isIgnoringMouseEvents`（在 `NSView`）；`FormInspector` 不存在；`CGWindowLevelForKey(.desktopWindow)` 可用，需 `NSWindow.Level(rawValue:)` 转换。
@@ -82,7 +83,7 @@
 ## Constraints
 
 - **Platform**: macOS 27 原生，Swift + SwiftUI + AVFoundation — 用户明确要原生 app
-- **Distribution**: **不签名、不公证、不做 DMG**；只求本机能跑。**不上 App Store**（可用非公开 API）
+- **Distribution**: **不签名、不公证，但要打 DMG**。**不上 App Store**（可用非公开 API）
 - **Display**: 只主屏 — v1 范围裁剪
 - **Formats**: mp4 / mov / m4v 走硬件解码 — 保画质、省电
 - **Audio**: 变速必须保持原音高 — AVPlayer 默认会变调
@@ -107,7 +108,7 @@
 | 全屏 / 锁屏 / 熄屏 / 睡眠 一律暂停 | 省电优先 | — Pending |
 | 文件夹失效 → 隐藏窗口露出系统壁纸 | 比留黑屏干净 | — Pending |
 | 设置改动立即生效 | 用户明确要求，不接受重启或延迟生效 | — Pending |
-| 不签名不分发，只求本机可跑 | 用户明确不需要；省掉 $99 + 公证 + Gatekeeper | — Pending |
+| 不签名不公证，但要做 DMG | 用户明确：dmg 要，签名不要；省掉 $99 + 公证 | — Pending |
 | 先跑领域调研再定架构 | 桌面窗口层级方案可行性未知 | — Pending |
 | **最小代码量** | 用户明确的整体编码方针 | ⚠️ 与 UI-SPEC 的自绘滑杆/分段控件、打包字体有张力，见 Context |
 
