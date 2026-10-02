@@ -1,0 +1,10 @@
+SAMPLE n=0 iso=2026-10-02T19:24:45Z CGSSessionScreenIsLocked=1 CGSSessionScreenLockedTime=1790961977
+SAMPLE n=1 iso=2026-10-02T19:24:50Z CGSSessionScreenIsLocked=1 CGSSessionScreenLockedTime=1790961977
+SAMPLE n=2 iso=2026-10-02T19:24:55Z CGSSessionScreenIsLocked=1 CGSSessionScreenLockedTime=1790961977
+SAMPLE n=3 iso=2026-10-02T19:25:00Z CGSSessionScreenIsLocked=1 CGSSessionScreenLockedTime=1790961977
+SAMPLE n=4 iso=2026-10-02T19:25:05Z CGSSessionScreenIsLocked=1 CGSSessionScreenLockedTime=1790961977
+SAMPLE n=5 iso=2026-10-02T19:25:10Z CGSSessionScreenIsLocked=1 CGSSessionScreenLockedTime=1790961977
+SAMPLE n=6 iso=2026-10-02T19:25:15Z CGSSessionScreenIsLocked=1 CGSSessionScreenLockedTime=1790961977
+SAMPLE n=7 iso=2026-10-02T19:25:20Z CGSSessionScreenIsLocked=1 CGSSessionScreenLockedTime=1790961977
+SAMPLE n=8 iso=2026-10-02T19:25:25Z CGSSessionScreenIsLocked=1 CGSSessionScreenLockedTime=1790961977
+SAMPLES_TOTAL=9

@@ -98,7 +98,7 @@ AppKit 无 `NSDesktopWindowLevel` 常量，`CGWindowLevelForKey` 是唯一来源
 | 菜单栏两条路线 + 阳性对照 | `bash .planning/spike/menubar-check.sh` | `.planning/spike/out/menubar.log` |
 | 四组播放模式 + 源码计数判据 | `swiftc` 编译 + 四种 `--mode` 各跑一次 | `.planning/spike/out/task1-selftest.log` |
 | 全屏五场景 + 三条几何自检 | `bash .planning/spike/scenarios.sh` | `.planning/spike/out/fullscreen-scenarios.log` |
-| 锁屏探针 120 秒 | `.planning/spike/out/lockprobe` | `.planning/spike/out/lock.log`（122 行） |
+| 锁屏探针 120 秒 | `swiftc` 编译 `.planning/spike/LockProbe.swift` 后运行 | `.planning/spike/out/lock.log`（122 行） |
 | A/B 脚本 `--dry-run` 与解析自检 | `bash .planning/spike/powermetrics_ab.sh --dry-run` | `.planning/spike/out/task3-selftest.log` |
 | `CGSSession` 键表与锁屏值采样 | 独立探针 | `.planning/spike/out/cgsession-keys.txt`、`session-lockvalue.log` |
 | 无头回归脚本 | `bash test.sh` | 终端输出，通过 15 失败 0 |
