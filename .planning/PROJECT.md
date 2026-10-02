@@ -64,7 +64,7 @@
 - **设置窗口**：用户要求先调研再规划 UI，不要先写代码再改。
 - **工具链（已实测）**：本机原本只有 CommandLineTools（无完整 Xcode）。实测 CLT 可编译 `swiftc` / macOS 27 SDK / `codesign` / `notarytool` / `stapler` / AppKit / `ObservableObject` + `@StateObject`；**只有 SwiftUI 的 `@State` 和 `@Observable` 两个宏编译不过**，`actool` 也缺失。用户已开始安装完整 Xcode，装完这两个宏即可用。**"必须装 Xcode 才能开工"不成立** —— 纯 CLT 也能编（避开那两个宏）。
 - **纯 Rust 路线的结论（已评估）**：技术上可行（`objc2` + `core-graphics` crate），但**避不开 AppKit** —— 桌面层级壁纸本质上就是 `NSWindow` 挂在 `kCGDesktopWindowLevel`，换语言不换 API。额外代价是 AVFoundation 异步 API 在 `objc2` 下远不如 Swift 顺手。已定为 **Swift 路线**。
-- **`ffmpeg-kit` 已归档（已验证）**：GitHub API 返回 `arthenica/ffmpeg-kit` 的 `archived: true`，最后代码推送 `2026-07-02`。`description` 未改成弃用措辞，**未找到公开资料**说明官方推荐的替代品。许可证 `LGPL-3.0`。**本项目不用它**（走系统 `ffmpeg` 调用路线），仅作为「别引入」的记录。
+- **`ffmpeg-kit` 已归档、官方接棒为 `ffmpeg-kit-next`（均已验证，GitHub API 实测）**：原仓库 `arthenica/ffmpeg-kit` `archived: true`，最后推送 `2026-07-02`。接棒仓库 `arthenica/ffmpeg-kit-next` `archived: false`，最后推送 `2026-10-01`，描述为 "Official continuation of FFmpegKit"，许可证同为 `LGPL-3.0`，明确支持 macOS。**本项目不用它**（走系统 `ffmpeg` 调用路线），仅作记录：若将来要改进程内转码以摆脱 PATH 依赖，这是官方可用途径。
 - **API 存在性已编译验证**（macOS 27 SDK）：`AVPlayerItem` 无 `rate`/`defaultRate`（速度在 `AVPlayer`）；保音高要设 item，`.lowQualityZeroLatency` 在 macOS unavailable，`.varispeed` 会变调；`SMAppService.register()` 是 throwing；`SMAppService.Status` 无 `.disabled`（是 `notRegistered`/`enabled`/`requiresApproval`/`notFound`）；`NSWindow` 无 `isIgnoringMouseEvents`（在 `NSView`）；`FormInspector` 不存在；`CGWindowLevelForKey(.desktopWindow)` 可用，需 `NSWindow.Level(rawValue:)` 转换。
 
 ## Constraints
