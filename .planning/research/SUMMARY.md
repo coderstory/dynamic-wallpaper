@@ -434,9 +434,9 @@ PITFALLS #1：*"Phase 1 **必须先跑 demo 定案，不要先写架构**。"*
 ### Phase 5: 设置窗口与即时生效
 
 **Rationale:** 依赖 Phase 2 的 `SettingsStore` 与 Phase 3/4 提供的可调项。UI 已定稿（`UI-SPEC.md` B1 深海 + L4 双列）。
-**Delivers:** 按 `.planning/UI-SPEC.md` 实现（**780pt 固定宽 / min 680 / 两列 / 无侧边栏**，**以 UI-SPEC 为准，不是 FEATURES B.4 的 460**）+ 空态警告态（硬需求文案：「没找到能播的文件。壁纸已隐藏，桌面显示的是系统原壁纸。」）+ 两条置灰联动（单循环 → 轮换时间置灰；声音关 → 音量滑杆置灰）+ **全量订阅实现**（`rate` / `volume` 挂 `AVPlayer` 当场生效，**不挂 `AVPlayerItem`**）+ 首次启动直接弹 `NSOpenPanel`。
-**Addresses:** UI-01 ~ UI-03, PLAY-07 ~ PLAY-10, SYS-03, MENUBAR-06
-**Avoids:** PITFALLS UX（不显示暂停原因 → 投诉变玄学）、FEATURES B.6 坑 #6（`Toggle` 别包进 `LabeledContent`）、#2（保音高设 item，变速设 player）
+**Delivers:** 按 `.planning/UI-SPEC.md` 实现（**780pt 固定宽 / min 680 / 两列 / 无侧边栏**，**以 UI-SPEC 为准，不是 FEATURES B.4 的 460**）+ 空态警告态（硬需求文案：「没找到能播的文件。壁纸已隐藏，桌面显示的是系统原壁纸。」）+ 两条置灰联动（单循环 → 轮换时间置灰；声音关 → 音量滑杆置灰）+ **全量订阅实现**（`rate` / `volume` 挂 `AVPlayer` 当场生效，**不挂 `AVPlayerItem`**）+ 首次启动直接弹 `NSOpenPanel` + **运行状态卡：当前是否暂停 + 暂停原因 + ffmpeg 可用性**（UI-04）。
+**Addresses:** UI-01 ~ UI-04, PLAY-07 ~ PLAY-10, SYS-03, MENUBAR-06
+**Avoids:** PITFALLS UX（不显示暂停原因 → 投诉变玄学 —— **UI-04 就是这条的落点**，veto set 仲裁下用户必须知道卡在哪个原因上）、FEATURES B.6 坑 #6（`Toggle` 别包进 `LabeledContent`）、#2（保音高设 item，变速设 player）
 **注意**：`audioTimePitchAlgorithm` 变更**需要重建 `AVPlayerItem`**，是「改不了 live 对象」的少数例外 —— 应在改动时重建并 seek 回 resumeAnchor。【推断】
 **Research flag:** **不需要外部 research** —— UI-SPEC 已定稿。但**需要 `/gsd-ui-phase`**（config `ui_phase: true`，把 UI-SPEC 转成 UI 契约）。
 
