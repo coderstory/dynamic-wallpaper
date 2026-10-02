@@ -77,7 +77,14 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. 菜单**不显示当前播放的文件名**，只有固定的菜单项
   5. 切换 Space / 进台前调度后壁纸按系统默认行为表现（不消失、不报错），且未做任何 Space 级特殊处理
 
-**Plans**: TBD
+**Plans**: 4 plans（串行 4 波，wave N 依赖 wave N-1 —— 本 Phase 是地基，接口必须先定死才能让 Phase 3 ‖ Phase 4 并行）
+
+Plans:
+- [ ] 02-01-PLAN.md — PDCA-A1 解锁会话门禁复跑（锁屏则如实 BLOCKED）+ SwiftPM 产品骨架 + ffmpeg 测试语料 + **三个接口定稿**（`SettingsStore` / `HoldArbiter` / `PlayerController`）+ 64 子集 veto 仲裁单测
+- [ ] 02-02-PLAN.md — tracer 竖切：桌面层窗口 + `AVPlayerLayer` 循环 + `MenuBarExtra` 常驻（一条路走通）+ SC2 的裁剪填满与 300 秒循环数字 + 几何内缩实测 + SYS-02 零-Space-处理源码判据
+- [ ] 02-03-PLAN.md — 菜单三项接 `HoldArbiter`（暂停/继续、打开设置骨架、退出）+ 从原处续播的两条锚点单测 + `QUIT_EXITED=1` 进程终止证据 + MENUBAR-08 哨兵单测（菜单不出现文件名）
+- [ ] 02-04-PLAN.md — `build.sh` 改指 `Sources/` 产出带 `LSUIElement` 的 `.app` 与 DMG + PDCA-A4 刷新回调复测 + `test.sh` 收口 + `02-VERDICT.md` 四栏诚实基线
+
 **Notes**:
 - 分层：`State/` + `Playback/` + `Render/`；`AppDelegate.wiring()` 是唯一装配点
 - 用 `AVQueuePlayer` + `AVPlayerLooper` + `AVPlayerLayer`；`audioTimePitchAlgorithm = .spectral` 显式设（默认 `.timeDomain` 会变调）；`preferredForwardBufferDuration = 3.0`；`isOpaque = true` / `hasShadow = false` / `videoGravity = .resizeAspectFill`
