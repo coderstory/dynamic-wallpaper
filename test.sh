@@ -127,6 +127,47 @@ N=$(src_count 'activeSpaceDidChangeNotification')
 N=$(src_count 'kCGWindowName')
 [ "$N" = "0" ] && ok "Sources/ 不读窗口标题（T-02-03 隐私）" || no "Sources/ 读了窗口标题键" "剥注释后计数 = $N，期望 0"
 
+# ---- Plan 02-03 T1/T3 的菜单侧判据 ----
+MENU="Sources/PicApp/App/MenuContentView.swift"
+
+# 菜单项必须只由 MenuItemID.allCases 遍历产出。哨兵单测（MenuBarModelTests）能成立
+# 全靠这一条 —— 有人「顺手再加一个 Button 显示状态」而不改模型，那条隐私断言就失效了。
+if [ -f "$MENU" ]; then
+  MB=$(grep -c 'Button(' "$MENU")
+  MF=$(grep -c 'ForEach(MenuItemID.allCases' "$MENU")
+  if [ "$MF" -eq 1 ] && [ "$MB" -eq "$MF" ]; then
+    ok "菜单只由 MenuItemID.allCases 遍历渲染（Button 行数 $MB = ForEach 行数 $MF）"
+  else
+    no "菜单渲染脱离 MenuItemID.allCases" "Button( 行数=$MB，ForEach(MenuItemID.allCases 行数=$MF，期望 1 且相等"
+  fi
+else
+  no "菜单源文件缺失" "$MENU 不存在"
+fi
+
+# 隐私源码判据：菜单结构体内部不得出现任何取文件名的 API。
+# 检查范围收窄到 `struct MenuContentView` 的行区间 —— 设置窗骨架
+# （SettingsSkeletonView，同文件）要显示源目录路径，那是 MENUBAR-08 允许的例外。
+# 刻意**不**把范围缩到「扫不到东西」的形式：sed 区间若为空，下面这条会恒绿。
+PN=$(sed -n '/struct MenuContentView/,/^}/p' "$MENU" 2>/dev/null \
+  | grep -v -e '^[[:space:]]*//' -e '^[[:space:]]*/\*' -e '^[[:space:]]*\*' -e '^[[:space:]]*\*/' \
+  | grep -cE 'lastPathComponent|fileName|absoluteString')
+[ "$PN" = "0" ] && ok "菜单结构体内零取文件名 API（MENUBAR-08）" \
+  || no "菜单结构体内出现取文件名 API" "剥注释后计数 = $PN，期望 0（检查范围 $MENU 的 MenuContentView 行区间）"
+
+# T-02-08：菜单动作绕过仲裁器直连 AVPlayer 会让 Phase 3 的 veto 集合失效。
+# 范围是**菜单文件**，不是 Sources/PicApp/ 整个目录 —— 威胁边界是「菜单动作」这条。
+# AppDelegate 的 startWallpaper() 在起播时有一处 player.player.play()：那不是菜单动作，
+# 且发生在任何 watcher 存在之前（Phase 3 才接 watcher），所以不归这条判据管。
+# （该处另记在 .planning/WINDOWS.md，Phase 3 接 watcher 时要一并复核。）
+NP=$({ grep -c 'player.pause()' "$MENU" 2>/dev/null || true; grep -c 'player.play()' "$MENU" 2>/dev/null || true; } | awk '{s+=$1} END{print s+0}')
+[ "$NP" = "0" ] && ok "菜单侧零 AVPlayer 直连（D-11 单向流 / T-02-08）" \
+  || no "菜单侧直连了播放器" "$MENU 内 player.pause()+player.play() 计数 = $NP，期望 0"
+
+# 结束进程的全局调用必须只有一个落点，否则两处将来必然会漂移（T-02-09 的同类纪律）。
+NT=$(src_count 'NSApp.terminate')
+[ "$NT" = "1" ] && ok "结束进程的全局调用全仓唯一落点（AppDelegate）" \
+  || no "结束进程的调用散落到多处" "剥注释后 Sources/ 内计数 = $NT，期望恰好 1"
+
 echo ""
 echo "── 渲染 ───────────────────────────────"
 swiftc -O -parse-as-library -target arm64-apple-macosx15.0 -o "$TMP/render" $SRC 2>/dev/null \
