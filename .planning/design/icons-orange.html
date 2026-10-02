@@ -1,0 +1,161 @@
+<title>Pic 图标 · 白橙</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:30px 20px 70px;background:#0a0d12;color:#e6ecf3;
+  font:13px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text",Arial,sans-serif;-webkit-font-smoothing:antialiased}
+.mast{max-width:940px;margin:0 auto 28px}
+.mast h1{font-size:28px;font-weight:700;letter-spacing:-.022em;margin:0 0 10px}
+.mast p{margin:0;color:#8f9aa8;max-width:66ch}
+h2{font-size:15px;font-weight:600;margin:44px 0 6px}
+.sub{font-size:12px;color:#7c8794;margin:0 0 18px;max-width:68ch}
+.wrap{max-width:940px;margin:0 auto}
+.row{display:flex;flex-wrap:wrap;gap:34px;align-items:flex-end}
+.cell{display:flex;flex-direction:column;align-items:center;gap:11px}
+.cap{font-size:11px;color:#7c8794;font-family:ui-monospace,Menlo,monospace;text-align:center;line-height:1.5}
+svg.ic{border-radius:22.5%;display:block;filter:drop-shadow(0 5px 12px rgba(0,0,0,.4))}
+.dock{display:flex;gap:20px;align-items:flex-end;padding:16px 22px;border-radius:20px;
+  background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.13);backdrop-filter:blur(20px)}
+.ondesk{background:linear-gradient(135deg,#2b3f57,#16222f);padding:36px 30px;border-radius:14px;
+  display:flex;gap:34px;align-items:flex-end;flex-wrap:wrap;border:1px solid rgba(255,255,255,.08)}
+.onlight{background:linear-gradient(135deg,#f2f0ec,#e4e0d9);padding:36px 30px;border-radius:14px;
+  display:flex;gap:34px;align-items:flex-end;flex-wrap:wrap}
+.mbar{display:flex;align-items:center;justify-content:flex-end;gap:16px;padding:0 16px;height:26px;border-radius:7px}
+.mbar.light{background:linear-gradient(#f6f6f6,#ececec);color:#111}
+.mbar.dark{background:linear-gradient(#2c2c2e,#1c1c1e);color:#eee}
+.mbar .mi{opacity:.8;font-size:12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:700px){.grid2{grid-template-columns:1fr}}
+</style>
+
+<div class="mast">
+  <h1>C 桌面层 · 白橙四稿</h1>
+  <p>都是 1024 源图。下面按 <b>Dock 尺寸 72px</b>、<b>暗色桌面</b>、<b>亮色桌面</b>、<b>32px 列表尺寸</b> 四种场景放一遍 —— 小尺寸糊不糊才决定用哪个。</p>
+</div>
+
+<div class="wrap">
+
+<h2>1 · Dock 实际尺寸（72px）</h2>
+<p class="sub">这是你最常看到它的大小。</p>
+<div class="dock" id="dock"></div>
+
+<h2>2 · 暗色桌面 / 亮色桌面</h2>
+<p class="sub">白橙图标在两种壁纸上都得站得住。</p>
+<div class="ondesk" id="ondesk" style="margin-bottom:14px"></div>
+<div class="onlight" id="onlight"></div>
+
+<h2>3 · 小尺寸（32px）</h2>
+<p class="sub">访达列表、⌘Tab 切换器里的大小。缩到这么小还能认出「窗压着窗」就算过关。</p>
+<div class="row" id="small"></div>
+
+<h2>4 · 菜单栏图标</h2>
+<p class="sub">模板图，纯黑 + alpha，系统自动反色。用的是同一个「窗压窗」几何，只是去掉了颜色和细节。</p>
+<div class="grid2">
+  <div><div class="mbar light" id="mlight"></div></div>
+  <div><div class="mbar dark" id="mdark"></div></div>
+</div>
+
+</div>
+
+<script>
+var S = {};
+
+// C1 · 白底 + 橙窗（前窗实心橙，播放键白）
+S.c1 = `<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <linearGradient id="c1bg" x1="0" y1="0" x2="0.35" y2="1">
+    <stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#F2EDE6"/>
+  </linearGradient>
+  <linearGradient id="c1or" x1="0" y1="0" x2="0.7" y2="1">
+    <stop offset="0" stop-color="#FFB25C"/><stop offset="1" stop-color="#F2711C"/>
+  </linearGradient>
+</defs>
+<rect width="1024" height="1024" rx="228" fill="url(#c1bg)"/>
+<rect x="252" y="268" width="470" height="284" rx="52" fill="none" stroke="#FFB25C" stroke-width="30" opacity=".55"/>
+<rect x="212" y="388" width="600" height="330" rx="58" fill="url(#c1or)"/>
+<path d="M452 489 L606 553 L452 617 Z" fill="#FFFFFF"/>
+<path d="M300 792 H724" stroke="#F2711C" stroke-width="34" stroke-linecap="round" opacity=".38"/>
+</svg>`;
+
+// C2 · 白底 + 双层橙（后窗也实心，层次更强）
+S.c2 = `<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <linearGradient id="c2bg" x1="0" y1="0" x2="0.35" y2="1">
+    <stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#F5EFE7"/>
+  </linearGradient>
+  <linearGradient id="c2or" x1="0" y1="0" x2="0.7" y2="1">
+    <stop offset="0" stop-color="#FFC178"/><stop offset="1" stop-color="#EF7A22"/>
+  </linearGradient>
+</defs>
+<rect width="1024" height="1024" rx="228" fill="url(#c2bg)"/>
+<rect x="252" y="248" width="480" height="290" rx="56" fill="#FFCB8C"/>
+<rect x="212" y="386" width="600" height="336" rx="60" fill="url(#c2or)"/>
+<path d="M452 489 L606 554 L452 619 Z" fill="#FFFFFF"/>
+<path d="M300 792 H724" stroke="#F2711C" stroke-width="34" stroke-linecap="round" opacity=".35"/>
+</svg>`;
+
+// C3 · 暖白底 + 橙窗 + 光晕
+S.c3 = `<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <linearGradient id="c3bg" x1="0" y1="0" x2="0.4" y2="1">
+    <stop offset="0" stop-color="#FFF9F2"/><stop offset="1" stop-color="#F7E9D8"/>
+  </linearGradient>
+  <linearGradient id="c3or" x1="0" y1="0" x2="0.7" y2="1">
+    <stop offset="0" stop-color="#FFAE4D"/><stop offset="1" stop-color="#E8641A"/>
+  </linearGradient>
+  <radialGradient id="c3glow" cx="0.5" cy="0.55" r="0.5">
+    <stop offset="0" stop-color="#FFA43D" stop-opacity=".42"/><stop offset="1" stop-color="#FFA43D" stop-opacity="0"/>
+  </radialGradient>
+</defs>
+<rect width="1024" height="1024" rx="228" fill="url(#c3bg)"/>
+<rect width="1024" height="1024" rx="228" fill="url(#c3glow)"/>
+<rect x="252" y="268" width="470" height="284" rx="52" fill="none" stroke="#F08A2E" stroke-width="30" opacity=".42"/>
+<rect x="212" y="388" width="600" height="330" rx="58" fill="url(#c3or)"/>
+<path d="M452 489 L606 553 L452 617 Z" fill="#FFFFFF"/>
+<path d="M300 792 H724" stroke="#E8641A" stroke-width="34" stroke-linecap="round" opacity=".3"/>
+</svg>`;
+
+// C4 · 橙底 + 白窗（反色）
+S.c4 = `<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <linearGradient id="c4bg" x1="0" y1="0" x2="0.6" y2="1">
+    <stop offset="0" stop-color="#FFA940"/><stop offset="1" stop-color="#EE6A15"/>
+  </linearGradient>
+</defs>
+<rect width="1024" height="1024" rx="228" fill="url(#c4bg)"/>
+<rect x="252" y="268" width="470" height="284" rx="52" fill="none" stroke="#FFFFFF" stroke-width="30" opacity=".5"/>
+<rect x="212" y="388" width="600" height="330" rx="58" fill="#FFFFFF"/>
+<path d="M452 489 L606 553 L452 617 Z" fill="#F2711C"/>
+<path d="M300 792 H724" stroke="#FFFFFF" stroke-width="34" stroke-linecap="round" opacity=".45"/>
+</svg>`;
+
+var NAME = {c1:"C1 白底·橙窗", c2:"C2 白底·双层橙", c3:"C3 暖白·带光晕", c4:"C4 橙底·白窗"};
+
+function svg(k, size, extra){
+  return S[k].replace('viewBox="0 0 1024 1024"', 'viewBox="0 0 1024 1024" class="ic" style="width:'+size+'px;height:'+size+'px;'+(extra||'')+'"');
+}
+function cell(k, size){
+  var d=document.createElement("div"); d.className="cell";
+  d.innerHTML = svg(k,size) + '<div class="cap">'+k.toUpperCase()+'</div>';
+  return d;
+}
+["c1","c2","c3","c4"].forEach(function(k){ document.getElementById("dock").appendChild(cell(k,72)); });
+["c1","c2","c3","c4"].forEach(function(k){ document.getElementById("ondesk").appendChild(cell(k,96)); });
+["c1","c2","c3","c4"].forEach(function(k){ document.getElementById("onlight").appendChild(cell(k,96)); });
+["c1","c2","c3","c4"].forEach(function(k){ document.getElementById("small").appendChild(cell(k,32)); });
+
+// 菜单栏图标 —— 同一个「窗压窗」几何，纯黑模板
+var MI = `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+   stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="6.5" y="3.5" width="12" height="8" rx="2.2" opacity=".55"/>
+  <rect x="4" y="9" width="16" height="10" rx="2.4"/>
+  <path d="M10.6 12.2 L14.6 14 L10.6 15.8 Z" fill="currentColor" stroke="none"/>
+</svg>`;
+var MI2 = `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+   stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="7" y="3.5" width="11" height="7" rx="2" opacity=".5"/>
+  <rect x="4.5" y="8.5" width="15" height="9.5" rx="2.4"/>
+  <path d="M11 12 L14.4 13.5 L11 15 Z" fill="currentColor" stroke="none"/>
+</svg>`;
+document.getElementById("mlight").innerHTML = '<span class="mi">◐</span><span class="mi">⌘</span><span>'+MI+'</span><span>'+MI2+'</span>';
+document.getElementById("mdark").innerHTML  = '<span class="mi">◐</span><span class="mi">⌘</span><span>'+MI+'</span><span>'+MI2+'</span>';
+</script>

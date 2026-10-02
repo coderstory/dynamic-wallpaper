@@ -1,0 +1,184 @@
+<title>Pic 图标方案</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:30px 20px 70px;background:#0a0d12;color:#e6ecf3;
+  font:13px/1.5 -apple-system,BlinkMacSystemFont,"SF Pro Text",Arial,sans-serif;-webkit-font-smoothing:antialiased}
+.mast{max-width:940px;margin:0 auto 30px}
+.mast h1{font-size:28px;font-weight:700;letter-spacing:-.022em;margin:0 0 10px}
+.mast p{margin:0;color:#8f9aa8;max-width:66ch}
+h2{font-size:15px;font-weight:600;margin:44px 0 6px;letter-spacing:-.01em}
+.sub{font-size:12px;color:#7c8794;margin:0 0 18px;max-width:68ch}
+.wrap{max-width:940px;margin:0 auto}
+.row{display:flex;flex-wrap:wrap;gap:30px}
+.cell{display:flex;flex-direction:column;align-items:center;gap:10px}
+.cell .cap{font-size:11px;color:#7c8794;font-family:ui-monospace,Menlo,monospace}
+
+/* Dock 风格背景 */
+.dock{display:flex;gap:18px;align-items:flex-end;padding:14px 20px;border-radius:18px;
+  background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.13);
+  backdrop-filter:blur(20px)}
+.dock img,.dock .ic{border-radius:22.5%;display:block}
+.ic{width:72px;height:72px}
+
+/* 菜单栏模拟 */
+.mbar{display:flex;align-items:center;justify-content:flex-end;gap:18px;padding:0 16px;height:26px;
+  border-radius:7px;font-size:13px}
+.mbar.light{background:linear-gradient(#f6f6f6,#ececec);color:#111}
+.mbar.dark{background:linear-gradient(#2c2c2e,#1c1c1e);color:#eee}
+.mbar .mi{opacity:.85;font-size:12px}
+.mbar svg{display:block}
+
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:700px){.grid2{grid-template-columns:1fr}}
+.big{width:180px;height:180px}
+.mid{width:96px;height:96px}
+.sm{width:32px;height:32px}
+</style>
+
+<div class="mast">
+  <h1>图标方案</h1>
+  <p>上排是 <b>app 图标</b>（macOS 圆角方，深海配色），下排是 <b>菜单栏图标</b>（模板图，纯黑，系统自动反色）。两套要一眼看出同源。</p>
+</div>
+
+<div class="wrap">
+
+<h2>App 图标 · 四稿</h2>
+<p class="sub">都是 1024 源图缩下来的。看它们在 Dock 尺寸（72px）和列表尺寸（32px）下的表现 —— 小尺寸糊不糊才是关键。</p>
+<div class="dock" id="dock"></div>
+
+<h2>菜单栏图标 · 四稿</h2>
+<p class="sub">模板图必须是纯黑 + alpha。下面是同一组图在浅色和深色菜单栏里的实际效果 —— 系统会自动把黑色翻成白色。18px 高，跟你菜单栏里其它图标并排。</p>
+<div class="grid2" style="margin-top:16px">
+  <div><div class="mbar light" id="mlight"></div></div>
+  <div><div class="mbar dark" id="mdark"></div></div>
+</div>
+
+<h2>同源检查</h2>
+<p class="sub">app 图标和菜单栏图标放一起，看是不是一个东西。</p>
+<div class="row" id="pair" style="align-items:center"></div>
+
+</div>
+
+<script>
+/* ═══ App 图标（1024 viewBox，深海配色）═══ */
+var APP = {};
+
+// A · 播放地平线：播放三角的尖变成一条地平线
+APP.a = `<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <linearGradient id="ga" x1="0" y1="0" x2="0.6" y2="1">
+    <stop offset="0" stop-color="#12345A"/><stop offset="1" stop-color="#071322"/>
+  </linearGradient>
+  <linearGradient id="gai" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#7FDCFF"/><stop offset="1" stop-color="#2E8FD0"/>
+  </linearGradient>
+  <radialGradient id="glowA" cx="0.5" cy="0.62" r="0.5">
+    <stop offset="0" stop-color="#4CC4F5" stop-opacity=".55"/><stop offset="1" stop-color="#4CC4F5" stop-opacity="0"/>
+  </radialGradient>
+</defs>
+<rect width="1024" height="1024" rx="228" fill="url(#ga)"/>
+<rect width="1024" height="1024" rx="228" fill="url(#glowA)"/>
+<circle cx="512" cy="512" r="206" fill="none" stroke="url(#gai)" stroke-width="26" opacity=".9"/>
+<path d="M462 404 L636 512 L462 620 Z" fill="url(#gai)"/>
+<path d="M256 512 H768" stroke="#4CC4F5" stroke-width="22" stroke-linecap="round" opacity=".55"/>
+<circle cx="256" cy="512" r="17" fill="#7FDCFF"/>
+<circle cx="768" cy="512" r="17" fill="#7FDCFF"/>
+</svg>`;
+
+// B · 波纹：三条动线，暗示视频在动
+APP.b = `<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <linearGradient id="gb" x1="0" y1="0" x2="0.6" y2="1">
+    <stop offset="0" stop-color="#0E2A48"/><stop offset="1" stop-color="#06101C"/>
+  </linearGradient>
+  <linearGradient id="gbi" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#2E8FD0"/><stop offset="1" stop-color="#7FDCFF"/>
+  </linearGradient>
+</defs>
+<rect width="1024" height="1024" rx="228" fill="url(#gb)"/>
+<path d="M196 384 q126 -104 252 0 t252 0 t252 0" fill="none" stroke="url(#gbi)" stroke-width="34" stroke-linecap="round" opacity=".35"/>
+<path d="M196 512 q126 -104 252 0 t252 0 t252 0" fill="none" stroke="url(#gbi)" stroke-width="46" stroke-linecap="round"/>
+<path d="M196 640 q126 -104 252 0 t252 0 t252 0" fill="none" stroke="url(#gbi)" stroke-width="34" stroke-linecap="round" opacity=".35"/>
+</svg>`;
+
+// C · 桌面层：一块窗，播放键压在它上面
+APP.c = `<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <linearGradient id="gc" x1="0" y1="0" x2="0.6" y2="1">
+    <stop offset="0" stop-color="#10304F"/><stop offset="1" stop-color="#061323"/>
+  </linearGradient>
+  <linearGradient id="gci" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#7FDCFF"/><stop offset="1" stop-color="#2883C4"/>
+  </linearGradient>
+</defs>
+<rect width="1024" height="1024" rx="228" fill="url(#gc)"/>
+<rect x="228" y="286" width="568" height="340" rx="46" fill="none" stroke="url(#gci)" stroke-width="28" opacity=".5"/>
+<rect x="196" y="398" width="632" height="340" rx="52" fill="#0A1A2C" stroke="url(#gci)" stroke-width="30"/>
+<path d="M452 494 L608 568 L452 642 Z" fill="url(#gci)"/>
+<path d="M300 830 H724" stroke="#4CC4F5" stroke-width="26" stroke-linecap="round" opacity=".45"/>
+</svg>`;
+
+// D · 光带：一条斜切的光，最抽象
+APP.d = `<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <linearGradient id="gd" x1="0" y1="0" x2="0.6" y2="1">
+    <stop offset="0" stop-color="#0C2440"/><stop offset="1" stop-color="#050E18"/>
+  </linearGradient>
+  <linearGradient id="gdi" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#8FE4FF"/><stop offset="0.5" stop-color="#3FA9E0"/><stop offset="1" stop-color="#1E5F96"/>
+  </linearGradient>
+</defs>
+<rect width="1024" height="1024" rx="228" fill="url(#gd)"/>
+<path d="M228 684 L448 316 a40 40 0 0 1 34 -18 h280 a40 40 0 0 1 34 58 L576 724 a40 40 0 0 1 -34 18 H262 a40 40 0 0 1 -34 -58 Z"
+      fill="url(#gdi)" opacity=".95"/>
+<path d="M228 684 L448 316" stroke="#BFF0FF" stroke-width="12" stroke-linecap="round" opacity=".7"/>
+</svg>`;
+
+/* ═══ 菜单栏图标（纯黑 template，24 viewBox）═══ */
+var MENU = {};
+MENU.a = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="M10 9.5 L15 12 L10 14.5 Z" fill="currentColor" stroke="none"/></svg>`;
+
+MENU.b = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+  <path d="M3 8.5 q3 -3 6 0 t6 0 t6 0"/>
+  <path d="M3 14.5 q3 -3 6 0 t6 0 t6 0" opacity=".55"/></svg>`;
+
+MENU.c = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M3 18 H21"/><path d="M6 18 a6 6 0 0 1 12 0"/><path d="M12 6.5 v3"/></svg>`;
+
+MENU.d = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M2.5 12 h19" opacity=".5"/>
+  <circle cx="7" cy="9" r="1.1" fill="currentColor" stroke="none"/></svg>`;
+
+var NAMES = {
+  a:["播放地平线","播放三角 + 一条穿过它的地平线"],
+  b:["动波","三条波纹，暗示画面在动"],
+  c:["桌面层","一块窗压在另一块上"],
+  d:["光带","一条斜切的光，最抽象"]
+};
+
+var dock = document.getElementById("dock");
+Object.keys(APP).forEach(function(k){
+  var d = document.createElement("div"); d.className="cell";
+  d.innerHTML = '<div class="ic">'+APP[k].replace('viewBox="0 0 1024 1024"','viewBox="0 0 1024 1024" style="width:72px;height:72px;border-radius:22.5%"')+'</div>'+
+                '<div class="cap">'+k.toUpperCase()+'</div>';
+  dock.appendChild(d);
+});
+
+function fillMenu(id){
+  var el = document.getElementById(id);
+  el.innerHTML = '<span class="mi">􀊫</span><span class="mi">􀙨</span>' +
+    Object.keys(MENU).map(function(k){ return '<span class="mi">'+MENU[k]+'</span>' }).join("");
+}
+fillMenu("mlight"); fillMenu("mdark");
+
+var pair = document.getElementById("pair");
+["a","b","c","d"].forEach(function(k){
+  var d = document.createElement("div"); d.className="cell";
+  d.innerHTML = '<div style="display:flex;align-items:center;gap:16px">'+
+    '<div class="ic">'+APP[k].replace('viewBox="0 0 1024 1024"','viewBox="0 0 1024 1024" style="width:64px;height:64px;border-radius:22.5%"')+'</div>'+
+    '<span style="color:#e6ecf3">'+MENU[k].replace('width="20" height="20"','width="26" height="26"')+'</span>'+
+    '</div><div class="cap">'+k.toUpperCase()+' · '+NAMES[k][0]+'</div>';
+  pair.appendChild(d);
+});
+</script>
