@@ -79,6 +79,8 @@
 
 - [ ] **PACK-01**: 打包为 **DMG**（内含 `.app`）—— **不签名、不公证**。用本机已装的 `create-dmg`
 - [ ] **PACK-02**: 不做 App Store 上架（允许使用非公开 API）
+- [ ] **PACK-03**: 提供 `build.sh` —— 一条命令完成编译 + 打包 `.app` + 生成 DMG
+- [ ] **PACK-04**: 提供 `test.sh` —— 一条命令跑完所有可自动化的验证
 
 ---
 
@@ -131,7 +133,7 @@
 | （待 ROADMAP 生成后回填） | | |
 
 **Coverage:**
-- v1 requirements: 44 total
+- v1 requirements: 51 total
 - Mapped to phases: 待填
 - Unmapped: 待填
 
