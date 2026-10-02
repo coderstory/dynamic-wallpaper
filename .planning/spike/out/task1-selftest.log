@@ -1,0 +1,21 @@
+TASK1_SELFTEST ts=2026-10-02T19:13:28Z
+SOURCE_AVQueuePlayer=4
+SOURCE_AVPlayerLooper=2
+SOURCE_audioTimePitchAlgorithm=1
+SOURCE_spectral=1
+SOURCE_timeDomain=0
+SOURCE_absoluteString=0
+SOURCE_hardcoded_-21474836=0
+SOURCE_desktopIconWindow=0
+SOURCE_CGWindowLevelForKey_desktopWindow=1
+COMPILE_RC=0 errors=0
+MODE_v1_GATE=PIC_GATE level=-2147483623 pid=76808 mode=v1 video=002DE018-90F6-4867-81B7-A8E64DC9BCCA.mp4 hasVideoTrack=1
+MODE_v1_TICKS=138 FRAMES_DISTINCT=138 FIRST=frame=1 LAST=frame=138
+MODE_NONE_TICKS=0
+MODE_TRANSPARENT_TICKS=118
+MODE_AVPLAYERVIEW_TICKS=117
+PROBE_v1_LEVEL=n/a
+PROBE_modes_SELF_LEVEL=SELF_LEVEL=-2147483623 SELF_LEVEL=-2147483623 SELF_LEVEL=-2147483623 SELF_LEVEL=-2147483623 
+ABORT_missing_rc=2 line=PIC_ABORT=video_missing:/tmp/does-not-exist.mp4
+ABORT_notrack_rc=2 line=PIC_ABORT=no_video_track:Ping.aiff
+ABORT_badmode_rc=3 line=PIC_ABORT=mode_not_implemented:bogus

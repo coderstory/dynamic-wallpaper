@@ -1,0 +1,13 @@
+MACHINE=27.0.1 arm64
+ACTIVATION_POLICY_RAW regular=0 accessory=1 prohibited=2
+EXPECT_POLICY=1
+NOTE=layer0_windows_zero_is_the_automatable_proxy_for_no_dock_icon
+NOTE2=dock_absence_is_not_visually_confirmed_this_spike_makes_no_screenshot_claim
+PLAN_DEVIATION=policy_expected_value_is_measured_accessory_rawvalue_not_the_0_written_in_the_plan
+CONTROL_REGULARWINDOW layer0=1
+CONTROL_NOTE=control_ok_probe_sees_layer0_windows
+VARIANT=menubarspike alive=1 layer0=0
+VARIANT_PIC_MENU=menubarspike PIC_MENU policy=1 ok=true menubarExtra=ok dock=hidden_by_policy
+VARIANT=menubarfallback alive=1 layer0=0
+VARIANT_PIC_MENU=menubarfallback PIC_MENU policy=1 ok=true menubarExtra=fallback dock=hidden_by_policy
+MENUBAR_VERDICT=ok
