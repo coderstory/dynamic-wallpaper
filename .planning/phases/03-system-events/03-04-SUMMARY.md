@@ -56,7 +56,7 @@ actuals:
 
 commits: 3
 plan_head_before: 9e45d748300d1cdbbd85f4a6bb380a99aa904102
-plan_head_after: abc51a2558f0cc2f3f38ef0e95ffa2fb1c2e3f23
+plan_head_after: 2814a574097e2b0500414490efd5a64ad9344320
 ---
 
 # Phase 3 Plan 04: 电池供电 —— 默认关闭是纯函数里的第二项合取 Summary
@@ -227,5 +227,9 @@ Swift 把 CF 对象交给 ARC，`CFRelease` 被标成 unavailable。计划要求
 - `scripts/probe-power.sh` —— FOUND
 - `.planning/phases/03-system-events/evidence/power-signals.log` —— FOUND（18 行）
 - `.planning/WINDOWS.md` 含 `W-2026-10-03-19` —— FOUND（`uniq -d` 计数 = 0）
-- commits `298aabc` / `9b9489e` / `abc51a2` —— FOUND（`git log --oneline`）
+- commits `298aabc` / `9b9489e` / `2814a57` —— FOUND（`git log --oneline`）
+- ⚠️ `plan_head_after` 指向 `2814a57`（内容树的最后一次提交），**不含**本文件自身的收尾提交 ——
+  frontmatter 里写自己的 sha 是自引用：写进去就改 sha，改 sha 又要改文件，永远收敛不了。
+  「本 plan 的代码 + evidence + SUMMARY 内容」在 `2814a57` 处即已完整，后续提交只动这一个
+  计数字段本身。`commits: 3` 与该字段一致（实测 `git rev-list --count`）。
 - `STATE.md` / `ROADMAP.md` —— **未改动**（本 plan 由编排器持有这两处写入）
