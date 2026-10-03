@@ -70,9 +70,11 @@ final class SettingsPresentationTests: XCTestCase {
 
     /// 旧持久值对不上值表时就近吸附，不给表外的数 —— 否则步进器会索引到越界项。
     func testRotationMinutesSnapsToNearestChoice() {
-        XCTAssertEqual(SettingsPresentation.rotationMinutes(seconds: 299 * 60), 5)
-        XCTAssertEqual(SettingsPresentation.rotationMinutes(seconds: 302 * 60), 5)
-        XCTAssertEqual(SettingsPresentation.rotationMinutes(seconds: 111 * 60), 2 * 60)
+        // 299 秒 ≈ 4.98 分钟（早期写进 UserDefaults 的脏值）
+        XCTAssertEqual(SettingsPresentation.rotationMinutes(seconds: 299), 5)
+        XCTAssertEqual(SettingsPresentation.rotationMinutes(seconds: 302), 5)
+        // 111 分钟远离表内任何一项，取最近的 120
+        XCTAssertEqual(SettingsPresentation.rotationMinutes(seconds: 111 * 60), 120)
     }
 
     func testRotationControlsDisabledOnlyForLoopSingle() {

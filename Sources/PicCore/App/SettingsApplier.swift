@@ -16,10 +16,18 @@ public final class SettingsApplier {
     private let player: PlayerController
     private let arbiter: HoldArbiter
 
+    /// 轮换（04-02 为 Phase 5 预留的落点）。**可选持有**：装配点在 AppDelegate
+    /// `wiring()` 里 attach，单测不必构造整个调度器栈就能测另外四个 apply。
+    public private(set) var rotation: RotationController?
+
     public init(store: SettingsStore, player: PlayerController, arbiter: HoldArbiter) {
         self.store = store
         self.player = player
         self.arbiter = arbiter
+    }
+
+    public func attach(rotation: RotationController) {
+        self.rotation = rotation
     }
 
     /// 速度。第一行的门是变异验证的靶点（`MUT-P5-RATE-GATE`）：
@@ -57,5 +65,32 @@ public final class SettingsApplier {
         applyRate()
         applyVolume()
         applyMuted()
+    }
+
+    // MARK: - Plan 05-02 T1：模式 / 轮换 / 电池三条接线
+
+    /// 模式当场生效：`RotationController.mode` 可直写即生效（04-02 不存第二份）。
+    public func applyMode() {
+        rotation?.mode = store.playMode
+        WallpaperWindowController.emit(
+            "PIC_SETTINGS_APPLY key=playMode value=\(store.playMode.rawValue) applied=\(rotation == nil ? 0 : 1)")
+    }
+
+    /// 间隔当场重排程（04-02 的 `setInterval` 就是 Phase 5 预留的落点）。
+    public func applyInterval() {
+        rotation?.setInterval(store.rotationInterval)
+        WallpaperWindowController.emit(
+            "PIC_SETTINGS_APPLY key=rotationInterval value=\(Int(store.rotationInterval)) applied=\(rotation == nil ? 0 : 1)")
+    }
+
+    /// 「电池时播放」开关的当场重估入口。电源跃迁与设置窗 toggle **走同一个方法**，
+    /// 因此这是全仓唯一一处 `.battery` 的 set 落点（从 AppDelegate 的闭包搬来）。
+    /// 搬家不复制：两处 set 会在电源事件与用户 toggle 之间产生竞态双写（T-05-06）。
+    public func applyBatteryPolicy(isOnBattery: Bool) {
+        arbiter.set(.battery, active: BatteryHoldPolicy.shouldHold(
+            isOnBattery: isOnBattery,
+            pauseOnBatteryEnabled: store.pauseOnBattery))
+        WallpaperWindowController.emit(
+            "PIC_SETTINGS_APPLY key=pauseOnBattery value=\(store.pauseOnBattery ? 1 : 0) applied=1 onBattery=\(isOnBattery ? 1 : 0)")
     }
 }

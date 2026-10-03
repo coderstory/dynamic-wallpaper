@@ -208,6 +208,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 真实会话状态置位，放在最后让它读到的是前面三者已就位的最终态。
     func wiring() {
         arbiter.attach(player)
+        // Phase 5：轮换接进「当场生效」的唯一落点（模式/间隔的改写从这里出去）。
+        settingsApplier.attach(rotation: rotation)
 
         // 四根线都只做「信号 → arbiter.set(_:active:)」的固定映射，不解析任何字符串。
         fullscreenDetector.start { [arbiter] isFullscreen in
@@ -217,16 +219,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             arbiter.set(.displayAsleep, active: signals.displayAsleep)
             arbiter.set(.systemSleeping, active: signals.systemSleeping)
         }
-        powerWatcher.start { [arbiter, store] isOnBattery in
-            // 「要不要暂停」是 BatteryHoldPolicy 的纯函数（D-11：开关默认关闭），
-            // 「结果喂给谁」是装配层的事 —— 两者分开，判据才能在单测里独立成立。
-            arbiter.set(.battery, active: BatteryHoldPolicy.shouldHold(
-                isOnBattery: isOnBattery,
-                pauseOnBatteryEnabled: store.pauseOnBattery))
+        powerWatcher.start { [weak self] isOnBattery in
+            MainActor.assumeIsolated { self?.recordPowerState(isOnBattery) }
         }
         lockWatcher.start { [arbiter] isLocked in
             arbiter.set(.screenLocked, active: isLocked)
         }
+    }
+
+    /// 最近一次已知的电源状态。设置窗的 toggle 要用它**当场**重估，
+    /// 不能等下一次电源跃迁（Phase 5，PLAY-10）。
+    private var lastIsOnBattery = false
+
+    /// 电源信号 → `SettingsApplier.applyBatteryPolicy`。
+    ///
+    /// ⚠️ 「要不要暂停」是 `BatteryHoldPolicy` 的纯函数（D-11：开关默认关闭），
+    /// 「结果喂给谁」由 applier 统一收口 —— 05-02 之前这段映射写在本文件的闭包里，
+    /// 与设置窗的 toggle 会成为两个 `.battery` 写入口（T-05-06 竞态双写）。
+    private func recordPowerState(_ isOnBattery: Bool) {
+        lastIsOnBattery = isOnBattery
+        settingsApplier.applyBatteryPolicy(isOnBattery: isOnBattery)
+    }
+
+    /// 设置窗「电池时播放」toggle 的落点：**同一个**映射，用最近一次已知的电源状态
+    /// 重算一次。视图不直接持有 AppDelegate —— 经 PicApp 注入闭包调本方法。
+    func reapplyBatteryHold() {
+        settingsApplier.applyBatteryPolicy(isOnBattery: lastIsOnBattery)
     }
 
     /// `PIC_LOCK_SIGNAL_PREFIX` —— **测试脚手架，不是产品能力**（`W-2026-10-03-15`）。

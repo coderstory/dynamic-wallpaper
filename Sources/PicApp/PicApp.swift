@@ -19,7 +19,7 @@ struct PicApp: App {
 
     var body: some Scene {
         Window("Pic 设置", id: "settings") {
-            SettingsView()
+            SettingsView(reapplyBatteryHold: { appDelegate.reapplyBatteryHold() })
                 .environment(appDelegate.store)
                 .environment(appDelegate.arbiter)
                 .environment(appDelegate.settingsApplier)

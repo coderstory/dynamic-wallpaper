@@ -117,7 +117,8 @@ final class SettingsApplierTests: XCTestCase {
         return (rotation, scheduler)
     }
 
-    private func makeApplier(arbiter: HoldArbiter = HoldArbiter()) -> (SettingsApplier, SettingsStore) {
+    /// 默认参数表达式在 nonisolated 上求值，`HoldArbiter()` 的 init 是 @MainActor —— 显式传。
+    private func makeApplier(arbiter: HoldArbiter) -> (SettingsApplier, SettingsStore) {
         let store = SettingsStore(defaults: defaults, seed: SettingsStore.Seed())
         return (SettingsApplier(store: store, player: PlayerController(), arbiter: arbiter), store)
     }
@@ -125,7 +126,7 @@ final class SettingsApplierTests: XCTestCase {
     /// 模式切换当场生效：store → applier → `RotationController.mode`（不存第二份）。
     func testApplyModeTakesEffectImmediately() {
         let (rotation, _) = startedRotation()
-        let (applier, store) = makeApplier()
+        let (applier, store) = makeApplier(arbiter: HoldArbiter())
         applier.attach(rotation: rotation)
         store.playMode = .shuffle
 
@@ -137,7 +138,7 @@ final class SettingsApplierTests: XCTestCase {
     /// 轮换间隔当场重排程（04-02 为 Phase 5 预留的落点）。
     func testApplyIntervalReschedulesImmediately() {
         let (rotation, scheduler) = startedRotation()
-        let (applier, store) = makeApplier()
+        let (applier, store) = makeApplier(arbiter: HoldArbiter())
         applier.attach(rotation: rotation)
         let before = scheduler.scheduleCount
         store.rotationInterval = 600

@@ -1,4 +1,5 @@
 import SwiftUI
+import PicCore
 
 // 设置窗组件层 —— 从 `.planning/spike/SettingsSpike.swift` 照搬（已编译渲染基线），
 // 只做三处合同覆盖（UI-SPEC + 2026-10-03 主会话裁决）：
@@ -75,6 +76,9 @@ struct GlowSlider: View {
     /// tracer 的接线形态（SC-4 ③ 的节流纪律）由 SettingsView 传入。
     var onChanged: (() -> Void)? = nil
     var onEnded: (() -> Void)? = nil
+    /// 自绘手势**不认** SwiftUI 的 disabled —— `.disabled(true)` 只置灰原生控件。
+    /// UI-03 要求「禁用交互，不是只调透明度」，所以这里自己读一次 isEnabled。
+    @Environment(\.isEnabled) private var isEnabled
     @State private var dragging = false
     var body: some View {
         GeometryReader { geo in
@@ -92,11 +96,13 @@ struct GlowSlider: View {
             .frame(height: 18)
             .contentShape(Rectangle())
             .gesture(DragGesture(minimumDistance: 0).onChanged { g in
+                guard isEnabled else { return }
                 dragging = true
                 let p = min(max(0, g.location.x / w), 1)
                 value = range.lowerBound + p * (range.upperBound - range.lowerBound)
                 onChanged?()
             }.onEnded { _ in
+                guard isEnabled else { return }
                 dragging = false
                 onEnded?()
             })
@@ -136,7 +142,8 @@ struct GlowStepper: View {
     var body: some View {
         HStack(spacing: 0) {
             stepBtn("chevron.up", -1)
-            Text(values[index] >= 60 ? "\(values[index]/60) 小时" : "\(values[index]) 分钟")
+            // 「N 小时 / N 分钟」的换算是 SettingsPresentation 的唯一来源（视图里不出现第二份）。
+            Text(SettingsPresentation.rotationLabel(minutes: values[index]))
                 .font(mono(11.5)).foregroundStyle(Color.pAccent)
                 .frame(minWidth: 68).padding(.vertical, 4)
                 .background(Color(red: 90/255, green: 190/255, blue: 255/255).opacity(0.05))
