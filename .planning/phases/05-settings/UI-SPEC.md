@@ -23,7 +23,7 @@ created: "2026-10-03"
 | Preset | not applicable |
 | Component library | SwiftUI（macOS 27 SDK）+ AppKit，第一方；**零第三方 UI 依赖** |
 | Icon library | SF Symbols（UI-SPEC §11 已接受与手绘 SVG 的形状差异，不追 100% 一致） |
-| Font | **IBM Plex Mono（打包进 app，OFL）**——数值/副标签/节标题/按钮的「仪器感」来源；行标题用系统字体。回退：SF Mono（字形不同，观感会变，只作打包失败的退路） |
+| Font | **系统默认（2026-10-03 用户拍板，不打包字体文件）** —— 等宽文本（数值/副标签/节标题/按钮）用 `.system(design: .monospaced)`（系统等宽，SF Mono）；行标题用系统默认字体。原「打包 IBM Plex Mono」项已取消，无回退路径 |
 
 ---
 
@@ -36,7 +36,7 @@ Could not enumerate by package command: 本项目是原生 SwiftUI app —— �
 | Component | 来源（spike 行号区间） | Notes |
 |-----------|----------------|-------|
 | `Color` 扩展（pBg/pFg/pAccent/pAccFg/pCard/pSep/pEdge/pGlow/pWarn/pWarnGlow/pDim） | 5–17 | B1 深海令牌，照抄全局 UI-SPEC §3；注意 spike 曾把 pSep 调到比全局更深的值（深色下更可见），契约照抄全局 0.16 |
-| `mono(_:_:)` 字体助手 | 18–20 | **Phase 5 改为 IBM Plex Mono**（见 §13 差异表） |
+| `mono(_:_:)` 字体助手 | 18–20 | 系统等宽（`.system(design: .monospaced)`）—— 2026-10-03 拍板字体用系统默认，不换打包字体 |
 | `Tile` | 23–41 | 图标瓷砖 26×26 圆角 6，双阴影发光；`warn: true` 切换警告配色 |
 | `GlowToggle: ToggleStyle` | 44–59 | 40×23 开关，开态 accent + 发光 |
 | `GlowSlider` | 62–89 | `DragGesture` 自绘滑杆 92×18，轨高 4，手柄 14 |
@@ -78,11 +78,11 @@ Exceptions（相对「4 的倍数」原则）: windowPad 14、rowPadH 13、rowMi
 
 | Role | Size | Weight | Font | Line | Usage |
 |------|------|--------|------|------|-------|
-| Micro | 10.5 | 400 | IBM Plex Mono | 单行 | 副标签（路径、「音高不变」「默认关」）、Hint 行 |
-| SectionHead | 10.5 | 600 | IBM Plex Mono（uppercase + tracking 1.3pt） | 单行 | 四个节标题 |
-| Value | 11.5 | 400 | IBM Plex Mono | 单行 | 控件旁数值（`1.00×`、`60%`、`15 分钟`）、按钮文字 |
-| Label | 12.5 | 400 | 系统字体 | 单行 | 行标题（文件夹、模式、轮换…） |
-| Display | 20 | 600 | IBM Plex Mono | 单行 | 计数数字（正常 accent / 空态 warn） |
+| Micro | 10.5 | 400 | 系统等宽（.monospaced()） | 单行 | 副标签（路径、「音高不变」「默认关」）、Hint 行 |
+| SectionHead | 10.5 | 600 | 系统等宽（uppercase + tracking 1.3pt） | 单行 | 四个节标题 |
+| Value | 11.5 | 400 | 系统等宽（.monospaced()） | 单行 | 控件旁数值（`1.00×`、`60%`、`15 分钟`）、按钮文字 |
+| Label | 12.5 | 400 | 系统默认字体 | 单行 | 行标题（文件夹、模式、轮换…） |
+| Display | 20 | 600 | 系统等宽（.monospaced()） | 单行 | 计数数字（正常 accent / 空态 warn） |
 
 - **恰好 2 个字重**：400 regular + 600 semibold。
 - 与 spike 的两处归一（半点差异，10.5pt 下视觉不可辨，契约以本表为准）：spike 的 11pt 读数 → 统一 11.5；spike 节标题的 `.medium`(500) → 统一 semibold(600)。
@@ -210,13 +210,14 @@ Exceptions（相对「4 的倍数」原则）: windowPad 14、rowPadH 13、rowMi
 
 ## 自造成本（锁定清单 —— **不再新增**）
 
-全局 UI-SPEC 定稿 + PROJECT.md「最小代码量」的张力已在 §Context 记录：三处自造是**已拍板的可接受成本**（约 80 行 + 一个字体文件），同时也是**第一顺位可砍项**。Phase 5 契约：
+全局 UI-SPEC 定稿 + PROJECT.md「最小代码量」的张力已在 §Context 记录：两处自造是**已拍板的可接受成本**（约 80 行），同时也是**第一顺位可砍项**。Phase 5 契约：
 
 | # | 自造项 | 理由（现成的为什么不能用） | 状态 |
 |---|--------|--------------------------|------|
 | 1 | `GlowSlider`（DragGesture 自绘，~40 行） | SDK 27 个 `*Style` 协议里**没有 `SliderStyle`**（grep 0，写出来编不过）；`.tint()` 只能改填充色 | spike 已实测 |
 | 2 | `GlowSegmented`（自绘分段） | `.tint()` 对 macOS 分段控件着色范围有限 | spike 已实测 |
-| 3 | 打包 IBM Plex Mono | 设计的「仪器感」全靠等宽字撑；OFL 可自由分发，约几百 KB | 待打包（spike 用的是 SF Mono，见 §13） |
+
+**字体：系统默认（2026-10-03 用户拍板，不打包字体文件）** —— 原第 3 项「打包 IBM Plex Mono」取消：等宽文本用 `.monospaced()` 系统等宽，正文用系统默认，零字体文件、零注册代码、零供应链面。
 
 `GlowToggle` / `GlowStepper` / `GlowButton` / `Tile` / `Row` / `Card` / `SectionHead` / `Hint` 都是 spike 已实测组件 —— **照搬复用，不算新增自造**。规则：任何新控件先问「SwiftUI 原生 + `.tint()` 能不能凑合」；答案是否时才有资格进本表，且本表现在关闭。
 
@@ -265,7 +266,7 @@ Exceptions（相对「4 的倍数」原则）: windowPad 14、rowPadH 13、rowMi
 
 | 差异 | 处置 |
 |------|------|
-| 字体是 SF Mono，非 IBM Plex Mono | **补齐**：打包 IBM Plex Mono + 注册（§10 #3） |
+| 字体是系统等宽（SF Mono） | moot —— 2026-10-03 拍板字体改系统默认，spike 的 `.monospaced()` 即终态，不再是待补齐差异（原「打包 IBM Plex Mono」项已取消） |
 | **维护卡缺「重新扫描」行**（全局 §5 有、spike 没画） | **补齐**：加一行 `Row`（`arrow.triangle.2.circlepath` + 「扫描」按钮，同一重扫动作） |
 | 转码按钮可点（空 action） | **改为 disabled 占位**（§12） |
 | 分段控件比 HTML 稿略窄 | 微调即可，非阻塞 |
@@ -297,7 +298,7 @@ Applicable state considerations resolved: 9 covered, 1 backstop, 0 unresolved.
 
 | Registry | Blocks Used | Safety Gate |
 |----------|-------------|-------------|
-| （无） | — | not applicable —— 原生 SwiftUI，无第三方 UI registry。字体 IBM Plex Mono 为 OFL 直接打包，非 registry 组件 |
+| （无） | — | not applicable —— 原生 SwiftUI，无第三方 UI registry。字体用系统默认（2026-10-03 拍板），不打包任何字体文件，非 registry 组件 |
 
 ---
 
