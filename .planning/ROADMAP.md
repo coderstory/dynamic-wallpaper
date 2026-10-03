@@ -160,7 +160,7 @@ Plans:
 - [x] 04-01-PLAN.md
 - [x] 04-02-PLAN.md
 - [x] 04-03-PLAN.md
-- [ ] 04-04-PLAN.md
+- [x] 04-04-PLAN.md
 - [ ] 04-05-PLAN.md
 - [ ] 04-06-PLAN.md
 
@@ -271,7 +271,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 1. 桌面层级门禁 spike | 5/5 | Done| 2026-10-03 |
 | 2. 播放内核竖切 | 4/4 | Done| 2026-10-03 |
 | 3. 系统事件仲裁 | 5/5 | Done | 2026-10-03 |
-| 4. 媒体库与轮换 | 3/6 | In Progress|  |
+| 4. 媒体库与轮换 | 4/6 | In Progress|  |
 | 5. 设置窗口与即时生效 | TBD | Not started | - |
 | 6. 转码与独立窗口 | TBD | Not started | - |
 | 7. 打包、开机自启与整机验收 | TBD | Not started | - |
