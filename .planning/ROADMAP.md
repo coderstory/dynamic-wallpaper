@@ -184,11 +184,24 @@ Plans:
   4. 速度（0.5×–2×，**保持原音高** —— 实际听 0.5× / 2× 的人声确认不变调）与声音开关/音量**改动当场生效**，不重启、不等下次换片，且重启 app 后保留
   5. 运行状态卡显示：当前是否暂停 + **暂停原因**（全屏/锁屏/熄屏/睡眠/电池）+ ffmpeg 可用性
 
-**Plans**: TBD
+**Plans**: 4 plans (pending)（串行 4 波，wave N 依赖 wave N-1）
+
+**Wave 1**
+- [ ] 05-01-PLAN.md — xcodeproj + 设置窗 tracer：SettingsPresentation / SettingsApplier / SettingsView / SettingsComponents 骨架与菜单栏「打开设置」接线
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 05-02-PLAN.md — 六项绑定 + 置灰联动：速度/声音/音量等改动当场生效（`rate` / `volume` 挂 `AVPlayer`）+ 单循环→轮换时间、声音关→音量两条禁用交互置灰
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [ ] 05-03-PLAN.md — 空态 + 运行状态卡：计数 0 警告黄空态瓷砖、暂停原因（全屏/锁屏/熄屏/睡眠/电池）与 ffmpeg 可用性展示
+
+**Wave 4** *(blocked on Wave 3 completion)*
+- [ ] 05-04-PLAN.md — XCUITest + 门禁收口：SettingsWindowUITests / SettingsControlsUITests + `run-uitests.sh` 进 `test.sh`
+
 **UI hint**: yes
 **Notes**:
 - 起点不是零：`.planning/spike/SettingsSpike.swift` 已编译渲染；UI-SPEC §11 记录了踩过并修掉的 2 个坑（卡片 `clipShape` 裁掉图标砖发光 → 改 `background` + `overlay` 描边；写死高度留白 → 改 `.fixedSize`）
-- 三处必要自造成本合计约 80 行 + 一个字体文件：自绘滑杆（SDK 无 `SliderStyle`）、自绘分段控件、打包 IBM Plex Mono —— **不再新增自造组件**
+- 两处必要自造成本（自绘滑杆、自绘分段控件）—— 字体用系统默认（2026-10-03 拍板，不打包 IBM Plex Mono），不再新增自造组件
 - `rate` / `volume` 挂 `AVPlayer`，**不挂 `AVPlayerItem`**（looper 副本初始化时冻结，挂 item 会让「立即生效」变成假的）
 - `audioTimePitchAlgorithm` 变更**需要重建 `AVPlayerItem`**（少数改不了 live 对象的例外）—— 重建后 seek 回 resumeAnchor
 - 发光 = 阴影 + 模糊，吃 GPU；设置窗偶尔开无妨，**不要做成常驻动画**，并尊重 `prefers-reduced-motion`
@@ -209,7 +222,21 @@ Plans:
   4. 产物落在**用户选择的壁纸目录内**，原视频保留不删
   5. 产物**不会被再次扫描**成待转码输入（反复扫描不产生死循环），半成品 `.tmp` 不进播放目录，转完的 MP4 立即可被壁纸播到
 
-**Plans**: TBD
+**Plans**: 5 plans (pending)（wave 1 双并行 → 2 → 3 → 4 串行）
+
+**Wave 1** *(06-01 与 06-02 零文件重叠，可并行)*
+- [ ] 06-01-PLAN.md — 参数构造内核：TranscodeCommand（实际命令可审计）/ TranscodeOutputNaming（`Converted/` 产物命名）/ TranscodeCandidateFilter / ConvertedLibrary，纯逻辑 + 单测
+- [ ] 06-02-PLAN.md — 检测 + 进度解析：ExternalToolLocator（PATH 探测 `ffmpeg`，检测不到多条安装途径）+ ProgressParser
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 06-03-PLAN.md — 执行层 + 活体：TranscodeQueue + ProcessTranscodeRunner（`terminationStatus` 退出码、`.tmp` 再 rename）+ tracer 驱动脚本
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [ ] 06-04-PLAN.md — 独立转码窗口：TranscodeWindowView / TranscodeViewModel / InstallPathwaysView —— 队列、进度、将要执行的实际命令展示
+
+**Wave 4** *(blocked on Wave 3 completion)*
+- [ ] 06-05-PLAN.md — 装配收口：AppDelegate 接线 + `transcode-bench.sh` + `test.sh` 判据 + `06-VERDICT.md`
+
 **UI hint**: yes
 **Notes**:
 - **产物目录（已拍板 2026-10-03）**：`<壁纸目录>/Converted/`。扫描器排除该目录名即杜绝回流（TRANS-05）；产物本身是 MP4，天然不进「非原生格式」队列，双保险
@@ -272,8 +299,8 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 2. 播放内核竖切 | 4/4 | Done| 2026-10-03 |
 | 3. 系统事件仲裁 | 5/5 | Done | 2026-10-03 |
 | 4. 媒体库与轮换 | 5/6 | In Progress|  |
-| 5. 设置窗口与即时生效 | TBD | Not started | - |
-| 6. 转码与独立窗口 | TBD | Not started | - |
+| 5. 设置窗口与即时生效 | 0/4 | Not started | - |
+| 6. 转码与独立窗口 | 0/5 | Not started | - |
 | 7. 打包、开机自启与整机验收 | TBD | Not started | - |
 
 ---
