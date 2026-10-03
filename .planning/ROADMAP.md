@@ -121,7 +121,19 @@ Plans:
   4. **veto 仲裁正确**：锁屏状态下退出全屏，壁纸**不**恢复播放；多条件叠加时只有集合清空才续播
   5. 续播锚点不漂移：锚点在 `holds` 由空变非空时写入、由非空变空时消费，叠加暂停期间不被二次覆盖
 
-**Plans**: TBD
+**Plans**: 5 plans
+
+**Wave 1**
+- [ ] 03-01-PLAN.md — tracer：HoldReason 补到 6 case（幂集恰 64）+ LockWatcher 端到端接进 HoldArbiter + `PIC_HOLD` 改事件驱动 + `test.sh` 第一批判据
+
+**Wave 2** *(blocked on Wave 1 —— 三个 plan 各自独占源文件/脚本/evidence，零文件重叠，可并行)*
+- [ ] 03-02-PLAN.md — 全屏检测：几何（14/9 内缩 + 坐标翻转）与几何外信号**缺一不可**的合取判定 + `styleMask` 不可得实测
+- [ ] 03-03-PLAN.md — 熄屏（`CGDisplayIsAsleep` + 重配置回调）与睡眠（`willSleep`/`didWake`）两个独立 reason
+- [ ] 03-04-PLAN.md — 电池：IOKit `ps/` 事件源 + `SettingsStore.pauseOnBattery`（**默认关闭**，纯追加）
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [ ] 03-05-PLAN.md — 装配四根 Watcher 线 + D-12 的 `HoldStatus` 数据落点 + D-06 起播路径收口 + 活体 evidence + `03-VERDICT.md`
+
 **Notes**:
 - 4 个 Watcher（`FullscreenDetector` / `LockWatcher` / `PowerWatcher` / `DisplayWatcher`）**只产出 `HoldReason`，不直接碰播放器**；单向流 `Watcher → HoldArbiter → PlayerController`
 - **不要用优先级链做决策**（本域反模式 2：锁屏 + 全屏反例）；优先级只用于 UI 文案排序
@@ -129,6 +141,7 @@ Plans:
 - 必须对外暴露「当前为什么暂停」—— 这是 UI-04 的落点
 - 纯逻辑单测：`HoldArbiter` 不 import AVFoundation，毫秒级；另加启动时层级常量单测锁死魔法数字
 - ⚠️ 若 Phase 1 的锁屏通知实测失败，本 Phase **升级为需要 research**（真正的降级方案未找到公开资料）
+- ⚠️ **规划期已记的两处计划事实更正**（已进 `03-01` / `03-04` 的任务文本）：① `HoldReason.swift` 的 Phase 2 注释给 `fullscreen` 的 `order = 0` 与 `manualPause` 撞值，会让 `activeReasons` 排序不确定 —— 03-01 取 1…5，`manualPause` 的 0 不动；② CONTEXT 称 `SettingsStore` 已含 battery 开关位，实际没有 —— 03-04 以带默认值的参数**纯追加**
 
 ### Phase 4: 媒体库与轮换
 
