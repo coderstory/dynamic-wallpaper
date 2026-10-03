@@ -68,7 +68,11 @@ public final class PlayerController: NSObject, PlaybackTarget {
 
     public func arbiterCurrentPosition() -> TimeInterval {
         let t = player.currentTime()
-        return t.seconds.isFinite ? t.seconds : 0
+        // `t` 是 let 绑定的局部 CMTime（值类型），`.seconds` 是纯计算属性 ——
+        // 这里**没有**第二次 `player.currentTime()`，也没有 await/actor 跳转，
+        // 所以取一次算一次，与原表达式逐字等价。
+        let seconds = t.seconds
+        return seconds.isFinite ? seconds : 0
     }
 
     public func arbiterSeek(to seconds: TimeInterval) {
