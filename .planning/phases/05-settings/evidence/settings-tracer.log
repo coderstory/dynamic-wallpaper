@@ -9,19 +9,21 @@ PIC_ROT_STOP=1
 PIC_NO_SOURCE reason=no_mp4_in_folder
 PIC_SETTINGS_BOOT rate=1.5 volume=0.5 muted=1 playMode=loopSingle rotationInterval=300 pauseOnBattery=0
 REFRESH_DRIVER=display_link
-PIC_HOLD_OBSERVER_TICKS=2
-PIC_HOLD_OBSERVER_TICKS=3
 PIC_SETTINGS_WINDOW width=780 minWidth=680
 TICK seq=1 pos=nan status=paused items=0
+PIC_MENU_ACTION=next_video
+PIC_ROT_ADVANCES=0
 TICK seq=2 pos=nan status=paused items=0
 TICK seq=3 pos=nan status=paused items=0
+PIC_MENU_ACTION=next_video
+PIC_ROT_ADVANCES=0
 TICK seq=4 pos=nan status=paused items=0
 TICK seq=5 pos=nan status=paused items=0
-REFRESH_TICK_COUNT=315
+REFRESH_TICK_COUNT=311
 REFRESH_WINDOW_SECONDS=10.0
-REFRESH_TICK_RATE=31.5
+REFRESH_TICK_RATE=31.1
 REFRESH_DRIVER_FINAL=display_link
-PIC_TERMINATED pid=96326 reason=application_will_terminate
+PIC_TERMINATED pid=12845 reason=application_will_terminate
 PROBE_BOOT=ok
 PROBE_WINDOW=ok
 PROBE_MIRROR=ok
