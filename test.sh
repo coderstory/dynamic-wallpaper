@@ -305,25 +305,30 @@ fi
 # ⚠️ 读的是 **evidence 文件**而不是脚本的 stdout —— 这些脚本把 driver 的输出
 #    写进日志文件，只往 stderr 打一行 `PROBE_OK`。只收 stdout 会恒红。
 #
-# ⚠️ 这些脚本会**就地覆盖** evidence 文件。若会话锁定态与当初采集时不同，覆盖掉的
+# ⚠️ 这些脚本默认**就地覆盖** evidence 文件。若会话锁定态与当初采集时不同，覆盖掉的
 #    就是上一个 plan 的读数（本 plan 实测踩到：复跑 `probe-fullscreen.sh` 时会话已解锁，
 #    `COVERAGE` 从 1.000 变 0.000，03-02 入库的日志被覆盖）。
-#    → 故先把旧文件留档到 `$TMP`，若变了就提示；**不**替别的 plan 改判据或改产物值。
-probe_line() {   # $1=脚本  $2=evidence 文件  $3=关键行的正则  $4=判据名
-  local f=".planning/phases/03-system-events/evidence/$2"
-  [ -f "$f" ] && cp "$f" "$TMP/$2.before"
+#    → 故本段把产物重定向到 `$TMP/ev`（探针脚本读 PIC_EVIDENCE_DIR 环境变量），
+#      仓库内已入库的证据**一律不写**；旧入库版本只**只读**拷到 `$TMP` 供比对，
+#      若本次读数与入库版本不同就提示，**不**替别的 plan 改判据或改产物值。
+EV_TMP="$TMP/ev"; mkdir -p "$EV_TMP"
+export PIC_EVIDENCE_DIR="$EV_TMP"
+probe_line() {   # $1=脚本  $2=evidence 文件名  $3=关键行的正则  $4=判据名
+  local rel=".planning/phases/03-system-events/evidence/$2"
+  local f="$EV_TMP/$2"
+  [ -f "$rel" ] && cp "$rel" "$TMP/$2.committed"
   perl -e 'alarm 120; exec @ARGV' bash "scripts/$1" > "$TMP/$1.log" 2>&1
   if [ ! -f "$f" ]; then
-    no "$4" "跑 scripts/$1 后 $f 不存在"
+    no "$4" "跑 scripts/$1 后 $rel 不存在"
   elif grep -qE "$3" "$f"; then
-    if [ -f "$TMP/$2.before" ] && ! cmp -s "$f" "$TMP/$2.before"; then
+    if [ -f "$TMP/$2.committed" ] && ! cmp -s "$f" "$TMP/$2.committed"; then
       ok "$4"
       printf "     ⚠️ 该 evidence 的读数与入库版本不同（多半是会话锁定态变了）；旧值留在 git 里\n"
     else
       ok "$4"
     fi
   else
-    no "$4" "$f 里没有匹配 /$3/ 的行"
+    no "$4" "$rel 里没有匹配 /$3/ 的行"
   fi
 }
 probe_line probe-lock.sh      lock-wiring.log           '^LOCK_TRANSITION='              "锁屏跃迁观测已采集（03-01 探针，关键行存在）"

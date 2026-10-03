@@ -19,7 +19,9 @@ export LC_ALL=C
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-EV="$ROOT/.planning/phases/03-system-events/evidence"
+# 证据落点可重定向：test.sh 传 PIC_EVIDENCE_DIR 指向临时目录，避免跑一次门禁
+# 就把已入库的 Phase 3 证据覆盖掉。默认值与原行为逐字一致。
+EV="${PIC_EVIDENCE_DIR:-$ROOT/.planning/phases/03-system-events/evidence}"
 LOG="$EV/fullscreen-signals.log"
 TMP="$(mktemp -d)"
 BIN="$TMP/fullscreendriver"
