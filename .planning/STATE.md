@@ -1,19 +1,19 @@
 ---
 gsd_state_version: "1.0"
 milestone: v3.0
-current_phase: 03
-current_phase_name: 系统事件仲裁
-status: executing
-stopped_at: ROADMAP.md / STATE.md / REQUIREMENTS.md Traceability 生成完毕
-last_updated: "2026-10-03T02:14:58.253Z"
+current_phase: 04
+current_phase_name: 媒体库与轮换
+status: paused
+stopped_at: Phase 4 规划修复中（planner 子任务进行中）
+last_updated: "2026-10-03T06:32:22.000Z"
 last_activity: 2026-10-03
-last_activity_desc: Phase 01 execution started
-state_head: 62dfd18b283160416489125da64f0eec43553fb6
+last_activity_desc: Phase 4 规划修复中（planner 子任务进行中）
+state_head: f2f651485d8fb340a38e2e91f7cc6ba139856076
 progress:
   total_phases: 7
-  completed_phases: 0
-  total_plans: 14
-  completed_plans: 0
+  completed_phases: 3
+  total_plans: 18
+  completed_plans: 14
 ---
 
 # Project State
@@ -23,29 +23,31 @@ progress:
 See: .planning/PROJECT.md (updated 2026-10-03)
 
 **Core value:** 桌面一直是活的视频，而且不偷电、不抢性能 —— 全屏 / 锁屏 / 用电池时自动让路。
-**Current focus:** Phase 01 — 桌面层级门禁 spike
+**Current focus:** Phase 04 — 媒体库与轮换（规划修复中）
 
 ## Current Position
 
-Phase: 03 (系统事件仲裁) — READY TO EXECUTE
-Plan: 1 of 5
-Status: Ready to execute
-Last activity: 2026-10-03 — Phase 01 execution started
+Phase: 04 (媒体库与轮换) — 规划修复中
+Plan: 4 个 PLAN.md 半成品待修（结构错误 5/14/23/26，已派 planner 子任务修复中）
+Status: Paused
+Last activity: 2026-10-03 — Phase 4 规划修复（4 波待修：02-01 接口/语料 → 02-02 tracer 竖切…按 04 plan 的 wave 定义）
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [███████░░░] 78%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
+- Total plans completed: 14
 - Average duration: —
-- Total execution time: 0.0 hours
+- Total execution time: —
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 01-spike | 5 | 5 | — |
+| 02-playback-core | 4 | 4 | — |
+| 03-system-events | 5 | 5 | — |
 
 **Recent Trend:**
 - Last 5 plans: —
@@ -105,6 +107,14 @@ PDCA 全文：`.planning/phases/02-playback-core/02-PDCA.md` · VERDICT：同目
 4. 🔴 桌面层窗口 14pt/9pt 内缩必须处理
 5. ⚠️ **停止用「源码字面量 grep」做判据** —— 8 次自伤的共同根因，Phase 3 起改行为断言
 
+### Phase 3 完成 · PDCA 审计结论（2026-10-03）
+
+**Plan**：4 个 Watcher 各自独立可测 + veto 集合仲裁 + 解除后从原处续播；5 条 SC 全绿；零 UI。
+**Do**：5 plan 全执行；veto 仲裁 + 4 个事件 Watcher（Lock / Display / Power / Fullscreen）装配完成；幂集测试自动从 2 扩到 **64 组**；判定口径落地为 `verdict = nonGeometricActive && covering`；`test.sh` **50 项全绿**、`swift test` **67 tests 全绿**。
+**Check**：SC4 PASS（veto 仲裁 + 注入式反向验证转红）· SC5 PASS（续播锚点不漂移）· SC1 / SC2 / SC3 **PARTIAL** —— 自动部分全过，但**真实跃迁那一跳未观测**（屏幕全程锁着，四条 `*_TRANSITION=unobservable`；拔电源需物理动作）。缺口全部落在结论列，未塞脚注。
+**Act**：缺口移交 Phase 4/7 并写进 ROADMAP —— ① 四类跃迁（`-20`）解锁后重跑三探针；② 全屏误暂停（`-23`）改判定口径前先重采 `probe-fullscreen.sh`；③ 判据禁裸 `grep -c`（累计自伤 12 次），`no()` 文案不得含 `ok()` 判据名。
+PDCA 全文：`.planning/phases/03-system-events/03-PDCA.md` · VERDICT：同目录 `03-VERDICT.md`
+
 ### 🚫 ffmpeg / 转码类测试：可跑，但**必须手动**（用户 2026-10-03 拍板）
 
 **规则：允许执行，但绝不允许进入常规测试路径。**
@@ -130,7 +140,6 @@ None yet.
 - **未签名 app 上 `SMAppService` 行为【待验证】** —— SYS-01 最大不确定点，Phase 7 必须实测；退路是 `~/Library/LaunchAgents/` plist
 - **Phase 6 需深度 research** —— 「视觉无损」的 CRF/preset/编码器未定、产物命名规则待设计（防扫描死循环）、GPL v3.0 自用义务边界【待验证】
 - **`com.apple.screenIsLocked` 未文档化** —— 靠 Phase 1 实测；失效则 Phase 3 升级为需 research（真正降级方案未找到公开资料）
-- **PROJECT.md 介绍段仍写着「签名 .app」** —— 与已定的「不签名 + DMG」不一致，属文档陈旧待修
 
 ## Deferred Items
 
@@ -172,8 +181,8 @@ Items acknowledged and deferred at milestone close, most recent first:
 ## Session Continuity
 
 Last session: 2026-10-03
-Stopped at: ROADMAP.md / STATE.md / REQUIREMENTS.md Traceability 生成完毕
-Resume file: None
+Stopped at: Phase 4 规划修复中（planner 子任务进行中）
+Resume file: `.planning/phases/04-media-library/.continue-here.md`
 
 ---
 
