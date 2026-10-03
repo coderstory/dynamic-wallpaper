@@ -3,9 +3,9 @@ import Observation
 
 /// 「当场生效」的唯一落点（Plan 05-01 T1）。
 ///
-/// UI 只写 store 再调这里 —— 本类是 store 值与播放内核之间唯一的中转
-/// （05-02 起换片等场合复用 `applyAudioTrio()`）。@Observable 是 SwiftUI
-/// `@Environment(SettingsApplier.self)` 注入的前提，无其它可变状态。
+/// UI 只写 store 再调这里 —— 本类是 store 值与播放内核之间唯一的中转。
+/// @Observable 是 SwiftUI `@Environment(SettingsApplier.self)` 注入的前提，
+/// 无其它可变状态。
 ///
 /// ⚠️ 不 import AVFoundation：它只调 `PlayerController` 公开面
 /// （D-13：UI/applier 都不直接摸 `AVPlayer`）。
@@ -16,7 +16,7 @@ public final class SettingsApplier {
     private let player: PlayerController
     private let arbiter: HoldArbiter
 
-    /// 轮换（04-02 为 Phase 5 预留的落点）。**可选持有**：装配点在 AppDelegate
+    /// 轮换。**可选持有**：装配点在 AppDelegate
     /// `wiring()` 里 attach，单测不必构造整个调度器栈就能测另外四个 apply。
     public private(set) var rotation: RotationController?
 
@@ -58,13 +58,6 @@ public final class SettingsApplier {
     public func applyMuted() {
         player.setMuted(store.isMuted)
         WallpaperWindowController.emit("PIC_SETTINGS_APPLY key=muted value=\(store.isMuted ? 1 : 0) applied=1")
-    }
-
-    /// 按序调齐三件（05-02 起在换片等场合复用；顺序与起播尾段一致）。
-    public func applyAudioTrio() {
-        applyRate()
-        applyVolume()
-        applyMuted()
     }
 
     // MARK: - Plan 05-02 T1：模式 / 轮换 / 电池三条接线

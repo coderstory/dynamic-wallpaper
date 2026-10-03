@@ -52,7 +52,7 @@ public struct MenuBarModel {
             // 同上：失效缓存与重扫是 AppDelegate 的活，模型只转交意图。
             rescanFolder()
         case .openSettings:
-            // 设置窗口由调用方处理；Phase 2 只需骨架，Phase 5 填内容。
+            // 设置窗口由调用方处理。
             break
         case .quit:
             quit()

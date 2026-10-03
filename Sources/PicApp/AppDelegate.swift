@@ -390,13 +390,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 #endif
 
-    /// 渲染层建好 AVPlayerLayer 后注进来（Plan 02-04 打包复测时调用）。
-    /// 本 plan 不调它：`attach(player:)` 已经把同一个 player 交给窗口侧的图层，
-    /// 两处都设 player 只会让「接缝在哪」变得不可判定。
-    func attachPlayerLayer(_ layer: AVPlayerLayer) {
-        player.attach(to: layer)
-    }
-
     /// 打开设置窗的前置动作：`.accessory` 的 app 没有 Dock 图标也不会被激活，
     /// 直接 `openWindow` 出来的窗口拿不到焦点。策略切换**只在本文件发生**（T-02-09）。
     @objc func presentSettingsWindow() {
@@ -478,17 +471,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if arbiter.decision.shouldPlay {
             player.setRate(store.rate)
         }
-    }
-
-    /// Phase 2 的同步取片路径。04-05 起 `startWallpaper()` 走 `MediaLibrary.scan`，
-    /// 本函数保留不删（不为此消警告去动别处）。
-    private func firstVideoURL(in folder: URL) -> URL? {
-        let fm = FileManager.default
-        let items = (try? fm.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
-        return items
-            .filter { $0.pathExtension.lowercased() == "mp4" }
-            .sorted { $0.lastPathComponent < $1.lastPathComponent }
-            .first
     }
 
     /// ② T2 的 300 秒循环探针与 T3 的验收脚本共同的原始数据源：

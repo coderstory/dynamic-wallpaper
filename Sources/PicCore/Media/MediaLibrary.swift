@@ -51,10 +51,6 @@ public final class MediaLibrary {
         cached = nil
     }
 
-    public func cachedReport() -> MediaLibraryReport? {
-        cached
-    }
-
     /// 递归扫描一个目录。
     ///
     /// `useCache: true` 时第二次起直接返回内存缓存（SOURCE-05 的机制基础，
@@ -89,7 +85,7 @@ public final class MediaLibrary {
         var items: [VideoItem] = []
         lastError = nil
 
-        var enumOptions: FileManager.DirectoryEnumerationOptions = [.skipsHiddenFiles]
+        let enumOptions: FileManager.DirectoryEnumerationOptions = [.skipsHiddenFiles]
         let enumerator = FileManager.default.enumerator(
             at: folder,
             includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey],

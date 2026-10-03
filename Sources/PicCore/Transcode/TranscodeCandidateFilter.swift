@@ -32,13 +32,6 @@ public enum TranscodeCandidateFilter {
         return result
     }
 
-    /// 单文件判定（扩展名 + 不在 Converted 内），供队列防御性复核。
-    /// `.tmp` 天然不中：扩展名 tmp 不在白名单。
-    public static func isCandidate(_ url: URL) -> Bool {
-        guard candidateExtensions.contains(url.pathExtension.lowercased()) else { return false }
-        return !isInsideConverted(url)
-    }
-
     /// 目录名**大小写不敏感精确匹配** Converted（与 04-01 `MediaLibrary` 同规则），
     /// 不是子串匹配 —— `converted-lower` 不命中。
     private static func isInsideConverted(_ url: URL) -> Bool {
