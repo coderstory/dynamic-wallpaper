@@ -29,7 +29,7 @@ struct PicApp: App {
         // 宽 780 只是初始值（真实宽度由 minWidth/idealWidth 撑），高由内容撑。
         .defaultSize(width: SettingsPresentation.windowWidth, height: 420)
 
-        MenuBarExtra("Pic", systemImage: "photo.on.rectangle") {
+        MenuBarExtra {
             MenuContentView(
                 terminate: { appDelegate.terminateApp() },
                 presentSettings: { appDelegate.presentSettingsWindow() },
@@ -38,7 +38,26 @@ struct PicApp: App {
             )
             .environment(appDelegate.store)
             .environment(appDelegate.arbiter)
+        } label: {
+            // 菜单栏图标视图常驻（菜单内容是打开菜单时才构建的，订阅放那里
+            // 在启动期收不到通知）。`PicOpenSettings` 通知桥挂在这里 —— 调的还是
+            // 用户路径的两个函数（presentSettingsWindow + openWindow）。
+            MenuBarLabel(presentSettings: { appDelegate.presentSettingsWindow() })
         }
+    }
+}
+
+/// 菜单栏图标的常驻壳（仅承载 `--open-settings` 脚手架的通知订阅）。
+private struct MenuBarLabel: View {
+    let presentSettings: () -> Void
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Image(systemName: "photo.on.rectangle")
+            .onReceive(NotificationCenter.default.publisher(for: Notification.Name("PicOpenSettings"))) { _ in
+                presentSettings()
+                openWindow(id: "settings")
+            }
     }
 }
 

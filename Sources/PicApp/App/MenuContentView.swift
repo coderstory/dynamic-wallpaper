@@ -50,16 +50,7 @@ struct MenuContentView: View {
             Button(MenuBarModel.label(for: id, isPaused: isPaused)) { activate(id, isPaused: isPaused) }
                 .settingsShortcut(for: id)
         }
-        .onReceive(NotificationCenter.default.publisher(for: MenuContentView.openSettingsNotification)) { _ in
-            // `--open-settings` 测试脚手架投的通知在这里落地 —— 调的是用户路径的
-            // 两个函数（presentSettings 闭包 + openWindow），不开第二个入口。
-            presentSettings()
-            openWindow(id: "settings")
-        }
     }
-
-    /// AppDelegate 的 `--open-settings` 脚手架投递的通知名。
-    private static let openSettingsNotification = Notification.Name("PicOpenSettings")
 
     private func activate(_ id: MenuItemID, isPaused: Bool) {
         switch id {
