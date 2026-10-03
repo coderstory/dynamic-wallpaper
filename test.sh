@@ -336,6 +336,103 @@ probe_line probe-fullscreen.sh fullscreen-signals.log    '^FULLSCREEN_VERDICT=' 
 probe_line probe-display.sh    display-sleep-signals.log '^DISPLAY_SLEEP_TRANSITION='     "熄屏/睡眠跃迁观测已采集（03-03 探针，关键行存在）"
 probe_line probe-power.sh      power-signals.log         '^POWER_TRANSITION='             "电池跃迁观测已采集（03-04 探针，关键行存在）"
 
+# ---- Plan 04-06 T1：Phase 4 源码层门禁（媒体库与轮换）----
+# ⚠️ 措辞纪律（照 test.sh:144-147 与 :265-268 的原话）：本段新增判据的 `no()`
+#   文案必须带上 `ok()` 的同一句判据名（逐字相同），红绿靠 ✅ / ❌ 前缀区分 ——
+#   下游会在红日志里按 `❌ <判据名>` 定位是哪一条红了。判据一个都不放宽，只改文案。
+# ⚠️ 本段只读源码计数（全部经 src_count），不跑探针脚本、不跑 swift build、
+#   不碰任何转码命令。编译与单测由本脚本既有段承担。
+echo ""
+echo "── Phase 4：媒体库与轮换（源码层）────"
+
+# ① Media/ 分层：只做文件系统与探针，不引渲染层。目录不存在时 src_count 返回 -1，
+#    本项报红 —— Phase 4 门禁要求 Phase 4 的产物在，这是有意的。
+N=$(src_count 'import AppKit' 'Sources/PicCore/Media')
+[ "$N" = "0" ] && ok "Media/ 零 AppKit 依赖（只做文件系统与探针）" \
+  || no "Media/ 零 AppKit 依赖（只做文件系统与探针）" "剥注释后 Sources/PicCore/Media 内计数 = $N，期望 0（目录不存在时为 -1）"
+
+N=$(src_count 'import SwiftUI' 'Sources/PicCore/Media')
+[ "$N" = "0" ] && ok "Media/ 零 SwiftUI 依赖（只做文件系统与探针）" \
+  || no "Media/ 零 SwiftUI 依赖（只做文件系统与探针）" "剥注释后 Sources/PicCore/Media 内计数 = $N，期望 0（目录不存在时为 -1）"
+
+# ② 面板唯一落点：token 带括号数「构造调用」—— 冻结类名 NSOpenPanelFolderPicker
+#    自带无括号子串，裸 token 会被它恒撑到 2（04-04 Deviation 2 / 04-05 Deviation 1
+#    的移交形态）。等于 0 说明 SYS-03 没实现，大于 1 说明出现了第二处落点。
+N=$(src_count 'NSOpenPanel(' 'Sources')
+[ "$N" = "1" ] && ok "文件夹选择面板全仓唯一落点（FolderPicker）" \
+  || no "文件夹选择面板全仓唯一落点（FolderPicker）" "构造调用 NSOpenPanel( 剥注释后全仓计数 = $N，期望恰好 1：等于 0 说明 SYS-03 没实现，大于 1 说明出现了第二处落点"
+
+# ③ 轮换器零播放进度读取（PLAY-06 / D-10「到点就切 ≠ 播完才切」的常驻代理）。
+#    单文件计数：先拷进临时目录再对该目录 src_count（04-02 的既有做法）。
+#    四个标识符是判据的定义，必须逐字出现在判据名里 —— 只要轮换器能读到其中
+#    任何一个，一个「等播完再换」的实现就能悄悄混进来。
+RC="$TMP/rotation-src"; mkdir -p "$RC"
+cp Sources/PicCore/Playback/RotationController.swift "$RC/" 2>/dev/null
+if [ -f "$RC/RotationController.swift" ]; then
+  N=$(src_count 'AVPlayer' "$RC")
+  [ "$N" = "0" ] && ok "轮换器零播放进度读取（AVPlayer）" \
+    || no "轮换器零播放进度读取（AVPlayer）" "剥注释后 RotationController.swift 内计数 = $N，期望 0"
+  N=$(src_count 'arbiterCurrentPosition' "$RC")
+  [ "$N" = "0" ] && ok "轮换器零播放进度读取（arbiterCurrentPosition）" \
+    || no "轮换器零播放进度读取（arbiterCurrentPosition）" "剥注释后 RotationController.swift 内计数 = $N，期望 0"
+  N=$(src_count 'currentTime' "$RC")
+  [ "$N" = "0" ] && ok "轮换器零播放进度读取（currentTime）" \
+    || no "轮换器零播放进度读取（currentTime）" "剥注释后 RotationController.swift 内计数 = $N，期望 0"
+  N=$(src_count 'AVPlayerItemDidPlayToEndTime' "$RC")
+  [ "$N" = "0" ] && ok "轮换器零播放进度读取（AVPlayerItemDidPlayToEndTime）" \
+    || no "轮换器零播放进度读取（AVPlayerItemDidPlayToEndTime）" "剥注释后 RotationController.swift 内计数 = $N，期望 0"
+else
+  no "轮换器零播放进度读取（AVPlayer）" "文件缺失：Sources/PicCore/Playback/RotationController.swift 不在（04-02 未执行）"
+  no "轮换器零播放进度读取（arbiterCurrentPosition）" "文件缺失：Sources/PicCore/Playback/RotationController.swift 不在（04-02 未执行）"
+  no "轮换器零播放进度读取（currentTime）" "文件缺失：Sources/PicCore/Playback/RotationController.swift 不在（04-02 未执行）"
+  no "轮换器零播放进度读取（AVPlayerItemDidPlayToEndTime）" "文件缺失：Sources/PicCore/Playback/RotationController.swift 不在（04-02 未执行）"
+fi
+
+# ---- Plan 04-06 T2：Phase 4 探针 evidence 门禁 ----
+# 刻意的取舍（照实说，不美化）：本段**不重跑** Phase 4 的两个探针脚本，只读
+# **已入库**的 evidence 文件。理由两条：
+#   1. 媒体库探针的 driver 会建一个桌面级 NSWindow（tracer 要证窗口 attach 后
+#      可见）—— 在本脚本里反复起 GUI 进程与既有「打包段不起 GUI 进程」的纪律冲突；
+#   2. fixture 树脚本会在工作树里建/删 .planning/spike/media-fixture/ 并做一次
+#      权限收紧 + 复原，每次跑本脚本都让工作树反复变脏。
+# 行为侧的等价覆盖由本脚本既有的全量 swift test 承担（MediaLibraryTests /
+# PlaybackRouterTests / RotationControllerTests / RotationTests 都在其中）。
+# ⚠️ D-22：真实目录的一次性抽样计时行（informational=1 那行）**不进任何判据** ——
+#    读数随会话浮动，拿它当门禁会变成 flaky 判据，故本段的正则一律不碰它。
+# ⚠️ 本段不重跑探针，也就不需要 evidence 重定向的环境变量；不跑 swift build /
+#    swift test / 任何探针脚本 / 任何转码命令 —— 只读文件。
+echo ""
+echo "── Phase 4：探针 evidence ────────────"
+
+p4_line() {   # $1=evidence 文件名  $2=关键行正则  $3=判据名
+  local f=".planning/phases/04-media-library/evidence/$1"
+  if [ ! -f "$f" ]; then
+    no "$3" "$f 不存在（Phase 4 的探针未执行或 evidence 未入库）"
+    return
+  fi
+  if grep -qE "$2" "$f"; then ok "$3"; else no "$3" "$f 里没有匹配 /$2/ 的行"; fi
+}
+
+p4_line media-library.log '^MEDIA_TRACER_PLAN=playing$' "媒体库 tracer 判定行存在（MEDIA_TRACER_PLAN=playing）"
+p4_line media-library.log '^MEDIA_TRACER_PLAYER_ITEMS=[1-9][0-9]*$' "媒体库 tracer 播放队列已入队（MEDIA_TRACER_PLAYER_ITEMS ≥ 1）"
+p4_line media-library.log '^MEDIA_TRACER_WINDOW_VISIBLE_AFTER_ATTACH=1$' "媒体库 tracer 窗口 attach 后可见（MEDIA_TRACER_WINDOW_VISIBLE_AFTER_ATTACH=1）"
+p4_line media-library.log '^MEDIA_TRACER_WINDOW_VISIBLE_AFTER_TEARDOWN=0$' "媒体库 tracer 窗口 teardown 后不可见（MEDIA_TRACER_WINDOW_VISIBLE_AFTER_TEARDOWN=0）"
+p4_line media-library.log '^MEDIA_TRACER_SCAN_COUNT=1$' "媒体库 tracer 缓存生效（MEDIA_TRACER_SCAN_COUNT=1）"
+
+p4_line rotation-wiring.log '^PIC_ROT_LOOPLIST_ORDER=ok$' "轮换装配装载顺序正确（PIC_ROT_LOOPLIST_ORDER=ok）"
+p4_line rotation-wiring.log '^PIC_ROT_SHUFFLE_ROUND_UNIQUE=3$' "轮换装配一轮内无重复（PIC_ROT_SHUFFLE_ROUND_UNIQUE=3）"
+p4_line rotation-wiring.log '^PIC_ROT_EMPTY_LOADS=0$' "轮换装配空列表零装载（PIC_ROT_EMPTY_LOADS=0）"
+p4_line rotation-wiring.log '^PIC_ROT_MODE=(loopSingle|loopList|shuffle)$' "轮换装配模式 token 已打（PIC_ROT_MODE）"
+p4_line rotation-wiring.log '^PIC_ROT_APP_LAUNCH informational=1 scope=piccore-chain reason=app-launch-blocked-by-locked-screen$' "轮换装配范围声明已打（PIC_ROT_APP_LAUNCH informational=1）"
+
+# 两份日志的媒体文件名零泄漏（T-03-02）：数三个扩展名的出现行数，各要求 0。
+MLFN=$(grep -cE '\.mp4|\.mov|\.m4v' .planning/phases/04-media-library/evidence/media-library.log 2>/dev/null || true)
+[ "$MLFN" = "0" ] && ok "媒体库 evidence 零媒体文件名（T-03-02）" \
+  || no "媒体库 evidence 零媒体文件名（T-03-02）" "media-library.log 内 .mp4/.mov/.m4v 行计数 = ${MLFN:-<文件缺失>}，期望 0"
+RWFN=$(grep -cE '\.mp4|\.mov|\.m4v' .planning/phases/04-media-library/evidence/rotation-wiring.log 2>/dev/null || true)
+[ "$RWFN" = "0" ] && ok "轮换 evidence 零媒体文件名（T-03-02）" \
+  || no "轮换 evidence 零媒体文件名（T-03-02）" "rotation-wiring.log 内 .mp4/.mov/.m4v 行计数 = ${RWFN:-<文件缺失>}，期望 0"
+
 echo ""
 echo "── 渲染 ───────────────────────────────"
 swiftc -O -parse-as-library -target arm64-apple-macosx15.0 -o "$TMP/render" $SRC 2>/dev/null \
