@@ -4,10 +4,10 @@ milestone: v3.0
 current_phase: 04
 current_phase_name: 媒体库与轮换
 status: paused
-stopped_at: Phase 4 规划修复中（planner 子任务进行中）
+stopped_at: Phase 4 规划修复收尾 —— 6 plan 已修复，2 BLOCKER 修复中，修完即 execute
 last_updated: "2026-10-03T06:32:22.000Z"
 last_activity: 2026-10-03
-last_activity_desc: Phase 4 规划修复中（planner 子任务进行中）
+last_activity_desc: Phase 4 规划修复收尾（verify.plan-structure 全 errors=0，plan-checker 第 2 轮 2 BLOCKER 修复中）
 state_head: f2f651485d8fb340a38e2e91f7cc6ba139856076
 progress:
   total_phases: 7
@@ -27,10 +27,10 @@ See: .planning/PROJECT.md (updated 2026-10-03)
 
 ## Current Position
 
-Phase: 04 (媒体库与轮换) — 规划修复中
-Plan: 4 个 PLAN.md 半成品待修（结构错误 5/14/23/26，已派 planner 子任务修复中）
+Phase: 04 (媒体库与轮换) — 规划修复收尾
+Plan: 6 个 PLAN.md 已修复（verify.plan-structure 全 errors=0）；plan-checker 第 2 轮剩 2 个 BLOCKER 修复中（`NSApp.setActivationPolicy` 门 2→3、`PIC_LIBRARY_STATE` 门 1→2），修完即 execute
 Status: Paused
-Last activity: 2026-10-03 — Phase 4 规划修复（4 波待修：02-01 接口/语料 → 02-02 tracer 竖切…按 04 plan 的 wave 定义）
+Last activity: 2026-10-03 — Phase 4 规划修复收尾，待 execute
 
 Progress: [███████░░░] 78%
 
@@ -68,6 +68,8 @@ Recent decisions affecting current work:
 - **最小代码量**：优先系统/框架能力；每引入抽象要说清现成的为什么不能用
 - **设置窗尺寸以 UI-SPEC 为准**：780pt 固定宽 / min 680pt（FEATURES 的 460pt 已过时）
 - **UI 已有可编译 spike**：`.planning/spike/SettingsSpike.swift`（自绘分段控件/滑杆/ToggleStyle/图标瓷砖发光全部实跑过）
+- **test.sh 证据隔离（31b4868）**：探针产物落临时目录（`PIC_EVIDENCE_DIR`），不再覆盖 Phase 3 已提交 evidence；基线复验 50/0
+- **D-14 裁定（1e6e88e）**：`no()` 文案**必须带** `ok()` 判据名（逐字相同，✅/❌ 区分）—— 04-CONTEXT 原「不要带」是反转误记，已改；W-2026-10-03-24 已入册
 
 ### Autonomous Run Directives (2026-10-03, `/gsd-autonomous`)
 
@@ -181,7 +183,7 @@ Items acknowledged and deferred at milestone close, most recent first:
 ## Session Continuity
 
 Last session: 2026-10-03
-Stopped at: Phase 4 规划修复中（planner 子任务进行中）
+Stopped at: Phase 4 规划修复收尾 —— 6 个 plan 已修复（`verify.plan-structure` 全 errors=0），plan-checker 第 2 轮剩 2 个 BLOCKER 修复中（`NSApp.setActivationPolicy` 门 2→3、`PIC_LIBRARY_STATE` 门 1→2），修完即 execute
 Resume file: `.planning/phases/04-media-library/.continue-here.md`
 
 ---
