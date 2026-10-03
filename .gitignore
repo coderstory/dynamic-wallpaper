@@ -6,3 +6,6 @@ fixtures/
 .build/
 Pic.xcodeproj/xcuserdata/
 Pic.xcodeproj/project.xcworkspace/xcuserdata/
+
+# 探针/夹具树的运行时产物（make-media-fixture-tree.sh 生成，可随时重建）
+.planning/spike/media-fixture/
