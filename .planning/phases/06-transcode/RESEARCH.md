@@ -281,9 +281,13 @@ nice -n 10 ffmpeg -nostdin -y \
 ## Open Questions
 
 1. **Phase 4 扫描器的「排除 Converted」语义**（本轮最重要悬项）：是「整个目录不扫」还是「只从待转码候选里排除、播放白名单照扫」？SC#5（转完立即可播）要求后者。**规划期**（Phase 4 executor 完工后）核对 `MediaLibrary` 实际实现；若做成全排除，需补「转码完成后注入播放列表」机制。本轮遵守边界未读 Phase 4 计划/源码。
+   —— **RESOLVED by D-23**（2026-10-03 规划期裁决）：已核对 04-01 契约，`excludedByConverted` 是全排除；裁决 = 产物留 `Converted/`（D-21 不动）+ `ConvertedLibrary` 播放第二入口 + `router.start` 合并（06-01 数据侧 / 06-05 T1 装配侧落地），SC#5 由第二入口补齐。
 2. **arm64 原生 ffmpeg 来源**：本机 x86_64+Rosetta 可用但折损；若追求原生，需人工验证一个可信的 arm64 静态构建源（A8）。不阻塞本 Phase。
+   —— OPEN，执行期处理：仅影响安装途径文案的一个候选项（A8），需要时人工核对来源可信度，不阻塞任何 SC。
 3. **CRF/preset 终值**：C7 的本机实测流程产出，属 Phase 6 执行期动作（手动、单次），不是调研能定的。
+   —— RESOLVED by 06-05 T2：`scripts/transcode-bench.sh` 手动 bench 产出 SSIM/VMAF 数据，终值由人工决策后改 `TranscodeCommand` 基线常量（同 commit 更新断言）。
 4. **`h264_videotoolbox` 选项细节**：A3，执行期人工 `ffmpeg -h encoder=...` 核对（不转码不烤机）。
+   —— OPEN，执行期处理：已登记为 06-05 VERDICT 人工清单项④（`ffmpeg -h encoder=h264_videotoolbox`，不转码不烤机）。
 
 ## Environment Availability
 
