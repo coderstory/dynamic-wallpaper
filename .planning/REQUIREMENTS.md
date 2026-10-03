@@ -195,8 +195,8 @@
 | SOURCE-06 | Phase 4 | Pending |
 | SOURCE-07 | Phase 4 | Pending |
 | SOURCE-08 | Phase 4 | Pending |
-| PLAY-01 | Phase 2 | Pending |
-| PLAY-02 | Phase 2 | Pending |
+| PLAY-01 | Phase 2 | Done |
+| PLAY-02 | Phase 2 | Partial — 裁剪填满 + 内缩几何已实测，缺「铺满 / 无黑边」目视确认（02-VERDICT SC2） |
 | PLAY-03 | Phase 4 | Pending |
 | PLAY-04 | Phase 4 | Pending |
 | PLAY-05 | Phase 4 | Pending |
@@ -205,24 +205,24 @@
 | PLAY-08 | Phase 5 | Pending |
 | PLAY-09 | Phase 5 | Pending |
 | PLAY-10 | Phase 5 | Pending |
-| PAUSE-01 | Phase 3 | Pending |
-| PAUSE-02 | Phase 3 | Pending |
-| PAUSE-03 | Phase 3 | Pending |
-| PAUSE-04 | Phase 3 | Pending |
-| PAUSE-05 | Phase 3 | Pending |
-| PAUSE-06 | Phase 3 | Pending |
-| PAUSE-07 | Phase 3 | Pending |
-| PAUSE-08 | Phase 2 | Pending |
-| MENUBAR-01 | Phase 2 | Pending |
+| PAUSE-01 | Phase 3 | Partial — 合取判定 + 单测已实现，缺真实全屏跃迁观测，存在间歇误暂停（03-VERDICT SC1，W-2026-10-03-23） |
+| PAUSE-02 | Phase 3 | Done |
+| PAUSE-03 | Phase 3 | Done |
+| PAUSE-04 | Phase 3 | Partial — willSleep / didWake 已注册 + 单测，缺真实睡眠跃迁（systemSleeping 未置位） |
+| PAUSE-05 | Phase 3 | Partial — 开关默认关闭已实测，缺拔 / 插电源触发暂停与续播（本机全程 AC） |
+| PAUSE-06 | Phase 3 | Done |
+| PAUSE-07 | Phase 3 | Done |
+| PAUSE-08 | Phase 2 | Done |
+| MENUBAR-01 | Phase 2 | Done |
 | MENUBAR-02 | Phase 5 | Pending |
-| MENUBAR-03 | Phase 2 | Pending |
+| MENUBAR-03 | Phase 2 | Done |
 | MENUBAR-04 | Phase 4 | Pending |
 | MENUBAR-05 | Phase 4 | Pending |
 | MENUBAR-06 | Phase 5 | Pending |
-| MENUBAR-07 | Phase 2 | Pending |
-| MENUBAR-08 | Phase 2 | Pending |
+| MENUBAR-07 | Phase 2 | Done |
+| MENUBAR-08 | Phase 2 | Done |
 | SYS-01 | Phase 7 | Pending |
-| SYS-02 | Phase 2 | Pending |
+| SYS-02 | Phase 2 | Partial — 零 Space 特殊处理已证，缺真实切 Space / 台前调度验证（02-VERDICT SC5） |
 | SYS-03 | Phase 4 | Pending |
 | TRANS-01 | Phase 6 | Pending |
 | TRANS-02 | Phase 6 | Pending |
@@ -238,6 +238,19 @@
 | PACK-02 | Phase 7 | Pending |
 | PACK-03 | Phase 7 | Pending |
 | PACK-04 | Phase 7 | Pending |
+| ASSET-01 | Phase 7 | Pending |
+| ASSET-02 | Phase 7 | Pending |
+| ASSET-03 | Phase 7 | Pending |
+| TEST-01 | Phase 3 | Done |
+| TEST-02 | Phase 4 | Pending |
+| TEST-03 | Phase 4 | Pending |
+| TEST-04 | Phase 5 | Pending |
+| TEST-05 | Phase 6 | Pending |
+| TEST-06 | Phase 6 | Pending |
+| TEST-07 | Phase 5 | Pending |
+| TEST-08 | Phase 5 | Pending |
+| TEST-09 | Phase 5 | Pending |
+| TEST-10 | Phase 5 | Pending |
 
 **Coverage:**
 - v1 requirements: 51 total
