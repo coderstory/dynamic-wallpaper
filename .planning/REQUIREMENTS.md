@@ -253,8 +253,8 @@
 | TEST-10 | Phase 5 | Pending |
 
 **Coverage:**
-- v1 requirements: 51 total
-- Mapped to phases: 51
+- v1 requirements: 64 total
+- Mapped to phases: 64
 - Unmapped: 0
 - Phase 1（桌面层级门禁 spike）不交付需求 —— 它是 throwaway 验证阶段，消解 PLAY-01 / PLAY-02 / PAUSE-01 / PAUSE-02 / SYS-02 的可行性风险
 
