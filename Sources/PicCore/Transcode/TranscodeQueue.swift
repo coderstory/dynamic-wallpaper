@@ -94,8 +94,89 @@ public final class TranscodeQueue {
         onJobsChanged?()
     }
 
-    /// RED 骨架：类型面齐全、行为空 —— 断言红在行为上，不在编译上。
-    public func run() async {}
+    /// 串行 drain：逐 job 预检 → 执行 → 终态。for 循环天然串行，不建 Task 组；
+    /// 队列从非空排空（至少处理过一个 job）→ `onBatchFinished` 恰一次。
+    public func run() async {
+        guard jobs.contains(where: { Self.isActive($0.state) }) else { return }
+        for index in jobs.indices {
+            guard case .pending = jobs[index].state else { continue }
+            await runJob(at: index)
+        }
+        onBatchFinished?()
+    }
+
+    /// 单个 job 的完整生命周期：预检（可用性 → 幂等 → 目录 → 磁盘）→ 执行 → 落盘。
+    private func runJob(at index: Int) async {
+        let source = jobs[index].sourceURL
+
+        // 预检 1：工具不可用 → 不进 runner（入口置灰之外的第二道闸）。
+        guard case .available(let toolPath) = availability() else {
+            jobs[index].state = .failed(reason: "ffmpeg_unavailable")
+            onJobsChanged?()
+            return
+        }
+
+        // 预检 2：产物已新鲜 → 幂等跳过，零 runner 调用（防重复烤机）。
+        if naming.skipDecision(source: source) {
+            jobs[index].state = .skipped
+            onJobsChanged?()
+            return
+        }
+
+        // 预检 3：建 Converted 目录（已存在不报错）。
+        let convertedDirectory = naming.convertedDirectoryURL()
+        try? FileManager.default.createDirectory(
+            at: convertedDirectory, withIntermediateDirectories: true)
+
+        // 预检 4：磁盘余量 < 源大小 → 不 spawn（P6；源大小读不到按「不拦截」）。
+        if let freeSpace = freeSpaceProvider(convertedDirectory),
+           let sourceSize = (try? FileManager.default.attributesOfItem(atPath: source.path))?[.size] as? Int64,
+           freeSpace < sourceSize {
+            jobs[index].state = .failed(reason: "disk_space")
+            onJobsChanged?()
+            return
+        }
+
+        jobs[index].state = .running
+        onJobsChanged?()
+
+        let temporaryURL = naming.temporaryURL(for: source)
+        let arguments = TranscodeCommand.arguments(input: source, output: temporaryURL)
+        // duration 在 job 开始时取一次缓存，不逐行取（拿不到 → percent 走 nil 路径）。
+        let durationSeconds = await durationProvider(source)
+        var progressText = ""
+        let status = runner.run(
+            ffmpegPath: toolPath,
+            arguments: arguments,
+            outputTemporaryPath: temporaryURL.path
+        ) { line in
+            Task { @MainActor in
+                progressText += line + "\n"
+                let snapshot = ProgressParser.parseChunk(progressText)
+                self.jobs[index].percent = ProgressParser.percent(
+                    snapshot: snapshot, durationSeconds: durationSeconds)
+                self.onJobsChanged?()
+            }
+        }
+
+        if status == 0 {
+            let outputURL = naming.outputURL(for: source)
+            do {
+                if FileManager.default.fileExists(atPath: outputURL.path) {
+                    try FileManager.default.removeItem(at: outputURL)
+                }
+                try FileManager.default.moveItem(at: temporaryURL, to: outputURL)
+                jobs[index].state = .succeeded
+            } catch {
+                try? FileManager.default.removeItem(at: temporaryURL)
+                jobs[index].state = .failed(reason: "output_conflict")
+            }
+        } else {
+            try? FileManager.default.removeItem(at: temporaryURL)
+            jobs[index].state = .failed(reason: "exit_nonzero")
+        }
+        onJobsChanged?()
+    }
 
     private static func isActive(_ state: TranscodeJobState) -> Bool {
         switch state {
