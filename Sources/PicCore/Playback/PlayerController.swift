@@ -79,4 +79,7 @@ public final class PlayerController: NSObject, PlaybackTarget {
             player.pause()
         }
     }
+
+    /// RED 阶段的编译骨架：行为故意为空，由 PlayerControllerFreezeTests 转红证明。
+    public func stop() {}
 }
