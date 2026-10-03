@@ -26,8 +26,6 @@ public protocol VideoLoading: AnyObject {
 @MainActor
 public final class PlaybackRouter {
 
-    /// 真的交出去的装载次数（T3 打点用）。**不是播放状态** —— 拿它当
-    /// 播放状态读会把「装载过」误读成「在播」。
     public private(set) var loadCount: Int = 0
 
     private let rotation: RotationController
@@ -44,8 +42,11 @@ public final class PlaybackRouter {
     /// 3. `start()` —— 这一步立刻用 `items[0]` 回调一次。
     /// 绑在 `start()` 之前是硬要求：反序会漏掉首条。
     public func start(with items: [VideoItem]) {
+        // `loadCount` 记的是**真的交出去的装载次数，不是播放状态** —— 拿它当
+        // 播放状态读会把「装载过」误读成「在播」。
         rotation.onAdvance = { [weak self] item in
-            self?.recordLoad(item.url)
+            self?.loader.loadPlayback(url: item.url)
+            self?.loadCount += 1
         }
         rotation.setItems(items)
         rotation.start()
@@ -63,10 +64,5 @@ public final class PlaybackRouter {
 
     public var current: VideoItem? {
         rotation.current
-    }
-
-    private func recordLoad(_ url: URL) {
-        loader.loadPlayback(url: url)
-        loadCount += 1
     }
 }
