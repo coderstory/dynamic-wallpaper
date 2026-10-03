@@ -47,4 +47,48 @@ final class SettingsPresentationTests: XCTestCase {
         XCTAssertEqual(SettingsPresentation.rateBounds.lowerBound, 0.5)
         XCTAssertEqual(SettingsPresentation.rateBounds.upperBound, 2.0)
     }
+
+    // ---- Plan 05-02 T1：轮换值表 / 两条置灰联动 / 模式文案 ----
+    //
+    // ⚠️ 两条联动的用例是 UI-03 的牙齿：变异 MUT-P5-LINK-ROT / MUT-P5-LINK-VOL
+    // 拿掉任一条判据，本组必须转红，且红光来自断言而非编译失败（D-16）。
+
+    func testRotationLabelSwitchesToHoursAtSixty() {
+        XCTAssertEqual(SettingsPresentation.rotationLabel(minutes: 5), "5 分钟")
+        XCTAssertEqual(SettingsPresentation.rotationLabel(minutes: 15), "15 分钟")
+        XCTAssertEqual(SettingsPresentation.rotationLabel(minutes: 60), "1 小时")
+        XCTAssertEqual(SettingsPresentation.rotationLabel(minutes: 120), "2 小时")
+    }
+
+    func testRotationSecondsAndMinutesRoundTrip() {
+        for minutes in SettingsPresentation.rotationChoicesMinutes {
+            let seconds = SettingsPresentation.rotationSeconds(minutes: minutes)
+            XCTAssertEqual(seconds, TimeInterval(minutes) * 60)
+            XCTAssertEqual(SettingsPresentation.rotationMinutes(seconds: seconds), minutes)
+        }
+    }
+
+    /// 旧持久值对不上值表时就近吸附，不给表外的数 —— 否则步进器会索引到越界项。
+    func testRotationMinutesSnapsToNearestChoice() {
+        XCTAssertEqual(SettingsPresentation.rotationMinutes(seconds: 299 * 60), 5)
+        XCTAssertEqual(SettingsPresentation.rotationMinutes(seconds: 302 * 60), 5)
+        XCTAssertEqual(SettingsPresentation.rotationMinutes(seconds: 111 * 60), 2 * 60)
+    }
+
+    func testRotationControlsDisabledOnlyForLoopSingle() {
+        XCTAssertFalse(SettingsPresentation.rotationControlsEnabled(playMode: .loopSingle))
+        XCTAssertTrue(SettingsPresentation.rotationControlsEnabled(playMode: .loopList))
+        XCTAssertTrue(SettingsPresentation.rotationControlsEnabled(playMode: .shuffle))
+    }
+
+    func testVolumeControlsDisabledOnlyWhenMuted() {
+        XCTAssertTrue(SettingsPresentation.volumeControlsEnabled(isMuted: false))
+        XCTAssertFalse(SettingsPresentation.volumeControlsEnabled(isMuted: true))
+    }
+
+    /// 分段控件按 `PlayMode.allCases` 渲染（04-02 T1 锁序），文案单一来源。
+    func testPlayModeLabelCoversAllCasesInOrder() {
+        XCTAssertEqual(PlayMode.allCases.map(SettingsPresentation.playModeLabel),
+                       ["单循环", "列表循环", "随机"])
+    }
 }
