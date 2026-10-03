@@ -105,8 +105,8 @@ final class SettingsStoreTests: XCTestCase {
     func testPlayModeDefaultIsLoopSingle() {
         XCTAssertEqual(SettingsStore.Seed().playMode, .loopSingle)
         XCTAssertEqual(makeStore().playMode, .loopSingle)
-        XCTAssertEqual(PlayMode.allCases, [.loopSingle],
-                       "Phase 2 只枚举单循环；随机/顺序/播完停止属 Phase 4")
+        XCTAssertEqual(PlayMode.allCases, [.loopSingle, .loopList, .shuffle],
+                       "Phase 2 只枚举单循环；列表循环/列表随机是 Phase 4（Plan 04-02）纯追加的 case")
     }
 
     // ── Plan 03-04 T1：PAUSE-05「电池供电时暂停（开关，默认关闭）」的两半 ──────
