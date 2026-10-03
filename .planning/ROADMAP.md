@@ -156,14 +156,14 @@ Plans:
   4. 下次启动自动读取已配置文件夹并开始播放；换文件夹后立即播新目录；菜单项「重新扫描文件夹」可用，且扫描结果被缓存而非每次切片重扫
   5. 目录里没有可用视频、或文件夹被删/被移动 → **壁纸窗口隐藏，露出系统原壁纸**（不留黑屏、不崩溃）
 
-**Plans**: 7 plans
+**Plans**: 7/7 plans executed
 - [x] 04-01-PLAN.md
 - [x] 04-02-PLAN.md
 - [x] 04-03-PLAN.md
 - [x] 04-04-PLAN.md
 - [x] 04-05-PLAN.md
 - [x] 04-06-PLAN.md
-- [ ] 04-07-PLAN.md — gap 修复：SC3 单循环下「立即下一个」按 reason 前进 + 切换空帧消除（G-04-3 / G-04-3b）
+- [x] 04-07-PLAN.md — gap 修复：SC3 单循环下「立即下一个」按 reason 前进 + 切换空帧消除（G-04-3 / G-04-3b）
 
 **Notes**:
 - `FileManager.enumerator` 递归扫描 + 扩展名过滤 + `AVURLAsset` 校验可加载视频轨
@@ -304,7 +304,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 1. 桌面层级门禁 spike | 5/5 | Done| 2026-10-03 |
 | 2. 播放内核竖切 | 4/4 | Done| 2026-10-03 |
 | 3. 系统事件仲裁 | 5/5 | Done | 2026-10-03 |
-| 4. 媒体库与轮换 | 6/7 | In Progress|  |
+| 4. 媒体库与轮换 | 7/7 | In Progress|  |
 | 5. 设置窗口与即时生效 | 2/4 | In Progress|  |
 | 6. 转码与独立窗口 | 3/5 | In Progress|  |
 | 7. 打包、开机自启与整机验收 | 1/4 | In Progress|  |
