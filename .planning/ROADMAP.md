@@ -185,13 +185,13 @@ Plans:
   4. 速度（0.5×–2×，**保持原音高** —— 实际听 0.5× / 2× 的人声确认不变调）与声音开关/音量**改动当场生效**，不重启、不等下次换片，且重启 app 后保留
   5. 运行状态卡显示：当前是否暂停 + **暂停原因**（全屏/锁屏/熄屏/睡眠/电池）+ ffmpeg 可用性
 
-**Plans**: 0/4 plans executed (pending)（串行 4 波，wave N 依赖 wave N-1）
+**Plans**: 2/4 plans executed (pending)（串行 4 波，wave N 依赖 wave N-1）
 
 **Wave 1**
-- [ ] 05-01-PLAN.md — xcodeproj + 设置窗 tracer：SettingsPresentation / SettingsApplier / SettingsView / SettingsComponents 骨架与菜单栏「打开设置」接线
+- [x] 05-01-PLAN.md — xcodeproj + 设置窗 tracer：SettingsPresentation / SettingsApplier / SettingsView / SettingsComponents 骨架与菜单栏「打开设置」接线
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 05-02-PLAN.md — 六项绑定 + 置灰联动：速度/声音/音量等改动当场生效（`rate` / `volume` 挂 `AVPlayer`）+ 单循环→轮换时间、声音关→音量两条禁用交互置灰
+- [x] 05-02-PLAN.md — 六项绑定 + 置灰联动：速度/声音/音量等改动当场生效（`rate` / `volume` 挂 `AVPlayer`）+ 单循环→轮换时间、声音关→音量两条禁用交互置灰
 
 **Wave 3** *(blocked on Wave 2 completion)*
 - [ ] 05-03-PLAN.md — 空态 + 运行状态卡：计数 0 警告黄空态瓷砖、暂停原因（全屏/锁屏/熄屏/睡眠/电池）与 ffmpeg 可用性展示
@@ -300,7 +300,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 2. 播放内核竖切 | 4/4 | Done| 2026-10-03 |
 | 3. 系统事件仲裁 | 5/5 | Done | 2026-10-03 |
 | 4. 媒体库与轮换 | 6/7 | In Progress|  |
-| 5. 设置窗口与即时生效 | 0/4 | Planned    |  |
+| 5. 设置窗口与即时生效 | 2/4 | In Progress|  |
 | 6. 转码与独立窗口 | 3/5 | In Progress|  |
 | 7. 打包、开机自启与整机验收 | TBD | Not started | - |
 
