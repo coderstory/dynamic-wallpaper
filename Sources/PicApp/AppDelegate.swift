@@ -47,9 +47,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let sessionState = SettingsSessionState()
     // ---- Phase 6 的 ffmpeg 判定与转码队列（Plan 06-04 T2 交付）----
     /// 单一真相源（D-17 收编）：设置窗状态卡、维护行置灰态、转码窗徽章读的都是它。
-    /// lazy：构造参数要引用上面的持有者，属性默认值里引用不了 self。
-    private lazy var ffmpegLocator: ExternalToolLocator =
-        ExternalToolLocator(which: ProcessWhichProbe(), fileSystem: FileManagerExecutableProbe())
+    /// 生产件走 `FFmpegAvailability.productionLocator()` —— 判定层唯一的生产构造点。
+    private lazy var ffmpegLocator: ExternalToolLocator = FFmpegAvailability.productionLocator()
     /// 转码窗徽章复用**同一个** locator —— 入口置灰与徽章不许出现两套判定（D-17）。
     var transcodeLocator: ExternalToolLocator { ffmpegLocator }
     /// 最近一次的判定结论。`refreshFFmpegAvailability()` 的唯一写入口。
