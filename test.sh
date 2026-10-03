@@ -252,6 +252,85 @@ else
   no "仲裁器用例失败" "$(grep -E "error:|XCTAssert.*failed|failed -" "$TMP/arbiter.log" | head -2)"
 fi
 
+# ---- Plan 03-05 T2：Phase 3 的四条源码判据 + 两条行为判据 + 四条探针判据 ----
+# ⚠️ 措辞纪律：下面新增判据的 `no()` 文案**必须带上 `ok()` 的同一句判据名**。
+#   03-01 / 03-02 / 03-04 连续踩了三次 —— 判据转红了但 `grep -c '❌ …'` 命中 0，
+#   查不到是哪一条。判据一个都不放宽，只改文案。
+# ⚠️ 覆盖数声明：本段只有第 ① 条做了插桩反向验证（往 LockWatcher.swift 插
+#   `import AVFoundation` → 该条必须转红 → 恢复 → cmp -s）。第 ② 条由 03-01 验过、
+#   第 ③ 条是 Phase 2 既有、第 ④ 条与 03-02 的 SYS-02 判据同形且 03-02 已验。
+#   **不许**把这段写成「四条源码判据都做过反向验证」。
+
+# ① D-09 分层（本 plan 唯一做反向验证的那条）
+N=$(src_count 'import SwiftUI' 'Sources/PicCore/State')
+[ "$N" = "0" ] && ok "State/ 零 SwiftUI 依赖（D-12 只产数据不渲染）" \
+  || no "State/ 零 SwiftUI 依赖（D-12 只产数据不渲染）" "剥注释后 Sources/PicCore/State 内计数 = $N，期望 0"
+
+N=$(src_count 'import AppKit' 'Sources/PicCore/State')
+[ "$N" = "0" ] && ok "State/ 零 AppKit 依赖（D-12 只产数据不渲染）" \
+  || no "State/ 零 AppKit 依赖（D-12 只产数据不渲染）" "剥注释后 Sources/PicCore/State 内计数 = $N，期望 0"
+
+# ② D-06：起播路径零播放器直连。B1 的门控另由 HoldStatusTests 的变异测试承担。
+N=$(src_count 'player.player.play()' 'Sources/PicApp')
+M=$(src_count 'player.player.pause()' 'Sources/PicApp')
+[ "$N$M" = "00" ] && ok "起播路径零播放器直连（D-06 / W-2026-10-03-10 已收口）" \
+  || no "起播路径零播放器直连（D-06 / W-2026-10-03-10 已收口）" "play()=$N pause()=$M，期望全 0"
+
+# ③ B1：setRate 必须被 `if arbiter.decision.shouldPlay {` 包住（行号序判据，不是文本计数）。
+#    只数「出现了门控」不够 —— 门控可以写在 setRate 之后而不起作用。
+GATE_LINE=$(grep -n 'if arbiter.decision.shouldPlay {' Sources/PicApp/AppDelegate.swift | cut -d: -f1 | head -1)
+RATE_LINE=$(grep -n 'player.setRate(store.rate)' Sources/PicApp/AppDelegate.swift | cut -d: -f1 | head -1)
+if [ -n "$GATE_LINE" ] && [ -n "$RATE_LINE" ] && [ "$GATE_LINE" -lt "$RATE_LINE" ]; then
+  ok "起播路径的 setRate 门在 shouldPlay 之后（W-2026-10-03-21 / B1）"
+else
+  no "起播路径的 setRate 门在 shouldPlay 之后（W-2026-10-03-21 / B1）" \
+     "GATE_LINE=${GATE_LINE:-none} RATE_LINE=${RATE_LINE:-none}，要求 GATE_LINE < RATE_LINE；setRate 的实现就是 player.rate = r，无条件调用会把已 hold 的播放器重新拉起"
+fi
+
+# ④ D-12：PIC_HOLD_SUMMARY 恰好一处（AppDelegate 的可观测出口）。
+N=$(src_count 'PIC_HOLD_SUMMARY summary=' 'Sources/PicApp')
+[ "$N" = "1" ] && ok "PIC_HOLD_SUMMARY 恰好一处（D-12 数据落点的可观测出口）" \
+  || no "PIC_HOLD_SUMMARY 恰好一处（D-12 数据落点的可观测出口）" "剥注释后计数 = $N，期望恰好 1"
+
+# ---- Plan 03-05 T2：行为判据（不扫源码）----
+if swift test --package-path . --filter HoldStatusTests > "$TMP/holdstatus.log" 2>&1; then
+  HN=$(grep -oE 'Executed [0-9]+ tests, with 0 failures' "$TMP/holdstatus.log" | tail -1 | grep -oE '^[A-Za-z]* [0-9]+' | grep -oE '[0-9]+')
+  ok "HoldStatus 用例全绿（D-12 派生量 + B1 门控，${HN:-?} 项）"
+else
+  no "HoldStatus 用例失败（D-12 派生量 + B1 门控）" "$(grep -E "error:|XCTAssert.*failed|failed -" "$TMP/holdstatus.log" | head -2)"
+fi
+
+# ---- Plan 03-05 T2：四条探针脚本的关键行（行为判据）----
+# 4 条脚本约 30 秒。它们各自写 Phase 3 自己的 evidence，本段跑一遍再读那一条关键行。
+# ⚠️ 读的是 **evidence 文件**而不是脚本的 stdout —— 这些脚本把 driver 的输出
+#    写进日志文件，只往 stderr 打一行 `PROBE_OK`。只收 stdout 会恒红。
+#
+# ⚠️ 这些脚本会**就地覆盖** evidence 文件。若会话锁定态与当初采集时不同，覆盖掉的
+#    就是上一个 plan 的读数（本 plan 实测踩到：复跑 `probe-fullscreen.sh` 时会话已解锁，
+#    `COVERAGE` 从 1.000 变 0.000，03-02 入库的日志被覆盖）。
+#    → 故先把旧文件留档到 `$TMP`，若变了就提示；**不**替别的 plan 改判据或改产物值。
+probe_line() {   # $1=脚本  $2=evidence 文件  $3=关键行的正则  $4=判据名
+  local f=".planning/phases/03-system-events/evidence/$2"
+  [ -f "$f" ] && cp "$f" "$TMP/$2.before"
+  perl -e 'alarm 120; exec @ARGV' bash "scripts/$1" > "$TMP/$1.log" 2>&1
+  if [ ! -f "$f" ]; then
+    no "$4" "跑 scripts/$1 后 $f 不存在"
+  elif grep -qE "$3" "$f"; then
+    if [ -f "$TMP/$2.before" ] && ! cmp -s "$f" "$TMP/$2.before"; then
+      ok "$4"
+      printf "     ⚠️ 该 evidence 的读数与入库版本不同（多半是会话锁定态变了）；旧值留在 git 里\n"
+    else
+      ok "$4"
+    fi
+  else
+    no "$4" "$f 里没有匹配 /$3/ 的行"
+  fi
+}
+probe_line probe-lock.sh      lock-wiring.log           '^LOCK_TRANSITION='              "锁屏跃迁观测已采集（03-01 探针，关键行存在）"
+probe_line probe-fullscreen.sh fullscreen-signals.log    '^FULLSCREEN_VERDICT='           "全屏判定读数已采集（03-02 探针，verdict 行存在）"
+probe_line probe-display.sh    display-sleep-signals.log '^DISPLAY_SLEEP_TRANSITION='     "熄屏/睡眠跃迁观测已采集（03-03 探针，关键行存在）"
+probe_line probe-power.sh      power-signals.log         '^POWER_TRANSITION='             "电池跃迁观测已采集（03-04 探针，关键行存在）"
+
 echo ""
 echo "── 渲染 ───────────────────────────────"
 swiftc -O -parse-as-library -target arm64-apple-macosx15.0 -o "$TMP/render" $SRC 2>/dev/null \

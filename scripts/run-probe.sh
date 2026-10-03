@@ -7,6 +7,10 @@
 #   bash scripts/run-probe.sh quit    → evidence/quit.log    （优雅终止收尾 + SIGTERM 观测）
 #   bash scripts/run-probe.sh app     → evidence/app-bundle.log （打包 .app 上的层级序 + 激活策略 + ad-hoc 签名）
 #   bash scripts/run-probe.sh refresh → evidence/refresh.log     （两种运行模式的显示刷新驱动与 tick 率）
+#   bash scripts/run-probe.sh holds   → Phase 3 evidence/holds-live.log（真实系统信号下的活体 hold）
+#
+# ⚠️ 前六个子命令的 `EV` 指向 **Phase 2** 的 evidence 目录；`holds` 指向 **Phase 3 自己的**
+#   目录（`EV3`）。理由：`EV` 是 Phase 2 的交接面，写进去会让 Phase 2 的目录随 Phase 3 漂移。
 #
 # 两条纪律：
 #   ① 所有外部命令都套 `perl -e 'alarm N; exec @ARGV'` —— 本机没有 timeout 命令，
@@ -25,6 +29,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 EV="$ROOT/.planning/phases/02-playback-core/evidence"
+EV3="$ROOT/.planning/phases/03-system-events/evidence"
 BIN="$ROOT/.build/debug/Pic"
 SRC_PROBE="$ROOT/Sources/PicCore/Playback/WindowProbe.swift"
 SPIKE_PROBE="$ROOT/.planning/spike/WindowProbe.swift"
@@ -478,6 +483,78 @@ cmd_refresh() {
   return 0
 }
 
+# ---- Plan 03-05 T2：真实系统信号下的活体 hold ----
+#
+# 这个子命令回答一个 Phase 3 之前没人能回答的问题：**装配之后**，四个 Watcher 的信号
+# 会不会真的让产品进入 hold，以及 hold 住之后播放器是不是真的停在 `paused`。
+#
+# ⚠️ 三条纪律：
+#   ① 观察窗口 12 秒，不是 Phase 2 各探针的 4 秒。D-05 的判据要在这段窗口里读
+#      `PIC_HOLD_OBSERVER_TICKS` 的**最大值**：零决策变化的 12 秒里它必须恒为 1
+#      （0.5 秒轮询会涨到约 24）。窗口太短，这条判据就没有分辨率。
+#   ② stdout 与 stderr **必须合并**：`WallpaperWindowController.emit` 全部走 stderr，
+#      只收 stdout 会得到一个空日志，让后面的判据静默通过。
+#   ③ **不许**为了跑出 `holds=(screenLocked)` 去合成 `com.apple.screenIsLocked` ——
+#      那个名字由别的进程投递，投它会让同机其它壁纸 app 一起暂停。合成的那条只在
+#      `scripts/probe-lock.sh` 里、用 `com.local.pic.tests.lock.` 前缀跑。
+session_lock_line() {
+  # 会话锁定态在产品之外单独读一次，作为日志的**环境前提**而不是判据。
+  # `ioreg -n Root -d 1 -a` 的键表在不同系统版本上会变（CGSession* 键本会话已读不到），
+  # 所以走与产品同一个 API（CGSessionCopyCurrentDictionary）而不是猜 ioreg 的形状。
+  alarm 90 swift -e '
+import CoreGraphics
+import Foundation
+let session = CGSessionCopyCurrentDictionary() as? [String: Any]
+let locked = ((session?["CGSSessionScreenIsLocked"] as? NSNumber)?.intValue ?? 0) != 0
+FileHandle.standardOutput.write(Data("LOCKED=\(locked ? 1 : 0) KEYS=\(session?.count ?? -1)\n".utf8))
+' 2>/dev/null
+}
+
+loginwindow_pid() {
+  local p
+  p=$(/usr/bin/pgrep -x loginwindow 2>/dev/null | head -1)
+  printf '%s' "${p:-0}"
+}
+
+cmd_holds() {
+  mkdir -p "$EV3"
+  ensure_binary || return 1
+
+  # 观察窗口的起点：先记会话状态，再起产品。
+  local lock_read lockflag lockpid
+  lock_read=$(session_lock_line)
+  lockflag=$(printf '%s' "$lock_read" | sed -n 's/^LOCKED=\([01]\).*/\1/p')
+  lockpid=$(loginwindow_pid)
+  [ -n "$lockflag" ] || lockflag="unknown"
+
+  start_app holds || return 1
+  # 12 秒零决策变化窗口（D-05 的行为判据就在这段窗口里读）
+  sleep 12
+  stop_app
+
+  local log="$EV3/holds-live.log"
+  # emit 走 stderr；stdout 一并合并进来（见纪律 ②）
+  cat "$TMP/holds.out" "$TMP/holds.err" > "$log" 2>&1
+
+  {
+    printf 'LOCK_STATE_AT_START=%s source=CGSessionCopyCurrentDictionary.CGSSessionScreenIsLocked loginwindow_pid=%s\n' \
+      "$lockflag" "$lockpid"
+    printf 'LOCK_READ_RAW=%s\n' "${lock_read:-unreadable}"
+    printf 'OBSERVATION_WINDOW_SECONDS=12\n'
+    printf 'HOLDS_LIVE=%s\n' \
+      "$(grep -E '^PIC_HOLD active=' "$log" | head -1 | sed -n 's/.*\(holds=([^)]*)\).*/\1/p' | head -1)"
+    printf 'TICK_LINES=%s\n' "$(grep -cE '^TICK seq=' "$log")"
+    printf 'TICK_PAUSED_LINES=%s\n' "$(grep -cE '^TICK seq=.* status=paused ' "$log")"
+    printf 'OBSERVER_TICKS_MAX=%s\n' \
+      "$(grep -E '^PIC_HOLD_OBSERVER_TICKS=' "$log" | sed 's/.*=//' | sort -n | tail -1)"
+    printf 'HOLD_SUMMARY_LINES=%s\n' "$(grep -cE '^PIC_HOLD_SUMMARY summary=' "$log")"
+    printf 'PIC_HOLD_ACTIVE_LINES=%s\n' "$(grep -cE '^PIC_HOLD active=' "$log")"
+  } >> "$log"
+
+  log "HOLDS_LOG=$log lock=$lockflag loginwindow_pid=$lockpid ticks=$(grep -cE '^TICK seq=' "$log")"
+  return 0
+}
+
 case "${1:-}" in
   order) cmd_order ;;
   inset) cmd_inset ;;
@@ -485,5 +562,6 @@ case "${1:-}" in
   quit)  cmd_quit ;;
   app)   cmd_app ;;
   refresh) cmd_refresh ;;
-  *) log "usage: bash scripts/run-probe.sh {order|inset|loop|quit|app|refresh}"; exit 2 ;;
+  holds)  cmd_holds ;;
+  *) log "usage: bash scripts/run-probe.sh {order|inset|loop|quit|app|refresh|holds}"; exit 2 ;;
 esac

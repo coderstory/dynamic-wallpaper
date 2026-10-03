@@ -11,3 +11,8 @@ READ_4 label=testsh_probe_rerun_at_11:53 CGSSessionScreenIsLocked_key_present=fa
 READ_4_CONSEQUENCE=bash test.sh 复跑 probe-fullscreen.sh 时采到 COVERAGE=0.000 WINDOW_COUNT=0 FULLSCREEN_VERDICT=0 reason=not_covering
 NOTE=03-02 已入库的 evidence/fullscreen-signals.log 未被覆盖（COVERAGE=1.000 是锁屏会话下的读数），本文件另记这次复采
 NOTE=四次读取跨越锁/解锁两次切换。**未**为了制造锁屏态去锁屏，也**未**为了凑 reason 去改产品。
+READ_5 label=testsh_rerun_at_11:57 CGDisplay_IS_ASLEEP=1 会话再次锁上（probe-fullscreen 复采到 COVERAGE=1.000 WINDOW_COUNT=4）
+READ_5_CONSEQUENCE=bash test.sh 的四条 probe 判据同时打出「读数与入库版本不同」告警 —— 说明会话在采集期间又切了一次
+CONCLUSION=会话锁定态在本 plan 执行期间至少切换 4 次（解锁→锁定→解锁→锁定）。
+CONCLUSION_2=因此**任何**依赖「屏幕锁着」的读数都只在采集窗口内成立；Phase 4-7 不得把本 Phase 的活体读数当成稳定基线。
+CONCLUSION_3=处置：test.sh 的 probe_line 现在会先留档旧值、变了就打告警；本 plan 已把 03-01~03-04 入库的四份 evidence 全部 `git checkout` 还原，**不替别的 plan 改产物值**。

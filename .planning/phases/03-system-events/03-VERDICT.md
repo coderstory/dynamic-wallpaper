@@ -17,7 +17,9 @@ PHASE_3_VERDICT
 采集之后（11:53 复跑 `test.sh` 时）会话又回到**未锁**（`KEYS=11`），
 同一次复采里 `probe-fullscreen.sh` 读到 `COVERAGE=0.000 WINDOW_COUNT=0
 FULLSCREEN_VERDICT=0 reason=not_covering` —— 与 03-02 入库的 `COVERAGE=1.000` 完全不同，
-因为那次是在锁屏会话下采的。
+因为那次是在锁屏会话下采的。**第四次**（11:57 再跑 `test.sh`）会话又锁上，
+四份 probe evidence 的读数全部与入库版本不同 —— `test.sh` 的告警因此同时打出 4 条。
+逐次读数见 `evidence/session-state-changed.log`（`READ_1` ~ `READ_5`）。
 **03-02 已入库的 evidence 未被覆盖**，复采另记在 `evidence/session-state-changed.log`。
 
 **未为了制造锁屏态去锁屏、也未为了凑单 reason 去改产品** —— 最终 `holds-live.log` 里
@@ -87,7 +89,7 @@ FULLSCREEN_VERDICT=0 reason=not_covering` —— 与 03-02 入库的 `COVERAGE=1
 
 | 项 | 假定内容 | 未验证之处 |
 |---|---|---|
-| 本机「锁屏会话」这一前提贯穿全 Phase | 假定采集期间会话锁着。`holds-live.log` 的 `LOCK_STATE_AT_START=1` 与 `LOCK_READ_RAW=LOCKED=1 KEYS=14` 支持它 | ⚠️ **本 plan 执行期间该前提被打破过一次**：11:25 前后读到 `HAS_KEY=false KEYS=11`（未锁）、显示器 `ASLEEP=0`，产品实跑 `holds=(none) status=playing`。**未锁屏去制造它**，最终采集时前提自行恢复。若后续 Phase 引用本文件的活体读数，须知道会话状态在同一天内变过 |
+| 本机「锁屏会话」这一前提贯穿全 Phase | 假定采集期间会话锁着。`holds-live.log` 的 `LOCK_STATE_AT_START=1` 与 `LOCK_READ_RAW=LOCKED=1 KEYS=14` 支持它 —— **但该假定在本 plan 执行期间已被推翻四次**，见 `evidence/session-state-changed.log` | ⚠️ **本 plan 执行期间该前提被打破至少四次**：11:25 前后读到 `HAS_KEY=false KEYS=11`（未锁）、显示器 `ASLEEP=0`，产品实跑 `holds=(none) status=playing`。**未锁屏去制造它**，最终采集时前提自行恢复。若后续 Phase 引用本文件的活体读数，须知道会话状态在同一天内变过 |
 | `FullscreenDetector` 的判定口径 | 假定 `verdict = nonGeometricActive && covering` 的误暂停方向可接受 | **本会话实测到反向误判**（`fullscreen-falsepositive.log`，3 轮中 1 轮）。装配前它在产品里结构上不可达，装配后可达。已登记 `W-2026-10-03-23`，**未改判定口径** —— 改它属 D-02 的架构决策，且需要真实跃迁样本 |
 | `setRate` 在非零值时会把播放器拉起 | 假定 SDK 文档与本机实测成立。依据是 `AVPlayer.h:150` 明文 + 本机实测（pause 后置 rate=1.0 → `timeControlStatus` 0.25 秒内由 `.paused`(0) 变 `.playing`(1)） | 依据来自 Phase 1/2 的 SDK 阅读与一次实测，本 Phase 未重做该实测（本会话无可控的播放器对象）。门控本身已由 `testSetRateOnStartPathIsGatedByShouldPlay` 的两次变异 + 活体 `status=paused` 证明成立 |
 | 屏幕锁着时壁纸「应当」是暂停的 | 假定 D-09 的单向流语义：Watcher 产 reason，仲裁器决定，播放端执行 | 活体 evidence 证明**已 hold 时播放器确实是 `paused`**（7/7 条 `TICK`），但没有证明「解锁后会自动恢复」—— 那需要 ② 的跃迁 |
