@@ -263,7 +263,7 @@ Plans:
 
 **Plans**: TBD
 - [x] 07-01-PLAN.md
-- [ ] 07-02-PLAN.md
+- [x] 07-02-PLAN.md
 - [x] 07-03-PLAN.md
 - [ ] 07-04-PLAN.md
 
@@ -307,7 +307,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 4. 媒体库与轮换 | 7/7 | In Progress|  |
 | 5. 设置窗口与即时生效 | 4/4 | In Progress|  |
 | 6. 转码与独立窗口 | 5/5 | In Progress|  |
-| 7. 打包、开机自启与整机验收 | 2/4 | In Progress|  |
+| 7. 打包、开机自启与整机验收 | 3/4 | In Progress|  |
 
 ---
 
