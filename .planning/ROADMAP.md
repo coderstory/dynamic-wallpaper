@@ -157,6 +157,13 @@ Plans:
   5. 目录里没有可用视频、或文件夹被删/被移动 → **壁纸窗口隐藏，露出系统原壁纸**（不留黑屏、不崩溃）
 
 **Plans**: TBD
+- [x] 04-01-PLAN.md
+- [ ] 04-02-PLAN.md
+- [ ] 04-03-PLAN.md
+- [ ] 04-04-PLAN.md
+- [ ] 04-05-PLAN.md
+- [ ] 04-06-PLAN.md
+
 **Notes**:
 - `FileManager.enumerator` 递归扫描 + 扩展名过滤 + `AVURLAsset` 校验可加载视频轨
 - 防 Pitfall 5：扫描结果**做缓存**（递归目录会放大重扫的 I/O 代价）
@@ -264,7 +271,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 1. 桌面层级门禁 spike | 5/5 | Done| 2026-10-03 |
 | 2. 播放内核竖切 | 4/4 | Done| 2026-10-03 |
 | 3. 系统事件仲裁 | 5/5 | Done | 2026-10-03 |
-| 4. 媒体库与轮换 | TBD | In Progress | - |
+| 4. 媒体库与轮换 | 1/6 | In Progress|  |
 | 5. 设置窗口与即时生效 | TBD | Not started | - |
 | 6. 转码与独立窗口 | TBD | Not started | - |
 | 7. 打包、开机自启与整机验收 | TBD | Not started | - |
