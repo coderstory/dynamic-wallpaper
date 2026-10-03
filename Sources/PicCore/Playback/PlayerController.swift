@@ -32,8 +32,8 @@ public final class PlayerController: NSObject, PlaybackTarget {
 
     /// 装载一路视频并交给 looper 无限循环。
     ///
-    /// 切队列顺序是 D-14 的硬约束：先停 looper，再清队列，最后入队新 item，
-    /// 否则 looper 与手动清队列打架。首次装载时还没有 looper，跳过第一步。
+    /// **先插后扫**：新 item 先入队，再扫掉全部旧 item。队列全程非空 ——
+    /// 清空后等 looper 异步补位的那一段里图层无 currentItem 可呈现，会闪屏。
     public func load(url: URL) {
         let item = AVPlayerItem(url: url)
         // 保音高必须显式设：macOS 12+ 默认 .timeDomain 会变调（D-12）。
@@ -42,7 +42,10 @@ public final class PlayerController: NSObject, PlaybackTarget {
         item.preferredForwardBufferDuration = 3.0
 
         looper?.disableLooping()
-        player.removeAllItems()
+        // `after: nil` 是追加到队尾，所以必须扫掉全部非新条目 —— 否则旧片继续播、
+        // 每次 load 净增一批，队列无界增长。
+        player.insert(item, after: nil)
+        player.items().filter { $0 !== item }.forEach { player.remove($0) }
         looper = AVPlayerLooper(player: player, templateItem: item)
     }
 
