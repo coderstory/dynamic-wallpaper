@@ -261,9 +261,9 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. 桌面层级门禁 spike | 5/5 | Done|  |
-| 2. 播放内核竖切 | 4/4 | Done|  |
-| 3. 系统事件仲裁 | 5/5 | Done | - |
+| 1. 桌面层级门禁 spike | 5/5 | Done| 2026-10-03 |
+| 2. 播放内核竖切 | 4/4 | Done| 2026-10-03 |
+| 3. 系统事件仲裁 | 5/5 | Done | 2026-10-03 |
 | 4. 媒体库与轮换 | TBD | In Progress | - |
 | 5. 设置窗口与即时生效 | TBD | Not started | - |
 | 6. 转码与独立窗口 | TBD | Not started | - |
