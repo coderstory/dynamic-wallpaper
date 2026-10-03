@@ -49,3 +49,24 @@ AI 注释病是本仓最大噪声源。判定规则：
 - **反代码膨胀**（2 行能实现别写 10 行）
 - **能用代码不用 LLM**（机械改动走脚本）
 - 砍完必须全绿；任何一处砍不动就记录原因，不硬砍
+
+## 执行结果（2026-10-04）
+
+| 批 | 内容 | 结果 | commit |
+|---|---|---|---|
+| 1 | 零风险纯删除（5 个死方法 + var→let + 4 处过期括注） | **净 −45 行**，198/102-0-1 数字一字未变 | `92fc3e5` |
+| 2 | 消重复块（reschedule 抽取 / recordLoad 内联 / probe-common.sh / productionLocator 收编） | +36/−23，机制从 4 份副本收成 1 份 | `c3c5884` `1c2c60b` `e2bdf39` `47bacdb` |
+| 3A | TranscodeQueue 进度解析 O(n²)→O(n) | 5 万行场景快 **2.5 万倍**；98 组语料逐步等价 | `3734677` |
+| 3B | arbiterCurrentPosition 重复计算 | 收益近零，如实记录 | `1c76a33` |
+| 3C | test.sh src_count 缓存 | **主动跳过**：实测只省 0.25s（整轮 0.8%），风险是 52 处判据集体假绿 | — |
+
+### 明确留下的 TODO（不砍的理由）
+- `WallpaperWindowController.mirror()` 的 per-line 文件句柄 —— `PIC_EVIDENCE_FILE` 是探针 + XCUITest + soak 的读数通道，Phase 7 要读 7 天数据，风险过高
+- `src_count()` 缓存 —— 收益 0.8% vs 全部门禁假绿风险
+- 其余 15 个 probe 脚本迁移到 `probe-common.sh` —— 无自动验证会告诉你坏没坏
+- `HoldReason` 两张文案表（可能是有意的简写/详写区分）
+- `WallpaperWindowController.reassert()` / `teardown()`（产品零调用但承载 SYS-02 / SOURCE-06 语义契约）
+- `LibraryAvailability` 的 `case .failure:` 不可达分支
+
+### 注释精简：尚未执行
+扫描给出的可删/可压估计（Sources ≈900-1100 行、Tests ≈350-450、shell ≈400-500）**本轮未动** —— 注释分类需要逐文件人工判断（红线 83 行必须留 vs 编号引用 330 行可删），量太大不适合无人值守时批量删。等用户醒后确认口径。
