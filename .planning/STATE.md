@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 milestone: v3.0
 current_phase: 04
 current_phase_name: 媒体库与轮换
-status: paused
+status: executing
 stopped_at: Phase 4 规划修复收尾 —— 6 plan 已修复，2 BLOCKER 修复中，修完即 execute
-last_updated: "2026-10-03T06:32:22.000Z"
+last_updated: "2026-10-03T09:06:50.824Z"
 last_activity: 2026-10-03
-last_activity_desc: Phase 4 规划修复收尾（verify.plan-structure 全 errors=0，plan-checker 第 2 轮 2 BLOCKER 修复中）
-state_head: f2f651485d8fb340a38e2e91f7cc6ba139856076
+last_activity_desc: Phase 04 execution started
+state_head: cb9c55a62ae2b59aeebe76adca6734367eba7159
 progress:
   total_phases: 7
   completed_phases: 3
-  total_plans: 18
+  total_plans: 20
   completed_plans: 14
 ---
 
@@ -23,14 +23,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-10-03)
 
 **Core value:** 桌面一直是活的视频，而且不偷电、不抢性能 —— 全屏 / 锁屏 / 用电池时自动让路。
-**Current focus:** Phase 04 — 媒体库与轮换（规划修复中）
+**Current focus:** Phase 04 — 媒体库与轮换
 
 ## Current Position
 
-Phase: 04 (媒体库与轮换) — 规划修复收尾
-Plan: 6 个 PLAN.md 已修复（verify.plan-structure 全 errors=0）；plan-checker 第 2 轮剩 2 个 BLOCKER 修复中（`NSApp.setActivationPolicy` 门 2→3、`PIC_LIBRARY_STATE` 门 1→2），修完即 execute
-Status: Paused
-Last activity: 2026-10-03 — Phase 4 规划修复收尾，待 execute
+Phase: 04 (媒体库与轮换) — EXECUTING
+Plan: 1 of 6
+Status: Executing Phase 04
+Last activity: 2026-10-03 — Phase 04 execution started
 
 Progress: [███████░░░] 78%
 
