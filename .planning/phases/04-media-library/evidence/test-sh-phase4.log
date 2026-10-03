@@ -1,0 +1,3 @@
+PIC_P4_VALIDATE swift_test_exit=0 swift_test_count=113 swift_test_failures=0
+PIC_P4_VALIDATE test_sh_exit=0 pass=69 fail=0 skip=0
+PIC_P4_VALIDATE phase4_new_gates=19 baseline=50
