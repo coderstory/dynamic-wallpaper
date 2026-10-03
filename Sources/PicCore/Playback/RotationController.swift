@@ -169,7 +169,13 @@ public final class RotationController {
         let nextIndex: Int
         switch mode {
         case .loopSingle:
-            nextIndex = 0
+            // reason 是「轮换」与「用户要下一条」的唯一区分量：单循环的锁定只约束
+            // 轮换到点，菜单「立即下一个」按列表前进（用户意图优先）。
+            if reason == .userRequested {
+                nextIndex = (currentIndex + 1) % items.count
+            } else {
+                nextIndex = 0
+            }
         case .loopList:
             nextIndex = (currentIndex + 1) % items.count
         case .shuffle:
