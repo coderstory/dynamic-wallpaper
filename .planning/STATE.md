@@ -91,6 +91,20 @@ PDCA 全文：`.planning/phases/01-spike/01-PDCA.md`
 
 **Phase 1 零交付项：** SC5 整条 BLOCKED（`AB_GROUPS_MEASURED=0`，`SCREENLOCK=unknown`）。
 
+### Phase 2 完成 · PDCA 审计结论（2026-10-03）
+
+**Phase 2 目标达成**：产品代码 14 文件 / 1279 行 / 零第三方依赖；`test.sh` 15 → **32 项全绿**；`swift test` **24 项**；DMG 打包成功；三接口（`SettingsStore` / `HoldArbiter` / `PlayerController`）已冻结供 Phase 3–7 依赖。
+PDCA 全文：`.planning/phases/02-playback-core/02-PDCA.md` · VERDICT：同目录 `02-VERDICT.md`
+
+**SC 结论：** SC1 PASS-with-gap · SC2 PARTIAL · SC3 PASS-with-gap · SC4 PASS · SC5 PARTIAL（4 项 BLOCKED 全是环境限制，非疏漏）
+
+**移交 Phase 3 的硬约束（已写进 ROADMAP）：**
+1. 🔴 四类系统检测**必须走事件通知**，禁止逐帧轮询 —— Phase 2 实测 `.app` 下刷新回调仍是 `timer_fallback_hz30`
+2. 🔴 `PIC_HOLD` 是 0.5 秒轮询，短暂停会漏采 → 改事件驱动
+3. 🔴 全屏检测**禁用 0.95 阈值**（Phase 1 已证伪）
+4. 🔴 桌面层窗口 14pt/9pt 内缩必须处理
+5. ⚠️ **停止用「源码字面量 grep」做判据** —— 8 次自伤的共同根因，Phase 3 起改行为断言
+
 ### Pending Todos
 
 None yet.

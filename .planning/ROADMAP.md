@@ -97,6 +97,10 @@ Plans:
 - 用 `AVQueuePlayer` + `AVPlayerLooper` + `AVPlayerLayer`；`audioTimePitchAlgorithm = .spectral` 显式设（默认 `.timeDomain` 会变调）；`preferredForwardBufferDuration = 3.0`；`isOpaque = true` / `hasShadow = false` / `videoGravity = .resizeAspectFill`
 - `HoldArbiter` 从第一天就建成 `Set<HoldReason>` veto 集合（先只接手动暂停）—— 形状对了才不会在 Phase 3 返工
 - 防 Pitfall 4：切换视频前 `disableLooping()` → `removeAllItems()` → 再入队；observer 注册/注销严格配对
+- 🔴 **PDCA（Phase 2）硬约束一：四类系统检测必须走事件通知，禁止逐帧轮询。** Phase 2 实测 `.app` 下显示刷新回调**仍是降级路径**（`DRIVER=timer_fallback_hz30`，27 Hz），且 `REFRESH_SESSION=locked` 表明**无法区分「`.app` 拿不到」与「锁屏压制」**。→ 锁屏/熄屏/睡眠/全屏四类检测一律走 `DistributedNotificationCenter` / `NSWorkspace` 事件，逐帧轮询方案直接排除。
+- 🔴 **PDCA（Phase 2）硬约束二：`PIC_HOLD` 是 0.5 秒轮询不是事件驱动**（`WINDOWS.md` 登记），短于 0.5 秒的暂停会漏采 → 接线时改事件驱动。
+- ⚠️ **PDCA（Phase 2）**：`AppDelegate.startWallpaper()` 有直连 `player.play()` 在菜单边界外，需 Phase 3 复核（`W-2026-10-03-10`）。
+- ⚠️ **PDCA（Phase 2）A6：停止用「源码字面量 grep」做判据。** Phase 1 出现 5 次、Phase 2 出现 3 次「自己的判据被自己违反」（注释里的字面量污染 `grep -c`）。Phase 3 起：判据只扫不含注释的代码，或改用行为断言（单测/探针输出）不碰源码文本。
 - 🔴 **PDCA-A2 硬约束：全屏检测禁用 0.95 覆盖率阈值。** Phase 1 实测 `FALSE_POSITIVE_OBSERVED=1`：Ghostty(pid 1227) 与 CC Switch(pid 1228) 各把 `visibleFrame`(1470×833) 铺满 → `coverage=1.000` ≥ 0.95 被判成全屏，但两者 bounds 高 833 < 屏幕 frame 高 956，结构上够不到刘海，**可证不是全屏**。coverage 已顶在 **1.000 上限**，任何阈值调整都改不了。**必须二选一**：① 设计几何之外的判别信号（如 `activeSpaceDidChangeNotification` 关联 / Space 序号）；② 明确写下接受「误暂停」方向并编码进 `PauseReason`。**默认沿用 0.95 阈值 = 本 Phase 的 BLOCKER。**
 - 🔴 **PDCA-A5 几何内缩**：桌面层 borderless 窗口的 `CGWindowList` bounds 有系统性 **14pt/9pt** 内缩（叠加刘海 33pt 共 47pt）。任何覆盖率/全屏几何计算必须先处理，否则真全屏永远算不到 1.000。
 - ⚠️ **PDCA-A7 锁屏跃迁未验证**：`CGSSessionScreenIsLocked` 只验证了**能读出状态**（40 秒 9 次采样全为 1），**未验证跃迁时是否翻转**。Phase 3 必须实测跃迁才能写进产品代码。
