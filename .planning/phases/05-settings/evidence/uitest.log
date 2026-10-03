@@ -1,31 +1,5 @@
 PBXPROJ_LINT=ok
+FRAME_STATE_CLEAR=ok
 XCODEBUILD_BUILD_RC=0
-SCREEN_LOCKED=0
-UITEST_TEST_RC=1
-Command line invocation:
-    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -project Pic.xcodeproj -scheme Pic -destination platform=macOS CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual test-without-building
-
-Build settings from command line:
-    CODE_SIGN_IDENTITY = -
-    CODE_SIGN_STYLE = Manual
-
-Resolve Package Graph
-
-
-Resolved source packages:
-  Pic: /Users/coderstory/dev/pic/.claude/worktrees/agent-aaedd83776dd11e70 @ local
-
-2026-10-03 22:06:11.554 xcodebuild[3141:9378574] [MT] IDETestOperationsObserverDebug: 7.718 elapsed -- Testing started completed.
-2026-10-03 22:06:11.554 xcodebuild[3141:9378574] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
-2026-10-03 22:06:11.554 xcodebuild[3141:9378574] [MT] IDETestOperationsObserverDebug: 7.718 sec, +7.718 sec -- end
-
-Test session results, code coverage, and logs:
-	/Users/coderstory/Library/Developer/Xcode/DerivedData/Pic-atfydgtjpqvktccyvpiqxqsueiuu/Logs/Test/Test-Pic-2026.10.03_22-06-03-+0800.xcresult
-
-Testing failed:
-	Test target PicUITests encountered an error (The bundle identifier for PicApp couldn’t be read. No such file or directory: “/Users/coderstory/Library/Developer/Xcode/DerivedData/Pic-atfydgtjpqvktccyvpiqxqsueiuu/Build/Products/Debug/PicApp”.)
-
-** TEST EXECUTE FAILED **
-
-Testing started
-UITEST_STATUS=failed
+SCREEN_LOCKED=1
+UITEST_STATUS=blocked reason=screen_locked

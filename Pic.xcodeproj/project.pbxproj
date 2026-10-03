@@ -13,7 +13,9 @@
 		510500000000000000000304 /* MenuContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510500000000000000000104 /* MenuContentView.swift */; };
 		510500000000000000000305 /* SettingsComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510500000000000000000105 /* SettingsComponents.swift */; };
 		510500000000000000000306 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510500000000000000000106 /* SettingsView.swift */; };
+		510500000000000000000310 /* SettingsSessionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510500000000000000000110 /* SettingsSessionState.swift */; };
 		510500000000000000000307 /* SettingsWindowUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510500000000000000000107 /* SettingsWindowUITests.swift */; };
+		510500000000000000000309 /* SettingsControlsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510500000000000000000109 /* SettingsControlsUITests.swift */; };
 		510500000000000000000308 /* PicCore in Frameworks */ = {isa = PBXBuildFile; productRef = 510500000000000000000702 /* PicCore */; };
 /* End PBXBuildFile section */
 
@@ -34,7 +36,9 @@
 		510500000000000000000104 /* MenuContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuContentView.swift; sourceTree = "<group>"; };
 		510500000000000000000105 /* SettingsComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsComponents.swift; sourceTree = "<group>"; };
 		510500000000000000000106 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		510500000000000000000110 /* SettingsSessionState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSessionState.swift; sourceTree = "<group>"; };
 		510500000000000000000107 /* SettingsWindowUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowUITests.swift; sourceTree = "<group>"; };
+		510500000000000000000109 /* SettingsControlsUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsControlsUITests.swift; sourceTree = "<group>"; };
 		510500000000000000000108 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		510500000000000000000201 /* Pic.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Pic.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		510500000000000000000202 /* PicUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PicUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -96,6 +100,7 @@
 			children = (
 				510500000000000000000105 /* SettingsComponents.swift */,
 				510500000000000000000106 /* SettingsView.swift */,
+				510500000000000000000110 /* SettingsSessionState.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -120,6 +125,7 @@
 			isa = PBXGroup;
 			children = (
 				510500000000000000000107 /* SettingsWindowUITests.swift */,
+				510500000000000000000109 /* SettingsControlsUITests.swift */,
 			);
 			path = PicUITests;
 			sourceTree = "<group>";
@@ -212,6 +218,7 @@
 				510500000000000000000304 /* MenuContentView.swift in Sources */,
 				510500000000000000000305 /* SettingsComponents.swift in Sources */,
 				510500000000000000000306 /* SettingsView.swift in Sources */,
+				510500000000000000000310 /* SettingsSessionState.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -220,6 +227,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				510500000000000000000307 /* SettingsWindowUITests.swift in Sources */,
+				510500000000000000000309 /* SettingsControlsUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

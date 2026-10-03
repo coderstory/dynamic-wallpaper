@@ -14,6 +14,9 @@
 #       （同样必须先有 W-2026-10-03-48 才放行；绝不硬闯授权弹窗）
 #     → LOCKED=0 且已授权：xcodebuild test-without-building，全部输出落
 #       evidence/uitest.log，打 UITEST_STATUS=passed|failed 与 UITEST_TEST_RC=
+#       并数出 Skipped 条数写 UITEST_SKIPPED=；**每条 Skipped 都必须在 WINDOWS.md
+#       有配对的 W 登记**（skip 串里带号，脚本按同号 grep）—— 缺登记即
+#       W_FOR_SKIP_MISSING 非 0 退出，「没跑过」不许静默放过（T-05-15）
 #
 # ⚠️ 为什么 build-for-testing + test-without-building 而不是一个 `xcodebuild test`：
 #    单个 `xcodebuild test` 偶发在「边建边测」时解析 app 产物失败
@@ -137,6 +140,11 @@ fi
 
 # 5. 解锁会话 → 跑测试（全部输出进 evidence；状态经 UITEST_STATUS 传递，
 #    failed 也退出 0 —— RUNNER 的退出码只表达「流程走完」）
+# ⚠️ 起测前清掉 store 的 7 个持久化键：setUp 里的 defaults delete 被 cfprefsd
+#    缓存吃掉时，「默认静音=false / 默认单循环」这类起点会假红（05-01 撞过同款）。
+for k in sourceFolderPath rate volume muted playMode rotationInterval pauseOnBattery; do
+  defaults delete com.local.pic "$k" 2>/dev/null || true
+done
 if alarm 600 xcodebuild -project Pic.xcodeproj -scheme Pic -destination 'platform=macOS' \
      CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual test-without-building > "$TMP/test.log" 2>&1; then
   echo "UITEST_TEST_RC=0" >> "$LOG"
@@ -147,4 +155,22 @@ else
 fi
 cat "$TMP/test.log" >> "$LOG"
 echo "UITEST_STATUS=$ST" >> "$LOG"
+
+# 6. Skipped 计数 + 每条 skip 的 W 陪跑守卫。xcodebuild 对 XCTSkip 打的是
+#    `<Case> skipped: <原因串>`；原因串里带 W 号，脚本按同号 grep 登记簿。
+#    Skipped>0 而一个 W 号都没读到 = 没留痕，直接判红。
+SKIPPED=$(grep -cE "skipped:|was skipped" "$TMP/test.log" 2>/dev/null || true)
+[ -n "$SKIPPED" ] || SKIPPED=0
+echo "UITEST_SKIPPED=$SKIPPED" >> "$LOG"
+if [ "$SKIPPED" -gt 0 ]; then
+  W_MISSING=""
+  for w in $(grep -oE "W-[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]+" "$TMP/test.log" | sort -u); do
+    grep -q "$w" .planning/WINDOWS.md || W_MISSING="$W_MISSING $w"
+  done
+  if [ -n "$W_MISSING" ]; then
+    echo "W_FOR_SKIP_MISSING=$W_MISSING —— 先在 .planning/WINDOWS.md 登记再重跑" >> "$LOG"
+    exit 1
+  fi
+  echo "Skipped=$SKIPPED W_FOR_SKIP=ok" >> "$LOG"
+fi
 exit 0

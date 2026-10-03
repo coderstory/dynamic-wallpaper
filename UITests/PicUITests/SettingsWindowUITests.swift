@@ -113,4 +113,52 @@ final class SettingsWindowUITests: XCTestCase {
         let settings = settingsWindow(in: app)
         XCTAssertTrue(settings.waitForExistence(timeout: 5), "点菜单项应打开设置窗（MENUBAR-06）")
     }
+
+    /// SC-4 交互半边（PLAY-07）：拖速度滑杆当场生效，退出再起回读到拖后的值。
+    ///
+    /// 自绘滑杆拖不到目标值时**不静默放过**：XCTSkip 并在 skip 串里写明 W 号
+    /// （run-uitests.sh 按同号 grep 登记簿，缺登记即非 0 退出）。
+    func testRateDragAppliesImmediatelyAndSurvivesRelaunch() throws {
+        let app = launchApp(extraArguments: ["--open-settings"])
+        XCTAssertTrue(settingsWindow(in: app).waitForExistence(timeout: 10))
+
+        let boot0 = waitForEvidence(containing: "PIC_SETTINGS_BOOT")
+        XCTAssertTrue(boot0.contains("rate=1.0"), "起点必须是默认 1.00，实际：\(boot0)")
+
+        let slider = app.descendants(matching: .any)
+            .matching(identifier: "rate-slider").firstMatch
+        XCTAssertTrue(slider.waitForExistence(timeout: 5))
+
+        // 自绘手势接的是 DragGesture，coordinate 拖动是唯一能命中它的路子。
+        // 连拖三次仍读不到非默认值就是漂移不可控 —— 那时如实 skip，不冒充拖过。
+        var dragged = ""
+        for _ in 0..<3 {
+            slider.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5))
+                .press(forDuration: 0.1, thenDragTo:
+                    slider.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: 0.5)))
+            Thread.sleep(forTimeInterval: 1.0)
+            dragged = String(((try? String(contentsOf: evidenceURL, encoding: .utf8))?
+                .split(separator: "\n")
+                .first { $0.contains("PIC_SETTINGS_APPLY key=rate") }) ?? "")
+            if dragged.contains("applied=1") && !dragged.contains("value=1.0 ") { break }
+            dragged = ""
+        }
+        guard !dragged.isEmpty else {
+            print("NOTE W-2026-10-03-32 slider drag drift")
+            throw XCTSkip("W-2026-10-03-32 slider drag drift")
+        }
+        XCTAssertTrue(dragged.contains("applied=1"),
+                      "拖动当场生效：applyRate 门内应打 applied=1，实际：\(dragged)")
+
+        let value = dragged.split(separator: " ").first { $0.hasPrefix("value=") }!
+            .replacingOccurrences(of: "value=", with: "")
+        app.terminate()
+
+        // 同一证据文件重起（不播种）：回读只能来自上一进程写进 UserDefaults 的值。
+        let app2 = launchApp(extraArguments: ["--open-settings"])
+        XCTAssertTrue(settingsWindow(in: app2).waitForExistence(timeout: 10))
+        let boot1 = waitForEvidence(containing: "PIC_SETTINGS_BOOT rate=\(value)")
+        XCTAssertTrue(boot1.contains("PIC_SETTINGS_BOOT rate=\(value)"),
+                      "重启后 rate 应回读到拖后的 \(value)（TEST-04 交互闭环）")
+    }
 }

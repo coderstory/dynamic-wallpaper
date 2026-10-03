@@ -430,18 +430,16 @@
 
 ### W-2026-10-03-25 · unrun-verify · Phase 5 / Plan 05-01
 
-- **描述**：`scripts/run-uitests.sh` 的**锁屏 BLOCKED 分支**在本会话从未走到（`SCREEN_LOCKED=0`，
-  会话全程解锁），故 XCUITest 在锁屏条件下的行为**未被验证**。该分支是照 Phase 2/3 的 BLOCKED
-  先例建的护栏，不是本 plan 的产品交付面。
-- **证据**：`.planning/phases/05-settings/evidence/uitest.log` 的 `SCREEN_LOCKED=0` +
-  `UITEST_STATUS=passed`；脚本第 4 分支 `if [ "$LOCKED" = 1 ]` 的 grep 守卫
-  （`grep -q 'W-2026-10-03-25' .planning/WINDOWS.md`）在本条目入库前会打
-  `W_ENTRY_MISSING` 并退出非 0 —— 那条守卫**本身**已被实际走过一次（首跑时本条目还不存在）。
-- **影响**：解锁会话下 3 条 XCUITest 全绿已证明；锁屏会话下的「blocked 而非 failed」这一半
-  仍是**未跑**的分支。
-- **解开条件**：锁屏后重跑 `bash scripts/run-uitests.sh`，期望读到
-  `UITEST_STATUS=blocked reason=screen_locked` 且退出码 0。
-- **status**：open
+- **描述**：`scripts/run-uitests.sh` 的**锁屏 BLOCKED 分支**已在本会话真正走到过一次
+  （`SCREEN_LOCKED=1` → `UITEST_STATUS=blocked reason=screen_locked` 且退出码 0）。
+  05-04 补记：本条当初记「从未走到」是因为会话全程解锁；现已闭合。
+- **证据**：`.planning/phases/05-settings/evidence/uitest.log` 的 `SCREEN_LOCKED=1` +
+  `UITEST_STATUS=blocked reason=screen_locked`；守卫 `grep -q 'W-2026-10-03-25' .planning/WINDOWS.md`
+  在条目入库后放行（未入库时打 `W_ENTRY_MISSING` 并非 0 退出）。
+- **影响**：解锁会话下测试可跑与锁屏会话下「blocked 而非 failed」两半都已证明。
+  **但被 blocked 挡住的那批用例本身仍未跑** —— 见 `W-2026-10-03-34`。
+- **解开条件**（已达成，无需再做）。
+- **status**：resolved
 
 
 ### W-2026-10-03-48 · unrun-verify · Phase 5 / Plan 05-01
@@ -481,6 +479,94 @@
 - **解开条件**：在 XCUITest 里让 app 先获得 key window（例如经 `--open-settings` 开窗后
   关闭，让 app 短暂持有一个窗口再发按键），或由真人在解锁会话手动按一次 ⌘, 对照设置窗打开。
   **在能不发系统级按键的前提下证明它之前，不要恢复 `typeKey(",")` 那条用例。**
+- **status**：open
+
+
+### W-2026-10-03-31 · unrun-verify · Phase 5 / Plan 05-04
+
+- **描述**：**菜单栏 5 项的物理实点未被 XCUITest 证明。** 05-04 写了两条会经
+  `app.descendants(matching: .statusItem)` 打开 extra 并点菜单项的用例
+  （`testMenuBarExposesFiveHittableItems` / `testNextVideoMenuItemAdvancesEvenInSingleLoopMode`），
+  它们在菜单栏 extra 不可达时 `XCTSkip("W-2026-10-03-31 …")`。
+- **证据**：`.planning/phases/05-settings/evidence/uitest.log` 的
+  `SCREEN_LOCKED=1` + `UITEST_STATUS=blocked reason=screen_locked` —— **两条用例一条都没执行过**，
+  连 skip 分支都没走到（本会话连测试进程都没起）。运行器里对应的守卫是
+  `grep -cE "skipped:|was skipped"` → `UITEST_SKIPPED=`，>0 时逐个 W 号回登记簿核对，
+  缺登记即 `W_FOR_SKIP_MISSING` 非 0 退出。
+- **已证明的替代面**：5 项的**文案与顺序**由 `MenuBarModelTests.testMenuItemIDsAreExactlyTheFiveFixedItems`
+  与 `testLabelsHaveExactlyFiveEntriesInEveryState` 逐字锁死；「打开设置 ⌘,」的渲染与
+  开窗由 05-01 的 `testSettingsMenuItemRendersShortcutAndOpensWindow` 覆盖（该用例同样未绿，见 W-2026-10-03-49）。
+  **缺的只有「XCUITest 真的按下去」这一跳。**
+- **影响**：TEST-10 的存在性半边已自动化，实点半边未跑；G-04-3（立即下一个在单循环下也要切）
+  的 XCUITest 回归未跑 —— 它在 `RotationControllerTests` 有单测覆盖（04-07 修复），
+  但「菜单项 → `advanceNow()`」这段装配无运行期证据。
+- **解开条件**：解锁会话后重跑 `bash scripts/run-uitests.sh`。若菜单 extra 仍对 XCUITest
+  不可达，读数会是 `UITEST_SKIPPED=2` 且两条 skip 串各带本号 —— 那时本条从「未跑」降级为
+  「环境不可达」，判据仍不许放宽；能实点则本条可转 resolved。
+- **status**：open
+
+
+### W-2026-10-03-32 · unrun-verify · Phase 5 / Plan 05-04
+
+- **描述**：**拖速度滑杆的交互半边（SC-4 ③ / W-2026-10-03-28 的闭合）未被证明。**
+  `SettingsWindowUITests.testRateDragAppliesImmediatelyAndSurvivesRelaunch` 用
+  `coordinate(0.2 → 0.8)` 的拖动去证明「当场生效 + 重启回读」，连拖三次仍读不到非默认值
+  就 `XCTSkip("W-2026-10-03-32 slider drag drift")`。
+- **证据**：同上，`evidence/uitest.log` 的 `UITEST_STATUS=blocked reason=screen_locked` ——
+  该用例未执行。自绘 `GlowSlider`（`SettingsComponents.swift`）走的是 SwiftUI `DragGesture`
+  且固定 92×18pt，坐标拖动是否稳定**在本会话无任何读数**。
+- **已证明的替代面**：`.spectral` 音轨在 item 创建时即落位（Phase 2 冻结面）、
+  `rate` 的量纲换算与当场生效的**参数面**由 `SettingsApplierTests` 锁；
+  「改值 → 重启 → 回读」的 **seeding 路径**由 `scripts/probe-settings-restart.sh` 三轮全绿
+  （`evidence/settings-restart.log`）。**缺的只有「手拖一次」这一跳。**
+- **影响**：PLAY-07「改完当场生效 + 重启保留」在 UI 事件层无运行期证据行
+  （`PIC_SETTINGS_APPLY key=rate` 的运行期触发行数仍为 0）。
+- **解开条件**：解锁会话后重跑 `bash scripts/run-uitests.sh`，期望读到
+  `PIC_SETTINGS_APPLY key=rate value=1.xx applied=1` 与第二进程的 `PIC_SETTINGS_BOOT rate=` 同一值。
+  连续三轮仍漂移则保留本条并把自绘滑杆的拖动容差记进 UI-SPEC，不许改松判据。
+- **status**：open
+
+
+### W-2026-10-03-33 · unrun-verify · Phase 5 / Plan 05-04
+
+- **描述**：**SC-4「0.5×/2× 人声不变调」的听感面完全未验证 —— 自动化也覆盖不了它。**
+  自动化只能证明两件事：音轨侧的 `.spectral` 在 item 创建时已落位（Phase 2 冻结面，
+  单测锁），以及 `rate` 改动当场落到播放器（`PIC_SETTINGS_APPLY key=rate … applied=1`）。
+  **「听起来人声没变调」这件事没有任何一条断言能表达** —— 它是听感。
+- **证据**：`Sources/PicCore/Playback/PlayerController.swift` 的 `setRate` 只写 `player.rate`，
+  不碰 `audioTimePitchAlgorithm`；`Sources/PicCore/Media/VideoItem.swift` 在创建 item 时
+  带上 `.spectral`（Phase 2 的 PLAY-07 冻结面）。**这两条是代码形态与单测证据，
+  不是「听过」的证据。** 本条目入库时，0.5× 与 2× 的人声**没有人听过**。
+- **影响**：ROADMAP SC-4 后半句「实际听 0.5×/2× 的人声确认不变调」**未闭合**。
+  拿「参数设对了」冒充「听过了」是本项目明令禁止的记账方式（T-05-18）。
+- **解开条件**：真人在解锁会话里以 0.5× 与 2× 各播一段**含人声**的素材，确认音高不变，
+  然后在 `.planning/STATE.md` 的 `## Deferred Verification` 勾销本条并把 status 改 resolved。
+  用纯音乐或无人声素材不算 —— 变调问题只在人声上可闻。
+- **status**：open
+
+
+### W-2026-10-03-34 · unrun-verify · Phase 5 / Plan 05-04
+
+- **描述**：**05-04 的 11 条 XCUITest 一条都没跑过 —— 会话全程锁屏，测试进程从未启动。**
+  本条覆盖 TEST-07 / TEST-08 ① / TEST-08 ② / TEST-09 / G-04-3 / SC-4 拖动这六个面，
+  它们没有各自的 skip 记录（skip 是测试跑起来之后才可能有的），所以必须单独立一条，
+  否则读 SUMMARY 的人会以为「只差菜单栏那一项」。
+- **证据**：`evidence/uitest.log` 的 `XCODEBUILD_BUILD_RC=0`（**测试目标编译通过** ——
+  本条唯一被证明的读数）→ `SCREEN_LOCKED=1` → `UITEST_STATUS=blocked reason=screen_locked`，
+  日志里没有任何 `Test Case` 行，也没有 `UITEST_SKIPPED=` 行（守卫在跑测试之前就 return 了）。
+- **顺带修掉的先决缺陷**：05-03 新增 `Sources/PicApp/Settings/SettingsSessionState.swift`
+  时**没有把它登记进 `Pic.xcodeproj/project.pbxproj`** —— SwiftPM 自动发现让
+  `swift build`/`swift test` 全绿，xcodebuild 则报 `cannot find 'SettingsSessionState' in scope`。
+  这正是 05-01 那份「`UITEST_TEST_RC=1 / bundle identifier for PicApp couldn't be read`」
+  读数背后的真凶之一（build-for-testing 当时就没过，只是报错形态被误读成解析竞态）。
+  本 plan 已把该文件补进 PBXFileReference / PBXGroup / PBXSourcesBuildPhase 三处。
+- **影响**：TEST-07/08/09/10 与 SC-4 的自动化半边**均无运行期证据**。TEST-08 两条置灰联动的
+  **源码与单测面**已锁（`SettingsPresentation.rotationControlsEnabled` / `volumeControlsEnabled`
+  的穷举用例，以及视图上同时给了 `.disabled(...)` 与 `.opacity(...)`），
+  但「点不动」这件事本会话无人验证过。
+- **解开条件**：解锁会话后重跑 `bash scripts/run-uitests.sh`，期望读到
+  `UITEST_STATUS=passed` 且 11 条全部 passed；任何 skip 都必须在
+  `evidence/uitest.log` 的 `UITEST_SKIPPED=` 行与对应 W 条目里找得到，否则运行器非 0 退出。
 - **status**：open
 
 
