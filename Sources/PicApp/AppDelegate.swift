@@ -23,6 +23,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let fullscreenDetector = FullscreenDetector()
     let displayWatcher = DisplayWatcher()
     let powerWatcher = PowerWatcher()
+    // ---- Phase 4 的媒体库与轮换（Plan 04-01/02/03 交付，04-04 接线）----
+    // ⚠️ `library` 与 `rotation` 都必须**强持有**：前者持扫描缓存，后者持
+    // `onAdvance` 闭包与调度器（Timer 没人持有就被释放，T-03-03 同款）。
+    let library = MediaLibrary()
+    /// 面板 seam（04-04 T2）：全仓唯一碰 NSOpenPanel 的地方注入进来的句柄。
+    let picker: any FolderPicker = NSOpenPanelFolderPicker()
+    let rotation = RotationController(
+        scheduler: SystemRotationScheduler(),
+        random: SeededRandomSource(seed: UInt64(bitPattern: Int64(Date().timeIntervalSince1970)))
+    )
+    /// 扫描结果 → 窗口/播放器动作的唯一落点（04-03）。lazy：构造参数要包住上面
+    /// 两个持有者，属性默认值里引用不了 self；每次访问都在主线程，无竞态。
+    lazy var coordinator = MediaCoordinator(
+        presenting: WallpaperPresenter(controller: wallpaper),
+        stopping: PlaybackStopper(player: player)
+    )
 
     private var ticker: Timer?
     /// D-05：0.5 秒 `Timer` 已删。`PIC_HOLD` 改由对 `arbiter.decision` 的观察驱动，
@@ -45,6 +61,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 生效策略当场打一行，SC1「Dock 无图标」就不靠肉眼。
         emit("ACTIVATION_POLICY_RAW=\(NSApp.activationPolicy().rawValue)")
         wiring()
+        // Plan 04-04：首启按需弹文件夹选择框 + 扫描起播。必须走 Task + await ——
+        // pickFolder() 的模态面板要在主 run loop 上跑，在 launch 回调里同步
+        // runModal() 会让启动停在那里。插在 wiring() 之后：四个 Watcher 已同步
+        // 置位，弹框期间系统信号不丢；startWallpaper() 的调用顺序一个字不动
+        //（目录获取与起播的协调是 04-05 的活）。
+        Task { await bootstrapAfterWiring() }
         startFrameDriver()
         startWallpaper()
         startLoopProbeIfRequested()
@@ -341,4 +363,120 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func emit(_ line: String) {
         WallpaperWindowController.emit(line)
     }
+
+    // MARK: - Phase 4 菜单动作与首启引导（Plan 04-04 T3）
+
+    /// 首启引导：装上状态打点，然后「按需弹框 → 扫描起播」。
+    /// 取消 / 被拒时不再扫描：取消分支已经打过未配置那一行读数，
+    /// 再扫只会对同一件事打第二遍（D-17：一个数不两种读法）。
+    private func bootstrapAfterWiring() async {
+        // 正常扫描路径的状态变更由协调器打（04-03 冻结的出口）。
+        coordinator.onStateChange = { [weak self] state in
+            self?.emit("PIC_LIBRARY_STATE=" + LibraryAvailability.token(state))
+        }
+        guard await requestFolderIfNeeded() else { return }
+        await rescanAndApply()
+    }
+
+    /// 该不该弹文件夹选择框由 FolderRequestPolicy 纯函数决定（SYS-03 / SOURCE-07）。
+    /// 取消不是错误：安静返回 false —— 不弹错误窗、不崩、不重试。
+    private func requestFolderIfNeeded() async -> Bool {
+        let env = ProcessInfo.processInfo.environment[SettingsStore.envSourceFolderKey]
+        guard FolderRequestPolicy.shouldRequestFolder(sourceFolder: store.sourceFolder,
+                                                       envOverride: env) else {
+            return true
+        }
+        emit("PIC_FOLDER_REQUEST_REASON=unconfigured")
+        // 面板是模态窗口：.accessory 的 app 弹它之前必须激活（T-02-09 的单点），
+        // 弹完必须恢复 —— 少了恢复这一步，Dock 图标会永久留下（T-04-20）。
+        presentSettingsWindow()
+        let url = await picker.pickFolder()
+        hideSettingsAndRestorePolicy()
+        guard let url else {
+            emit("PIC_FOLDER_PICK_CANCELLED=1")
+            // 取消路径直接 return false，不调 coordinator.apply —— 这一行是取消
+            // 路径记录该 token 的唯一方式（与上面的 onStateChange 处理器各有独立语义）。
+            emit("PIC_LIBRARY_STATE=" + LibraryAvailability.token(.folderUnconfigured))
+            return false
+        }
+        guard FolderRequestPolicy.isAcceptableSelection(url) else {
+            emit("PIC_FOLDER_PICK_REJECTED=1")
+            return false
+        }
+        store.sourceFolder = FolderRequestPolicy.normalizedPath(url)
+        store.persist()
+        // 只打 PICKED=1，不打路径（T-03-02：目录路径不进日志，设置窗是唯一例外）。
+        emit("PIC_FOLDER_PICKED=1")
+        return true
+    }
+
+    /// 「切换目录」与「重新扫描」走**同一条**路径 —— 两处实现必然会漂。
+    /// 扫完按新结果交给协调器与轮换器：换目录即旧列表作废（SOURCE-08），
+    /// 重扫即新加的视频当场可见（SOURCE-05）。装载（player.load）由 04-05
+    /// 通过 RotationController.onAdvance 接上，本方法不碰播放端。
+    private func rescanAndApply() async {
+        guard let folder = store.resolvedFolderURL() else {
+            _ = coordinator.apply(scanOutcome: .success(0), folderConfigured: false)
+            return
+        }
+        // 模式与间隔从设置带过来（当场生效，不存第二份真相）。
+        rotation.setMode(store.playMode)
+        rotation.setInterval(store.rotationInterval)
+        do {
+            let report = try await library.scan(folder: folder)
+            rotation.setItems(report.items)
+            rotation.start()
+            _ = coordinator.apply(scanOutcome: .success(report.playableCount),
+                                  folderConfigured: true)
+        } catch let error as MediaLibrary.MediaLibraryError {
+            _ = coordinator.apply(scanOutcome: .failure(error), folderConfigured: true)
+        } catch {
+            // scan 只抛 MediaLibraryError，这里是编译器要的兜底；真到了这一步
+            // 说明出了没料到的错误，按「目录读不了」处理（隐藏 + 让出桌面）。
+            _ = coordinator.apply(scanOutcome: .failure(.folderUnreadable),
+                                  folderConfigured: true)
+        }
+    }
+
+    /// 「立即下一个」的行为侧（MENUBAR-04）：只叫轮换器，不碰 player、不碰
+    /// arbiter —— 换片由 onAdvance → 04-05 接的装载完成（T-04-22：菜单动作
+    /// 不得绕过仲裁器把已 hold 的播放器重新拉起）。
+    func nextVideoNow() {
+        emit("PIC_MENU_ACTION=next_video")
+        rotation.advanceNow()
+    }
+
+    /// 「重新扫描文件夹」的行为侧（MENUBAR-05 / SOURCE-05）：显式失效缓存再重扫 ——
+    /// 不失效的话菜单项会看起来「点了没反应」。单次 Task 串行：连点不会并发扫
+    /// 两遍；每次点击都打一行读数，重复点击在 evidence 里可数（T-04-21）。
+    func rescanFolderNow() {
+        emit("PIC_MENU_ACTION=rescan_folder")
+        library.invalidateCache()
+        Task { await rescanAndApply() }
+    }
+}
+
+// MARK: - 04-03 seam 的产品侧适配（Plan 04-04 T3）
+
+/// `WallpaperPresenting` 的极薄适配。刻意**不**给 `WallpaperWindowController`
+/// 直接加 conformance —— 那会让 PicCore 的类型背上协议依赖，而 04-03 的判据
+/// 锁着 MediaCoordinator.swift 零 AppKit；适配留在装配层（D-10 唯一装配点）。
+@MainActor
+private final class WallpaperPresenter: WallpaperPresenting {
+    private let controller: WallpaperWindowController
+
+    init(controller: WallpaperWindowController) { self.controller = controller }
+
+    func show() { controller.show() }
+    func hide() { controller.hide() }
+}
+
+/// `PlaybackStopping` 的极薄适配，包住 04-03 纯增量的 `stop()`。
+@MainActor
+private final class PlaybackStopper: PlaybackStopping {
+    private let player: PlayerController
+
+    init(player: PlayerController) { self.player = player }
+
+    func stopPlayback() { player.stop() }
 }

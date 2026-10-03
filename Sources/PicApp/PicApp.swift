@@ -27,7 +27,9 @@ struct PicApp: App {
         MenuBarExtra("Pic", systemImage: "photo.on.rectangle") {
             MenuContentView(
                 terminate: { appDelegate.terminateApp() },
-                presentSettings: { appDelegate.presentSettingsWindow() }
+                presentSettings: { appDelegate.presentSettingsWindow() },
+                nextVideo: { appDelegate.nextVideoNow() },
+                rescanFolder: { appDelegate.rescanFolderNow() }
             )
             .environment(appDelegate.store)
             .environment(appDelegate.arbiter)
