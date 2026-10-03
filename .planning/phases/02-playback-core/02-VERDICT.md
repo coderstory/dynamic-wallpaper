@@ -43,9 +43,9 @@ SC4 relabelled PARTIAL」），缺口必须落在结论列里，不能塞进脚�
 | 几何内缩实测（D-08） | `bash scripts/run-probe.sh inset` | `evidence/inset.log` | `INSET_LEFT=14`、`INSET_TOP=9`、`INSET_RIGHT=14`、`INSET_BOTTOM=9`、`SCREEN_FRAME=0,0,1470,956`、`WINDOW_FRAME=14,9,1442,938`、`SCREENS_COUNT=1` |
 | 300 秒无缝循环 | `bash scripts/run-probe.sh loop` | `evidence/loop.log` | `LOOP_VERDICT=pass`、`LOOP_SAMPLES=150`、`LOOP_CYCLES=37`、`LOOP_ENDED=37`、`LOOP_ENDED_PER_CYCLE=1.000`、`LOOP_STALLED=0`、`LOOP_FAILED=0`、`LOOP_DURATION=300`、`LOOP_POS_MONOTONIC=0` |
 | 优雅终止收尾 | `bash scripts/run-probe.sh quit` | `evidence/quit.log` | `QUIT_HOOK_SEEN=1`、`QUIT_EXITED=1`、`QUIT_WALL_SECONDS=4`、`SIGTERM_HOOK_SEEN=0`（观测值，不作断言） |
-| 打包产物层级复验 + ad-hoc 签名 | `bash scripts/run-probe.sh app` | `evidence/app-bundle.log` | `ORDER=ok`、`ORDER_AFTER=ok`、`KILLALL_RC=0`、`ALIVE_AFTER_FINDER_RESTART=1`、`APP_ACTIVATION_POLICY=1`、`LSUIElement=true`、`PLIST_USAGE_DESCRIPTION_COUNT=0`、`IDENTIFIER=com.local.pic`、`SIGNATURE=adhoc`、`AUTHORITY_DEV_ID=0`、`FOREIGN_SAME_LEVEL=0` |
-| 显示刷新驱动复测（PDCA-A4） | `bash scripts/run-probe.sh refresh` | `evidence/refresh.log` | `swift_run` 与 `app_bundle` 两轮的 `DRIVER` **都是** `timer_fallback_hz30`，`TICK_RATE=27.2`（`REFRESH_TICK_COUNT=272` / `REFRESH_WINDOW_SECONDS=10.0`）；`REFRESH_VERDICT=blocked`、`REFRESH_SESSION=locked` |
-| 打包 | `bash build.sh` | `build/Pic.app`、`dist/Pic-0.1.0.dmg` | `.app` 二进制 393872→403696 bytes（随源码变化）；`DMG` 141K；`Signature=adhoc`、`Identifier=com.local.pic` |
+| 打包产物层级复验 + ad-hoc 签名 | `bash scripts/run-probe.sh app` | `evidence/app-bundle.log` | `ORDER=ok`、`ORDER_AFTER=ok`、`KILLALL_RC=0`、`ALIVE_AFTER_FINDER_RESTART=1`、`APP_ACTIVATION_POLICY=1`、`LSUIElement=true`、`PLIST_USAGE_DESCRIPTION_COUNT=0`、`IDENTIFIER=com.local.pic`、`SIGNATURE=adhoc`、`AUTHORITY_DEV_ID=0`、`FOREIGN_SAME_LEVEL=1`、`FOREIGN_OWNERS=Pic`、`FOREIGN_DESKTOP_FAMILY=8`（**注意**：打包产物上该计数是 1 且 owner 就是 `Pic` 自己 —— 探针在 `.app` 形态下把本进程自己的窗口算成了 foreign，与 `swift_run` 形态的 0 语义不同；见 W-2026-10-03-05） |
+| 显示刷新驱动复测（PDCA-A4） | `bash scripts/run-probe.sh refresh` | `evidence/refresh.log` | `swift_run`：`DRIVER=timer_fallback_hz30`、`TICK_RATE=27.1`（`tick_count=271` / `window=10.0`）；`app_bundle`：`DRIVER=timer_fallback_hz30`、`TICK_RATE=27.0`（`tick_count=270` / `window=10.0`）；两轮 `wait_seconds=16`。`REFRESH_VERDICT=blocked`、`REFRESH_BLOCKED_REASON=no_display_link_in_any_mode`、`REFRESH_SESSION=locked`。（`27.2` / `272` 是 `loop.log` 的值，不是本项的） |
+| 打包 | `bash build.sh` | `build/Pic.app`、`dist/Pic-0.1.0.dmg` | `.app` 二进制 393872→403696 bytes（随源码变化）；`DMG` 149464 bytes；`Signature=adhoc`、`Identifier=com.local.pic` |
 | 无头回归 | `bash test.sh` | 终端输出 | `通过 32  失败 0  跳过 0`；把 `build/` 移走后的干净环境：`通过 27  失败 0  跳过 5`，退出码仍为 0 |
 
 ## 没跑过
@@ -111,7 +111,7 @@ Phase 1 把帧号当「画面在动」的证据时，测到的是降级路径
 
 ## 承接 WINDOWS.md 的十条已知窗口
 
-`WINDOWS.md` 里 Phase 2 的 10 条窗口**全部仍在 `open`**，本 Phase 一条都没有关闭。
+`WINDOWS.md` 里 Phase 2 共 **13** 条窗口。本 Phase 关闭 **2** 条（`W-09` `NSApp.terminate` 收敛为 1 处、`W-13` `test.sh` UTF-8 locale 丢字节已用 `export LC_ALL=C` 修复），其余 **11** 条仍 `open`，逐条见下表。
 逐条对应如下：
 
 | 窗口 | 本 Phase 的动作 | 状态 |
@@ -120,12 +120,16 @@ Phase 1 把帧号当「画面在动」的证据时，测到的是降级路径
 | W-2026-10-03-02 Space 切换 | 未动。本机 `SCREENS_COUNT=1`，无法复现 | open（SC5 缺口） |
 | W-2026-10-03-03 门禁复跑 | 复跑入口即 `run-gate.sh`，脚本无需修改；本机仍锁屏 | open |
 | W-2026-10-03-04 循环判据①被证伪 | 已按纠正后的判据取数：`LOOP_VERDICT=pass`、`LOOP_ENDED=37 == LOOP_CYCLES=37` | open（留档防 Phase 3/4 复抄） |
-| W-2026-10-03-05 `FOREIGN_SAME_LEVEL=0` | 在打包产物上再测一次，仍是 0：`app-bundle.log:FOREIGN_SAME_LEVEL=0`、`FOREIGN_DESKTOP_FAMILY=7` | open |
+| W-2026-10-03-05 `FOREIGN_SAME_LEVEL=0` | **读数在打包产物上变了，且不是「仍是 0」**：`app-bundle.log:FOREIGN_SAME_LEVEL=1`、`FOREIGN_OWNERS=Pic`、`FOREIGN_DESKTOP_FAMILY=8`，而 `swift_run` 形态是 `0`/`none`/`7`。差异来源是探针在 `.app` 形态下把本进程自己的窗口计入 foreign。**该形态下的 foreign 计数不可直接与 `swift_run` 比较**，窗口保持 open | open |
 | W-2026-10-03-06 层级判据自相矛盾 | 本 Phase 的源码判据不含全树 `CGWindowLevelForKey` 计数，与 D-04 一致 | open（留档） |
 | W-2026-10-03-07 真人点菜单退出 | 复跑 `run-probe.sh quit`，两段自动证据仍成立（`QUIT_HOOK_SEEN=1`/`QUIT_EXITED=1`）；真人那一跳仍未测 | open |
 | W-2026-10-03-08 `--quit-after` 是测试脚手架 | **本 Phase 保留它但未扩大它**：`quit.log:QUIT_TRIGGER=--quit-after 3 启动参数（测试脚手架，不是产品能力）`。它仍是 Phase 2 全树唯一的启动参数钩子 | open（XCUITest 可用后删除） |
 | W-2026-10-03-09 `NSApp.terminate` 第二处 | 本 Phase 改 `build.sh` / 新增 `FrameDriver` 后重验：`grep -rn 'NSApp.terminate' Sources/` 仍为 **1** | resolved（本 Phase 重验通过） |
 | W-2026-10-03-10 `startWallpaper()` 直连 `player.play()` | **未改动，也未复核**。Phase 3 接 watcher 时必须一并复核起播与 watcher 首次置位的时序 | open |
+
+| W-2026-10-03-11 刷新回调在 `.app` 下仍不可用 | 两种形态实测均 `timer_fallback_hz30`（`swift_run` 27.1 / `app_bundle` 27.0）；`REFRESH_BLOCKED_REASON=no_display_link_in_any_mode`；`REFRESH_SESSION=locked` 无法区分「app 拿不到」与「锁屏压制」 | open（已移交 Phase 3：检测必须走事件通知） |
+| W-2026-10-03-12 DMG 非逐字节可复现 | 四次构建四个 md5；`.app` 本身逐字节相同（`662e6321…`），差异在 UDIF 容器层；mtime 已 pin 仍不同，未定位到具体字节 | open（自用可接受） |
+| W-2026-10-03-13 `test.sh` UTF-8 locale 丢 2 字节 | 已用 `export LC_ALL=C` 修复，未改任何判据语义 | **resolved** |
 
 ## Phase 2 的 8 个 requirement 覆盖对照
 

@@ -103,7 +103,9 @@
 
 - **描述**：PDCA-A4 —— 打包成 `.app` 之后，本进程**仍然**拿不到显示刷新回调。
 - **证据**：`evidence/refresh.log`。`swift_run` 与 `app_bundle` 两轮的 `DRIVER` **都是**
-  `timer_fallback_hz30`，`TICK_RATE=27.2`（`REFRESH_TICK_COUNT=272` / `REFRESH_WINDOW_SECONDS=10.0`）。
+  `timer_fallback_hz30`。`swift_run`：`TICK_RATE=27.1`（`tick_count=271` / `window=10.0`）；
+  `app_bundle`：`TICK_RATE=27.0`（`tick_count=270` / `window=10.0`）；两轮 `wait_seconds=16`。
+  （`27.2` / `272` 是 `loop.log` 的值，2026-10-03 校验时发现此处曾误抄，已更正。）
   `REFRESH_VERDICT=blocked`、`REFRESH_BLOCKED_REASON=no_display_link_in_any_mode`。
 - **保留的边界**：`REFRESH_SESSION=locked`。本次测量**无法区分**「`.app` 也拿不到」与
   「锁屏会话压制了显示回调」—— 两者在解锁会话下会给出不同答案，而解锁后本机读不到答案。
@@ -143,4 +145,5 @@
 
 ## resolved
 
-（暂无）
+- **W-2026-10-03-09** · `NSApp.terminate` 第二处 —— 本 Phase 已收敛为 1 处并挂进 `test.sh` 每次重验
+- **W-2026-10-03-13** · `test.sh` UTF-8 locale 下按字节偏移丢 2 字节 —— 已用 `export LC_ALL=C` 修复，未改判据语义
