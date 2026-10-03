@@ -97,10 +97,11 @@ echo "── 产品代码 ──────────────────
 #   ② 下面每个 token 在本文件里都以字面量出现（它们就是 grep 模式）。
 #      源码侧计数前先剥掉行注释与块注释：把 token 写进注释会让门禁自己作废。
 
-# 剥注释后在指定目录里数某个字面量。目录不存在时返回 -1，让检查项报红而不是读 stdin 挂住。
+# 剥注释后在指定目录（或单个 .swift 文件）里数某个字面量。
+# 路径不存在时返回 -1，让检查项报红而不是读 stdin 挂住。
 src_count(){
   local token="$1" dir="${2:-Sources}"
-  [ -d "$dir" ] || { echo "-1"; return; }
+  [ -e "$dir" ] || { echo "-1"; return; }
   find "$dir" -name '*.swift' -exec grep -h -v \
       -e '^[[:space:]]*//' -e '^[[:space:]]*/\*' -e '^[[:space:]]*\*' -e '^[[:space:]]*\*/' {} + \
     | grep -c -F -- "$token" || true
@@ -432,6 +433,48 @@ MLFN=$(grep -cE '\.mp4|\.mov|\.m4v' .planning/phases/04-media-library/evidence/m
 RWFN=$(grep -cE '\.mp4|\.mov|\.m4v' .planning/phases/04-media-library/evidence/rotation-wiring.log 2>/dev/null || true)
 [ "$RWFN" = "0" ] && ok "轮换 evidence 零媒体文件名（T-03-02）" \
   || no "轮换 evidence 零媒体文件名（T-03-02）" "rotation-wiring.log 内 .mp4/.mov/.m4v 行计数 = ${RWFN:-<文件缺失>}，期望 0"
+
+echo ""
+echo "── Phase 5：设置窗与运行层（源码层）──"
+# ⚠️ 措辞纪律同前：每条 no() 文案带 ok() 的同一句判据名（逐字相同），红绿靠 ✅/❌ 区分。
+# ⚠️ 七个数字全部先数现状再写死（2026-10-04 实测：0 / 0 / 0 / 1 文件 / 1 / 1 / 0 / 0）。
+
+N=$(src_count 'import AVFoundation' 'Sources/PicApp/Settings')
+[ "$N" = "0" ] && ok "设置窗视图零 AVFoundation 依赖（05-01 分层）" \
+  || no "设置窗视图零 AVFoundation 依赖（05-01 分层）" "剥注释后 Sources/PicApp/Settings 内计数 = $N，期望 0"
+
+# 展示层只做值 ↔ 显示形态的换算：碰框架就没法在无头环境单测它。
+N=$(src_count 'import SwiftUI' 'Sources/PicCore/App')
+M=$(src_count 'import AppKit' 'Sources/PicCore/App')
+[ "$N$M" = "00" ] && ok "PicCore 展示层零 UI 框架依赖（05-01 分层）" \
+  || no "PicCore 展示层零 UI 框架依赖（05-01 分层）" "SwiftUI=$N AppKit=$M，期望全 0"
+
+# token 带括号：裸 token 会被 NSOpenPanelFolderPicker 这类无括号类型名撑成 2。
+# `-r` 不能省：BSD grep 不带 -r 时给目录不递归，静默返回 0 个文件（看起来像「没实现」）。
+N=$(grep -l -r -F 'NSOpenPanel(' Sources/PicApp 2>/dev/null | wc -l | tr -d ' ')
+[ "$N" = "1" ] && ok "NSOpenPanel 只存在于 FolderPicker" \
+  || no "NSOpenPanel 只存在于 FolderPicker" "构造调用 NSOpenPanel( 落在 $N 个文件里，期望恰好 1"
+
+# 电源跃迁与设置窗 toggle 走同一个方法；两处 set 会双写。
+N=$(src_count 'arbiter.set(.battery')
+M=$(src_count 'BatteryHoldPolicy.shouldHold')
+[ "$N" = "1" ] && [ "$M" = "1" ] && ok "电池 hold 单一落点（05-02 / T-05-06）" \
+  || no "电池 hold 单一落点（05-02 / T-05-06）" "arbiter.set(.battery=$N shouldHold=$M，期望各恰好 1"
+
+# 主会话硬红线：ffmpeg 类调用绝不进自动路径，且本机无 timeout 机制。
+N=$(src_count 'Process(' 'Sources/PicCore/App/FFmpegAvailability.swift')
+M=$(src_count 'NSTask' 'Sources/PicCore/App/FFmpegAvailability.swift')
+[ "$N$M" = "00" ] && ok "ffmpeg 探测零执行（05-03）" \
+  || no "ffmpeg 探测零执行（05-03）" "Process(=$N NSTask=$M，期望全 0"
+
+N=$(src_count 'MUT-P5-')
+[ "$N" = "0" ] && ok "变异插桩零残留" \
+  || no "变异插桩零残留" "剥注释后 Sources/ 内 MUT-P5- 计数 = $N，期望 0"
+
+# D-18：按条目标题行计。正文里的交叉引用不占号 —— 同一号在正文出现十几次是正常的。
+WD=$(grep -E '^### W-' .planning/WINDOWS.md | sort | uniq -d | wc -l | tr -d ' ')
+[ "$WD" = "0" ] && ok "W 编号全库唯一" \
+  || no "W 编号全库唯一" "重复的条目标题：$(grep -E '^### W-' .planning/WINDOWS.md | sort | uniq -d | tr '\n' ' ')"
 
 echo ""
 echo "── 渲染 ───────────────────────────────"
