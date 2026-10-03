@@ -2,11 +2,11 @@ import Combine
 import Foundation
 import PicCore
 
-/// 转码窗口的队列观察者（TRANS-02 的呈现层）。
+/// 转码窗口的队列观察者（呈现层）。
 ///
-/// 队列数据**只**经 `TranscodeQueue.onJobsChanged` 回调进来 —— PicCore 保持零
-/// UI 框架（06-03 的分层不破）。本类不做任何判定之外的 IO：ffmpeg 定位交给
-/// 注入的 locator，文件大小读 `.size`（读不到就显示 `—`，不猜）。
+/// 队列数据**只**经 `TranscodeQueue.onJobsChanged` 回调进来 —— PicCore 保持零 UI 框架
+/// （分层不破）。本类不做任何判定之外的 IO：ffmpeg 定位交给注入的 locator，
+/// 文件大小读 `.size`（读不到就显示 `—`，不猜）。
 @MainActor
 final class TranscodeViewModel: ObservableObject {
 
@@ -27,7 +27,7 @@ final class TranscodeViewModel: ObservableObject {
         reload()
     }
 
-    /// 每次开窗都重查（RESEARCH Q7）：用户中途装上 ffmpeg 不用重启 app。
+    /// 每次开窗都重查：用户中途装上 ffmpeg 不用重启 app。
     func refresh() {
         availability = locator.locate()
     }

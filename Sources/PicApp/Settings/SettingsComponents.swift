@@ -1,15 +1,12 @@
 import SwiftUI
 import PicCore
 
-// 设置窗组件层 —— 从 `.planning/spike/SettingsSpike.swift` 照搬（已编译渲染基线），
-// 只做三处合同覆盖（UI-SPEC + 2026-10-03 主会话裁决）：
-//   ① pSep 的 opacity 用全局稿的 0.16（spike 曾调深到 0.22）
-//   ② Row 的 tileGap 用 12（spike 的 11 已被裁决覆盖，两处）
-//   ③ 读数字号统一 11.5 / 节标题统一 semibold(600)（UI-SPEC §Typography 的两处归一）
-// 字体一律系统默认（2026-10-03 用户拍板，不打包字体文件）：等宽文本走
-// `mono(_:_)` 的 `.system(design: .monospaced)`，单一入口留给未来换字体。
+// 设置窗组件层。只做三处合同覆盖：① pSep 的 opacity 用全局稿的 0.16；② Row 的 tileGap
+// 用 12；③ 读数字号统一 11.5 / 节标题统一 semibold(600)。
+// 字体一律系统默认（用户拍板，不打包字体文件）：等宽文本走 `mono(_:_)` 的
+// `.system(design: .monospaced)`，单一入口留给未来换字体。
 
-// ── 配色令牌（照抄全局 UI-SPEC §3 的 B1 深海）──────────────────
+// ── 配色令牌（B1 深海）──
 extension Color {
     static let pBg       = Color(red: 0x0A/255, green: 0x18/255, blue: 0x26/255)
     static let pFg       = Color(red: 0xDC/255, green: 0xE8/255, blue: 0xF4/255)
@@ -29,7 +26,7 @@ func mono(_ size: CGFloat, _ w: Font.Weight = .regular) -> Font {
     .system(size: size, weight: w, design: .monospaced)
 }
 
-// ── 图标瓷砖（双阴影发光）──────────────────────────────────────
+// ── 图标瓷砖（双阴影发光）──
 struct Tile: View {
     let symbol: String
     var warn = false
@@ -73,11 +70,11 @@ struct GlowSlider: View {
     @Binding var value: Double
     var range: ClosedRange<Double> = 0...1
     /// 拖动中回调（当场生效，不写盘）；拖动结束回调（persist 恰一次）。
-    /// tracer 的接线形态（SC-4 ③ 的节流纪律）由 SettingsView 传入。
+    /// tracer 的接线形态（节流纪律）由 SettingsView 传入。
     var onChanged: (() -> Void)? = nil
     var onEnded: (() -> Void)? = nil
-    /// 自绘手势**不认** SwiftUI 的 disabled —— `.disabled(true)` 只置灰原生控件。
-    /// UI-03 要求「禁用交互，不是只调透明度」，所以这里自己读一次 isEnabled。
+    /// ⚠️ 自绘手势**不认** SwiftUI 的 disabled —— `.disabled(true)` 只置灰原生控件。
+    /// 要求是「禁用交互，不是只调透明度」，所以这里自己读一次 isEnabled。
     @Environment(\.isEnabled) private var isEnabled
     @State private var dragging = false
     var body: some View {
@@ -135,7 +132,7 @@ struct GlowSegmented: View {
     }
 }
 
-// ── 步进器 ───────────────────────────────────────────────────
+// ── 步进器 ──
 struct GlowStepper: View {
     @Binding var index: Int
     let values: [Int]
@@ -161,7 +158,7 @@ struct GlowStepper: View {
     }
 }
 
-// ── 行 / 卡片 ────────────────────────────────────────────────
+// ── 行 / 卡片 ──
 struct Row<C: View>: View {
     let symbol: String
     let title: String
@@ -199,7 +196,7 @@ struct SectionHead: View {
     }
 }
 
-// 无 clipShape —— 它会把瓷砖的外发光裁掉（spike 已修的坑 1，UI-SPEC §13）
+// ⚠️ 无 clipShape —— 它会把瓷砖的外发光裁掉（UI-SPEC §13 已修的坑 1）
 struct Card<C: View>: View {
     @ViewBuilder var content: () -> C
     var body: some View {
@@ -217,7 +214,7 @@ struct Hint: View {
     }
 }
 
-// ── 按钮样式 ─────────────────────────────────────────────────
+// ── 按钮样式 ──
 struct GlowButton: ButtonStyle {
     var primary = false
     func makeBody(configuration: Configuration) -> some View {

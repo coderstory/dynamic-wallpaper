@@ -1,12 +1,12 @@
 import SwiftUI
 
-/// ffmpeg 安装途径说明（C2：App 不内置、不下载 —— 安装是用户自己的动作）。
+/// ffmpeg 安装途径说明（App 不内置、不下载 —— 安装是用户自己的动作）。
 ///
-/// 三条途径逐条在场，每条带**可复制**的命令文本块与它的真实坑。删掉任一条的
+/// ⚠️ 三条途径逐条在场，每条带**可复制**的命令文本块与它的真实坑。删掉任一条的
 /// `xattr` 或 macOS 27 警示，用户照抄就会失败或被 Gatekeeper 拦死。
 struct InstallPathwaysView: View {
 
-    /// 装好后回窗口点它重查（Q7 的新鲜化出口之一）。
+    /// 装好后回窗口点它重查（新鲜化出口之一）。
     let onRecheck: () -> Void
 
     var body: some View {

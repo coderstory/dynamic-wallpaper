@@ -1,10 +1,10 @@
 import SwiftUI
 import PicCore
 
-/// 转码窗口主体（UI-SPEC §8 —— 全 app 唯一出现列表的地方，例外由计划存档）。
+/// 转码窗口主体（UI-SPEC §8 —— 全 app 唯一出现列表的地方，例外已存档）。
 ///
-/// 四要素：ffmpeg 徽章 / 待转码队列表 / 底部实际命令（TRANS-06 可审计）/
-/// 产物规则说明。深色令牌与组件全部复用设置窗那一套，不自造。
+/// 四要素：ffmpeg 徽章 / 待转码队列表 / 底部实际命令（可审计）/ 产物规则说明。
+/// 深色令牌与组件全部复用设置窗那一套，不自造。
 struct TranscodeWindowView: View {
 
     @ObservedObject var viewModel: TranscodeViewModel
@@ -140,7 +140,7 @@ struct TranscodeWindowView: View {
         return false
     }
 
-    // MARK: - 底部命令（TRANS-06）
+    // MARK: - 底部命令
 
     private var commandBlock: some View {
         VStack(alignment: .leading, spacing: 4) {

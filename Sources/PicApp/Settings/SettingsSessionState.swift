@@ -4,8 +4,8 @@ import PicCore
 
 /// 设置窗读的**会话态**：媒体库最近一次扫描的读数。
 ///
-/// ⚠️ 不进 `SettingsStore` —— 七键冻结（04-02 D-03）。这里每个字段都是本次
-/// 运行的读数，不该被 persist，也不该跨启动保留。
+/// ⚠️ 不进 `SettingsStore` —— 七键冻结。这里每个字段都是本次运行的读数，不该被 persist，
+/// 也不该跨启动保留。
 @MainActor
 @Observable
 final class SettingsSessionState {

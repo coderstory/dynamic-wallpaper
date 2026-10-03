@@ -4,10 +4,10 @@ import PicCore
 
 /// 设置窗主体（UI-SPEC §7 双列：左来源/播放，右电源与系统/维护/运行状态）。
 ///
-/// 05-02 起六个可调项**全部**是真绑定：每个控件的写入口经
-/// `store.<键> = …` → `SettingsApplier.apply*()`（当场生效）→ `store.persist()`
-/// —— 窗口内没有任何「渲染假数据」的 `@State`（速度行的拖动暂态除外，
-/// 它每次变更都直通 store）。量纲换算全部走 `SettingsPresentation`，视图里不出现第二份。
+/// 六个可调项**全部**是真绑定：每个控件的写入口经 `store.<键> = …` →
+/// `SettingsApplier.apply*()`（当场生效）→ `store.persist()` —— 窗口内没有任何「渲染假数据」
+/// 的 `@State`（速度行的拖动暂态除外，它每次变更都直通 store）。量纲换算全部走
+/// `SettingsPresentation`，视图里不出现第二份。
 struct SettingsView: View {
     @Environment(SettingsStore.self) private var store
     @Environment(SettingsApplier.self) private var applier
@@ -15,28 +15,27 @@ struct SettingsView: View {
     @Environment(SettingsSessionState.self) private var session
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// 动作闭包一律经 PicApp 注入 —— 视图不持有 AppDelegate（D-10 装配点不动）。
+    /// 动作闭包一律经 PicApp 注入 —— 视图不持有 AppDelegate（装配点不动）。
     let requestFolder: () -> Void
     let rescanLibrary: () -> Void
     let reapplyBatteryHold: () -> Void
-    /// 「开机自启」的行为侧（SYS-01）——与上面同一条装配通道，经 PicApp 注入。
+    /// 「开机自启」的行为侧 —— 与上面同一条装配通道，经 PicApp 注入。
     let setLaunchAtLogin: (Bool) -> Void
     /// 转码窗的 ffmpeg 判定读数（单一真相源：与窗口徽章同一个 locator）。
     let ffmpegAvailable: () -> Bool
     /// 「打开…」的条件分派：注入 `openWindow` 动作，可用则开窗返回 true。
     let openTranscode: ((() -> Void) -> Bool)
-    /// 安装途径弹层里的「重新检测」——重查并回填最新读数（Q7 的新鲜化出口）。
+    /// 安装途径弹层里的「重新检测」——重查并回填最新读数（新鲜化出口）。
     let refreshFFmpeg: () -> Bool
 
     @Environment(\.openWindow) private var openWindow
-    /// ffmpeg 不可用时的安装途径弹层（SC#1 的第二半句：置灰之外还得给出途径）。
+    /// ffmpeg 不可用时的安装途径弹层（置灰之外还得给出途径）。
     @State private var showingPathways = false
 
     // ── 唯一保留的 @State（都不是「渲染假数据」）──
     // 速度滑杆的拖动暂态（每次 onChanged 直通 store + applier）。
     @State private var rateDrag: Double = 1.0
-    // 开机自启：真绑定 store（Plan 07-02 T2 覆盖了 05-02 的本地 @State 规划）——
-    // 不持久化的话用户拨开的开关重启即丢，「开机自启」这项判据无从谈起。
+    // 开机自启：真绑定 store —— 不持久化的话用户拨开的开关重启即丢。
     @State private var breathe = false
 
     var body: some View {
@@ -47,7 +46,7 @@ struct SettingsView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(14)
-        // SC-1：宽 780 / min 680，两个数只从 SettingsPresentation 读。
+        // 宽 780 / min 680，两个数只从 SettingsPresentation 读。
         .frame(minWidth: SettingsPresentation.windowMinWidth,
                idealWidth: SettingsPresentation.windowWidth)
         // 高随内容撑，不写死（UI-SPEC §13 坑 2）。
@@ -90,7 +89,7 @@ struct SettingsView: View {
                                    index: modeIndex)
                         .accessibilityIdentifier("mode-segmented")
                 }
-                // 置灰联动①（UI-03）：单循环下整行不可交互 + 视觉变淡。
+                // 置灰联动①：单循环下整行不可交互 + 视觉变淡。
                 Row(symbol: "timer", title: "轮换") {
                     GlowStepper(index: rotationIndex,
                                 values: SettingsPresentation.rotationChoicesMinutes)
@@ -100,7 +99,6 @@ struct SettingsView: View {
                 .accessibilityIdentifier("rotation-stepper")
                 Row(symbol: "gauge.with.dots.needle.67percent", title: "速度", sub: "音高不变") {
                     HStack(spacing: 9) {
-                        // 拖动中只对播放器生效不写盘；拖动结束 persist 恰一次。
                         GlowSlider(value: $rateDrag, range: 0.5...2, onChanged: {
                             store.rate = Float(rateDrag)
                             applier.applyRate()
@@ -117,7 +115,7 @@ struct SettingsView: View {
                 }
                 Row(symbol: "speaker.wave.2.fill", title: "声音", hairline: false) {
                     HStack(spacing: 9) {
-                        // 置灰联动②（UI-03）：静音时滑杆不可交互 + 视觉变淡。
+                        // 置灰联动②：静音时滑杆不可交互 + 视觉变淡。
                         GlowSlider(value: volumePercent, range: 0...100, onChanged: {
                             store.volume = SettingsPresentation.volumeFromPercent(
                                 SettingsPresentation.volumePercent(store.volume))
@@ -164,9 +162,8 @@ struct SettingsView: View {
                 }
                 Row(symbol: "arrow.left.arrow.right", title: "转码",
                     sub: "MKV / AVI → MP4", hairline: false) {
-                    // ⚠️ 不可用时**只**调 opacity（UI-SPEC §6 的置灰视觉），
-                    // 绝不用 .disabled(true) —— 那会吃掉点击，三途径说明就永远弹不出来
-                    // （SC#1 的两半句：置灰 + 给途径，必须同时成立）。
+                    // ⚠️ 不可用时**只**调 opacity（UI-SPEC §6 的置灰视觉），绝不用 .disabled(true) ——
+                    // 那会吃掉点击，三途径说明就永远弹不出来（置灰 + 给途径，必须同时成立）。
                     Button("打开…") {
                         if !openTranscode({ openWindow(id: TranscodeScene.windowID) }) {
                             showingPathways = true
@@ -243,7 +240,7 @@ struct SettingsView: View {
         SettingsPresentation.joinedReasons(arbiter.decision.activeReasons)
     }
 
-    /// ffmpeg 可用性由 AppDelegate 持有的同一个 locator 给出（D-17 单一真相源）——
+    /// ffmpeg 可用性由 AppDelegate 持有的同一个 locator 给出（单一真相源）——
     /// 视图不再自己扫 PATH，两处判定漂成两套真相的坑因此消除。
     private func ffmpegStatusLine() {
         let available = ffmpegAvailable()
@@ -301,13 +298,12 @@ struct SettingsView: View {
             set: {
                 store.pauseOnBattery = $0
                 store.persist()
-                // 当场重估：用最近一次已知的电源状态走同一个映射，
-                // 不等下一次电源跃迁（PLAY-10）。
+                // 当场重估：用最近一次已知的电源状态走同一个映射，不等下一次电源跃迁。
                 reapplyBatteryHold()
             })
     }
 
-    /// 开机自启（SYS-01）。与 `pauseOnBattery` 同款三行：写 store → persist → 落行为。
+    /// 开机自启。与 `pauseOnBattery` 同款三行：写 store → persist → 落行为。
     /// 行为侧（A→B 决策）在装配层，视图只管把用户的拨动递过去。
     private var launchAtLogin: Binding<Bool> {
         Binding(
@@ -331,9 +327,8 @@ struct SettingsView: View {
         ffmpegStatusLine()
     }
 
-    /// 几何探针（SC-1 的探针半边）：窗口出现后打一行 `PIC_SETTINGS_WINDOW`，
-    /// 经 `PIC_EVIDENCE_FILE` mirror 进证据文件（XCUITest/探针 → 可 grep 证据的桥）。
-    /// 延迟半秒等 SwiftUI 把 Window 装进 NSApp.windows。
+    /// 几何探针：窗口出现后打一行 `PIC_SETTINGS_WINDOW`，经 `PIC_EVIDENCE_FILE` mirror 进证据
+    /// 文件（XCUITest/探针 → 可 grep 证据的桥）。延迟半秒等 SwiftUI 把 Window 装进 NSApp.windows。
     private func emitWindowGeometry() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             guard let win = NSApp.windows.first(where: { $0.title == "Pic 设置" }) else { return }
