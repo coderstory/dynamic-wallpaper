@@ -1,0 +1,61 @@
+import Foundation
+
+/// D-23 的播放第二入口：扫 `<壁纸目录>/Converted/` 子树产出可播清单，
+/// 在 `router.start(with:)` 调用点与根扫描 items 合并（06-05 落地装配）。
+///
+/// 与 `MediaLibrary` 同隔离域（最终被 AppDelegate 在主线程驱动）。不做缓存 ——
+/// 转码完成事件会触发全量重扫（见 06-05），加缓存反而要管失效。
+@MainActor
+public final class ConvertedLibrary {
+
+    private let probe: any VideoAssetProbe
+    private let entryCap: Int
+
+    public init(probe: any VideoAssetProbe = AVFoundationAssetProbe(), entryCap: Int = 5000) {
+        self.probe = probe
+        self.entryCap = entryCap
+    }
+
+    /// 扫 `folder/Converted/` 子树。目录不存在 → `[]` 不抛错
+    /// （还没转过任何东西是常态，SC#5 的前提是不吓人）。
+    public func scan(folder: URL) async throws -> [VideoItem] {
+        let fm = FileManager.default
+        let converted = folder.appendingPathComponent(
+            MediaLibrary.excludedDirectoryName, isDirectory: true)
+        guard fm.fileExists(atPath: converted.path) else { return [] }
+        guard let enumerator = fm.enumerator(
+            at: converted,
+            includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey],
+            options: [.skipsHiddenFiles]
+        ) else { return [] }
+
+        var items: [VideoItem] = []
+        var scanned = 0
+        while let entry = enumerator.nextObject() as? URL {
+            scanned += 1
+            if scanned > entryCap { break }
+            // 符号链接一律不收（T-06-03，与 04-01 扫描器同规则）。
+            guard let values = try? entry.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey]),
+                  values.isRegularFile == true,
+                  values.isSymbolicLink != true else { continue }
+            guard MediaLibrary.allowedExtensions.contains(entry.pathExtension.lowercased()) else { continue }
+            if await probe.hasVideoTrack(entry) {
+                items.append(VideoItem(url: entry))
+            }
+        }
+        items.sort { $0.url.path < $1.url.path }
+        return items
+    }
+
+    /// 合并纯函数：root 顺序保留在前，converted 按序追加在后，按 `url.path` 去重
+    /// —— `router.start(with:)` 的入参由它产出（D-23 的核心）。
+    public static func playbackItems(root: [VideoItem], converted: [VideoItem]) -> [VideoItem] {
+        var seen = Set(root.map { $0.url.path })
+        var merged = root
+        for item in converted where !seen.contains(item.url.path) {
+            seen.insert(item.url.path)
+            merged.append(item)
+        }
+        return merged
+    }
+}
