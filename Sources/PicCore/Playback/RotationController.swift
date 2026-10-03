@@ -125,9 +125,7 @@ public final class RotationController {
     public func setInterval(_ seconds: TimeInterval) {
         interval = seconds
         guard isRunning, !items.isEmpty else { return }
-        scheduler.schedule(after: interval) { [weak self] in
-            MainActor.assumeIsolated { self?.rotationElapsed() }
-        }
+        reschedule()
     }
 
     /// `setItems` 之后调一次：把首条交给 `onAdvance`，并用 `interval` 排下一程。
@@ -138,9 +136,7 @@ public final class RotationController {
         guard !items.isEmpty else { return }
         isRunning = true
         onAdvance?(items[0])
-        scheduler.schedule(after: interval) { [weak self] in
-            MainActor.assumeIsolated { self?.rotationElapsed() }
-        }
+        reschedule()
     }
 
     public func stop() {
@@ -185,8 +181,12 @@ public final class RotationController {
         currentIndex = nextIndex
         advances.append(RotationAdvance(reason: reason, index: nextIndex))
         onAdvance?(items[nextIndex])
-        // 切完立刻重排下一程（PLAY-06：到点就切，不等播完；`schedule` 内部先
-        // `cancel()` 旧定时器，不累积）。
+        reschedule()
+    }
+
+    /// 重排下一程 —— `setInterval` / `start` / `advance` 三处共用的唯一排程点。
+    /// 切完立刻重排（PLAY-06：到点就切，不等播完；`schedule` 内部先 `cancel()` 旧定时器，不累积）。
+    private func reschedule() {
         scheduler.schedule(after: interval) { [weak self] in
             MainActor.assumeIsolated { self?.rotationElapsed() }
         }
