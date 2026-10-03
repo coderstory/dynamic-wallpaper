@@ -40,7 +40,7 @@ SRC="Sources/PicCore/State/HoldReason.swift \
      Sources/PicCore/System/LockWatcher.swift \
      .planning/spike/LockWatcherDriver.swift"
 
-alarm() { perl -e "alarm $1; exec @ARGV" "${@:2}"; }
+. "$(dirname "$0")/probe-common.sh" || { echo "probe-common.sh 缺失，无法取 alarm()" >&2; exit 1; }
 
 cleanup() { rm -rf "$TMP"; return 0; }
 trap cleanup EXIT INT TERM
