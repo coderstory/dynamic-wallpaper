@@ -22,6 +22,7 @@ struct PicApp: App {
             SettingsView(requestFolder: { appDelegate.requestFolderNow() },
                          rescanLibrary: { appDelegate.rescanLibrary() },
                          reapplyBatteryHold: { appDelegate.reapplyBatteryHold() },
+                         setLaunchAtLogin: { appDelegate.setLaunchAtLogin($0) },
                          ffmpegAvailable: { appDelegate.ffmpegIsAvailable },
                          openTranscode: { appDelegate.openTranscodeWindow($0) },
                          refreshFFmpeg: {

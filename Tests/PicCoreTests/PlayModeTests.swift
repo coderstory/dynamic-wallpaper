@@ -92,8 +92,9 @@ final class PlayModeTests: XCTestCase {
             SettingsStore.Key.playMode,
             SettingsStore.Key.rotationInterval,
             SettingsStore.Key.pauseOnBattery,
+            SettingsStore.Key.launchAtLogin,
         ]
         XCTAssertEqual(written, expected,
-                       "persist() 写出的键必须恰好是既有的 7 个（D-03）—— 多一个少一个都算破契约")
+                       "persist() 写出的键必须恰好是已知的 8 个（D-03）—— 多一个少一个都算破契约")
     }
 }

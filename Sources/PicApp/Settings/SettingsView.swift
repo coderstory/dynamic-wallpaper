@@ -19,6 +19,8 @@ struct SettingsView: View {
     let requestFolder: () -> Void
     let rescanLibrary: () -> Void
     let reapplyBatteryHold: () -> Void
+    /// 「开机自启」的行为侧（SYS-01）——与上面同一条装配通道，经 PicApp 注入。
+    let setLaunchAtLogin: (Bool) -> Void
     /// 转码窗的 ffmpeg 判定读数（单一真相源：与窗口徽章同一个 locator）。
     let ffmpegAvailable: () -> Bool
     /// 「打开…」的条件分派：注入 `openWindow` 动作，可用则开窗返回 true。
@@ -33,9 +35,8 @@ struct SettingsView: View {
     // ── 唯一保留的 @State（都不是「渲染假数据」）──
     // 速度滑杆的拖动暂态（每次 onChanged 直通 store + applier）。
     @State private var rateDrag: Double = 1.0
-    // 开机自启：本地 @State，不持久化（SettingsStore 7 键冻结，不加第 8 键）。
-    // 行为接线：Phase 7 SYS-01
-    @State private var launchAtLogin = false
+    // 开机自启：真绑定 store（Plan 07-02 T2 覆盖了 05-02 的本地 @State 规划）——
+    // 不持久化的话用户拨开的开关重启即丢，「开机自启」这项判据无从谈起。
     @State private var breathe = false
 
     var body: some View {
@@ -148,8 +149,7 @@ struct SettingsView: View {
                         .accessibilityIdentifier("battery-toggle")
                 }
                 Row(symbol: "power", title: "开机自启", hairline: false) {
-                    // 行为接线：Phase 7 SYS-01（本地 @State，不持久化 —— SettingsStore 7 键冻结）
-                    Toggle("", isOn: $launchAtLogin).toggleStyle(GlowToggle()).labelsHidden()
+                    Toggle("", isOn: launchAtLogin).toggleStyle(GlowToggle()).labelsHidden()
                         .accessibilityIdentifier("autostart-toggle")
                 }
             }
@@ -304,6 +304,18 @@ struct SettingsView: View {
                 // 当场重估：用最近一次已知的电源状态走同一个映射，
                 // 不等下一次电源跃迁（PLAY-10）。
                 reapplyBatteryHold()
+            })
+    }
+
+    /// 开机自启（SYS-01）。与 `pauseOnBattery` 同款三行：写 store → persist → 落行为。
+    /// 行为侧（A→B 决策）在装配层，视图只管把用户的拨动递过去。
+    private var launchAtLogin: Binding<Bool> {
+        Binding(
+            get: { store.launchAtLogin },
+            set: {
+                store.launchAtLogin = $0
+                store.persist()
+                setLaunchAtLogin($0)
             })
     }
 
