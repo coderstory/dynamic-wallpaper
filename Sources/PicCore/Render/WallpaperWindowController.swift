@@ -44,6 +44,25 @@ public final class WallpaperWindowController {
         w.orderFrontRegardless()
     }
 
+    /// 降级的**保留**语义：只 `orderOut(nil)` 把窗口从屏幕上撤下，`window` 与
+    /// `layer` 原样保留 —— 与 `teardown()` 的**销毁**语义（`orderOut` + 置 nil）
+    /// 并存且不冲突。SOURCE-06 的恢复路径依赖这对 `hide()` / `show()`：文件夹
+    /// 恢复后 `show()` 能把同一个窗口原样叫回来，不需要重建。
+    ///
+    /// `window == nil`（还没 attach 过 / 已 teardown）时是安全空操作。
+    /// 不碰 `collectionBehavior` 与 `level` —— 那两件事的唯一落点是 `reassert()`。
+    public func hide() {
+        window?.orderOut(nil)
+    }
+
+    /// `hide()` 的逆操作：把保留着的窗口重新提到最前。`window == nil` 时空操作，
+    /// **不隐式 attach** —— 隐式 attach 会把「窗口建不出来」这个真实故障吞掉
+    /// （`attach(player:)` 已经在 `NSScreen.main == nil` 时打了 `PIC_NO_SCREEN`，
+    /// `show()` 不该绕过这条）。
+    public func show() {
+        window?.orderFrontRegardless()
+    }
+
     public func teardown() {
         window?.orderOut(nil)
         window = nil

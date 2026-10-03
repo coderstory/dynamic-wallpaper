@@ -50,10 +50,25 @@ public enum LibraryState: String, Equatable, Sendable, CaseIterable {
 public enum LibraryAvailability {
 
     /// 三输入 → 一枚举。`scanOutcome` 里装的是 `playableCount`（不是 items）。
+    ///
+    /// - `folderConfigured == false` 压过一切：没选目录时不该去问扫描结果。
+    /// - 两个「目录本身出了问题」的错误（不存在 / 不可读）都归 `.folderMissing`。
+    /// - **其他** failure case 兜底归 `.noPlayableVideos`：本 Phase 只有两个
+    ///   failure case，这一条是为 Phase 6 的转码相关错误留的 —— 枚举是
+    ///   `Equatable` 的，将来 `MediaLibraryError` 加 case 时这里 exhaustively
+    ///   switch，编译器会提醒补分支，不是死代码。
+    /// - `success(负数)` 结构上不可能（`playableCount` 是 `items.count`），不加分支。
     public static func evaluate(folderConfigured: Bool,
                                 scanOutcome: Result<Int, MediaLibrary.MediaLibraryError>) -> LibraryState {
-        // RED 阶段的编译骨架：行为故意错误，由 LibraryAvailabilityTests 转红证明。
-        return .playing
+        guard folderConfigured else { return .folderUnconfigured }
+        switch scanOutcome {
+        case .failure(.folderMissing), .failure(.folderUnreadable):
+            return .folderMissing
+        case .failure:
+            return .noPlayableVideos
+        case .success(let playableCount):
+            return playableCount >= 1 ? .playing : .noPlayableVideos
+        }
     }
 
     /// 供 04-05 打点用。只回 `reasonToken`，不带任何路径或文件名（T-03-02 隐私纪律）。
