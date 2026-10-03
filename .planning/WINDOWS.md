@@ -542,7 +542,36 @@
   `FFmpegAvailability.label(available:)` 扩成带版本的形态；届时
   `Sources/PicCore/Transcode/ExternalToolLocator.swift` 的 `locate()`（已拿到
   `available(path:)`）收编本判定为薄委托，避免出现两个 ffmpeg 探测真相源。
+  **06-05 复核：判定侧已收编（06-04 的 `FFmpegToolStatus` 单一真相源），但版本串
+  仍未显示（`grep -n version` 在 `ExternalToolLocator` 与三个 Transcode 视图里命中 0）
+  —— 本条按原口径保持 open，Phase 6 不改它的状态。**
 - **status**：open
+
+
+### W-2026-10-03-34 · decision · Phase 6 / Plan 06-05
+
+- **描述**：**D-23 的裁决** —— 04-01 的 `MediaLibrary` 把 `Converted/` 整棵排除
+  （`excludedByConverted` 是全排除，fixture 表明示），而 ROADMAP Phase 6 的 SC#5 又要求
+  「转完即播」。两条都照字面做会互斥：产物永远不在 `report.items` 里。
+  裁决 = **产物仍留 `Converted/`（D-21 不动）+ 新开 `ConvertedLibrary` 作播放第二入口 +
+  在 `router.start(with:)` 的调用点把两侧清单合并去重**。
+- **替代方案与否决理由**：
+  ①「把 `Converted/` 从排除名单里删掉」—— 否决：`TranscodeCandidateFilter` 与
+     `MediaLibrary` 共享同一套扩展名白名单，删了就无法区分「源」与「产物」，
+     转码产物会重新进候选队列，防回流的第一层直接失效。
+  ②「转完后把产物挪回根目录」—— 否决：源与产物同名会互相覆盖，且用户原始素材目录
+     被 app 写入是不可逆的副作用（TRANS-04「源保留不删」也会被打破）。
+- **证据**：`04-01-PLAN.md` 的 fixture 表 `Converted/out.mp4` 期望「整棵排除」；
+  `Sources/PicCore/Media/MediaLibrary.swift:32` 的 `excludedDirectoryName = "Converted"`；
+  ROADMAP Phase 6 SC#5 原文；合并纯函数在
+  `Sources/PicCore/Transcode/ConvertedLibrary.swift:52`（`playbackItems(root:converted:)`，
+  按 `url.path` 去重、root 序在前）。
+- **影响**：06-01 建 `ConvertedLibrary`；**06-05 T1 落装配** —— `AppDelegate` 的
+  `mergedPlaybackItems(_:)` 成为播放清单的唯一产出处，`router.start(with:)` 的两个调用点
+  （`startWallpaper` 与 `dispatchPlayback`）全部改走它；
+  `transcodeQueue.onBatchFinished` → `invalidateCache()` → `rescanAndApply()` 补上
+  「排空后当轮进清单」的最后一跳（少这一步，缓存会让新产物永远看不见，且不报错）。
+- **status**：resolved
 
 
 ## resolved
