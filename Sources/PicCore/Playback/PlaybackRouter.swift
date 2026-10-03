@@ -15,11 +15,19 @@ public protocol VideoLoading: AnyObject {
     func loadPlayback(url: URL)
 }
 
-// MARK: - 路由器（RED 骨架：只保证可编译，行为留空）
+// MARK: - 路由器
 
+/// 轮换 → 装载的路由器（Plan 04-05 T1）。
+///
+/// 只负责「下一条装载哪一条」；装载之后该不该播，由产品侧的适配器走
+/// 仲裁器的当前决策决定（D-06 单向流：Watcher → 仲裁器 → 播放内核，
+/// router 不在那条链上）。**零播放框架、零 AppKit** —— 它只对协议说话，
+/// 因此「轮换驱动装载」在无屏幕环境可测。
 @MainActor
 public final class PlaybackRouter {
 
+    /// 真的交出去的装载次数（T3 打点用）。**不是播放状态** —— 拿它当
+    /// 播放状态读会把「装载过」误读成「在播」。
     public private(set) var loadCount: Int = 0
 
     private let rotation: RotationController
@@ -30,19 +38,35 @@ public final class PlaybackRouter {
         self.loader = loader
     }
 
+    /// 装载分派：换列表并起转。**顺序写死**：
+    /// 1. 先绑 `onAdvance`（每次 start 只绑一次，重绑覆盖旧闭包）；
+    /// 2. `setItems`（索引归 0、清洗牌袋）；
+    /// 3. `start()` —— 这一步立刻用 `items[0]` 回调一次。
+    /// 绑在 `start()` 之前是硬要求：反序会漏掉首条。
     public func start(with items: [VideoItem]) {
+        rotation.onAdvance = { [weak self] item in
+            self?.recordLoad(item.url)
+        }
         rotation.setItems(items)
+        rotation.start()
     }
 
+    /// 停转并解绑（`RotationController.stop()` 内部已清 `onAdvance`）。
     public func stop() {
         rotation.stop()
     }
 
+    /// 「立即下一个」的行为侧入口（SC3）。
     public func advanceNow() {
         rotation.advanceNow()
     }
 
     public var current: VideoItem? {
         rotation.current
+    }
+
+    private func recordLoad(_ url: URL) {
+        loader.loadPlayback(url: url)
+        loadCount += 1
     }
 }
