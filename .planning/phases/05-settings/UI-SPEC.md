@@ -35,7 +35,7 @@ Could not enumerate by package command: 本项目是原生 SwiftUI app —— �
 
 | Component | 来源（spike 行号区间） | Notes |
 |-----------|----------------|-------|
-| `Color` 扩展（pBg/pFg/pAccent/pAccFg/pCard/pSep/pEdge/pGlow/pWarn/pWarnGlow/pDim） | 5–17 | B1 深海令牌，照抄全局 UI-SPEC §3；注意 spike 把 pSep 从 0.16 调到 0.22（深色下更可见），契约采用 0.22 |
+| `Color` 扩展（pBg/pFg/pAccent/pAccFg/pCard/pSep/pEdge/pGlow/pWarn/pWarnGlow/pDim） | 5–17 | B1 深海令牌，照抄全局 UI-SPEC §3；注意 spike 曾把 pSep 调到比全局更深的值（深色下更可见），契约照抄全局 0.16 |
 | `mono(_:_:)` 字体助手 | 18–20 | **Phase 5 改为 IBM Plex Mono**（见 §13 差异表） |
 | `Tile` | 23–41 | 图标瓷砖 26×26 圆角 6，双阴影发光；`warn: true` 切换警告配色 |
 | `GlowToggle: ToggleStyle` | 44–59 | 40×23 开关，开态 accent + 发光 |
@@ -57,7 +57,7 @@ Could not enumerate by package command: 本项目是原生 SwiftUI app —— �
 | Token | 值（pt） | 用途 |
 |-------|---------|------|
 | hairline | 1 | 卡片内行分隔线 |
-| tileGap | 11 | 图标瓷砖↔文字；标签组↔控件组（L4「紧跟」间隙，**不是** space-between） |
+| tileGap | 12 | 图标瓷砖↔文字；标签组↔控件组（L4「紧跟」间隙，**不是** space-between） |
 | titleSubGap | 1 | 行标题↔副标签 |
 | cardGap | 12 | 卡片之间 / SectionHead 与卡片 |
 | windowPad | 14 | 窗口四周内边距；双列间距 |
@@ -70,7 +70,7 @@ Could not enumerate by package command: 本项目是原生 SwiftUI app —— �
 | toggle | 40×23（手柄 19，圆角 11.5） | 开关 |
 | btnPadH / btnPadV | 12 / 4 | 按钮内边距 |
 
-Exceptions（相对「4 的倍数」原则）: windowPad 14、rowPadH 13、tileGap 11、rowMinH 42、tile 26 —— 这些是**全局 UI-SPEC 自己的数字**（§4「固定 12pt 间隙」、§5「26×26 瓷砖」），归一化到 4 的倍数会违反权威设计源。封闭集合本身即为防漂移约束。
+Exceptions（相对「4 的倍数」原则）: windowPad 14、rowPadH 13、rowMinH 42、tile 26 —— 这些是**全局 UI-SPEC 自己的数字**（§4「固定 12pt 间隙」、§5「26×26 瓷砖」），归一化到 4 的倍数会违反权威设计源。封闭集合本身即为防漂移约束。
 
 ---
 
@@ -99,7 +99,7 @@ Exceptions（相对「4 的倍数」原则）: windowPad 14、rowPadH 13、tileG
 | Accent (10%) | `#4CC4F5`（accentFg `#04202E`） | 见下方 reserved-for 清单 |
 | Warn | `#F5B544`（warnGlow `rgba(245,181,68,0.30)`） | **空态专用**（数字、感叹号瓷砖）；**非 destructive** —— 本 Phase 无破坏性操作 |
 | fg / fgMuted | `#DCE8F4` / 60% | 主文字 / 副文字 |
-| sep / edge / glow | `rgba(90,170,240,0.22)` / `rgba(90,190,255,0.32)` / `rgba(76,196,245,0.32)` | 分隔线 / 描边 / 发光 |
+| sep / edge / glow | `rgba(90,170,240,0.16)` / `rgba(90,190,255,0.32)` / `rgba(76,196,245,0.32)` | 分隔线 / 描边 / 发光 |
 
 **Accent reserved for（穷举）**：分段控件选中段填充；滑杆填充与手柄拖动态发光；开关开态填充+发光；主按钮（转码「打开…」）填充；次按钮文字（选择…/重新扫描/扫描）与描边；计数数字（正常态）与呼吸圆点；步进器 chevron 与数值文字；环境光渐变（低透明度）。**禁止**用于：正文文字、行标题、卡片底（那些用 fg / fgMuted / card）。
 
@@ -123,7 +123,7 @@ Exceptions（相对「4 的倍数」原则）: windowPad 14、rowPadH 13、tileG
 
 ## 布局与控件映射（L4 双列 → Phase 5 数据绑定）
 
-**核心 L4 规则**：标签左对齐、控件紧跟其后（`Spacer(minLength: 11)` 撑开），**不是** macOS 系统设置的「标签右对齐成槽」——这是用户在 L1–L4 里选 L4 的结果，**禁止改回 space-between**。
+**核心 L4 规则**：标签左对齐、控件紧跟其后（`Spacer(minLength: 12)` 撑开），**不是** macOS 系统设置的「标签右对齐成槽」——这是用户在 L1–L4 里选 L4 的结果，**禁止改回 space-between**。
 
 **窗口**：单个 Settings scene；宽 **780pt 固定**、min 宽 **680pt**、高随内容（`.fixedSize(horizontal: false, vertical: true)`，**不写死**）；标准标题栏（标题「Pic 设置」）；**无侧边栏**。
 
