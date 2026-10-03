@@ -11,7 +11,7 @@ POWER_CALLBACKS_FIRED=0
 POWER_DELIVERY_COUNT=1
 POWER_START_SYNC_DELIVERIES=1
 POWER_STOP_UNREGISTERED=1
-POWER_TRANSITION=unobservable reason=requires_physical_unplug CGSSessionScreenIsLocked=1 loginwindow_pid=489 action=unplug_power_cord_required
+POWER_TRANSITION=unobservable reason=requires_physical_unplug CGSSessionScreenIsLocked=0 loginwindow_pid=489 action=unplug_power_cord_required
 PMSET_CROSSCHECK=Now drawing from 'AC Power'
 PROBE_DRIVER_RC=0
 POWER_CALLBACK_FIRED_LINE_COUNT=1
