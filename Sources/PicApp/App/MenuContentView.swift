@@ -26,9 +26,20 @@ struct MenuContentView: View {
     /// 「打开设置窗口」的前置动作（把激活策略临时提到 .regular）。AppKit 那一半在 AppDelegate。
     private let presentSettings: () -> Void
 
-    init(terminate: @escaping () -> Void, presentSettings: @escaping () -> Void) {
+    /// 「立即下一个」的动作（Phase 4 / MENUBAR-04）。闭包体是 AppDelegate 的活，
+    /// 本文件只调模型 —— 菜单侧不碰播放器、不碰轮换器（T-04-22）。
+    private let nextVideo: () -> Void
+
+    /// 「重新扫描文件夹」的动作（Phase 4 / MENUBAR-05）。同上，只调模型。
+    private let rescanFolder: () -> Void
+
+    init(terminate: @escaping () -> Void, presentSettings: @escaping () -> Void,
+         nextVideo: @escaping () -> Void = {},
+         rescanFolder: @escaping () -> Void = {}) {
         self.terminate = terminate
         self.presentSettings = presentSettings
+        self.nextVideo = nextVideo
+        self.rescanFolder = rescanFolder
     }
 
     var body: some View {
@@ -45,6 +56,14 @@ struct MenuContentView: View {
         case .pauseResume:
             // 唯一入口是仲裁器，菜单自己不碰播放器、也不自己 seek（D-11 / D-15）。
             arbiter.set(.manualPause, active: !isPaused)
+        case .nextVideo:
+            // 只调模型；行为体（轮换器）由 AppDelegate 的闭包注入（Plan 04-04 T3）。
+            MenuBarModel.perform(id, isPaused: isPaused, store: store, arbiter: arbiter,
+                                 quit: terminate, nextVideo: nextVideo)
+        case .rescanFolder:
+            // 同上：失效缓存与重扫是 AppDelegate 的活，菜单只转交意图。
+            MenuBarModel.perform(id, isPaused: isPaused, store: store, arbiter: arbiter,
+                                 quit: terminate, rescanFolder: rescanFolder)
         case .openSettings:
             // PicCore 不依赖 AppKit 的全局应用对象，所以窗口这一侧由调用方处理。
             MenuBarModel.perform(id, isPaused: isPaused, store: store, arbiter: arbiter, quit: terminate)

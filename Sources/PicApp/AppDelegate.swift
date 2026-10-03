@@ -341,4 +341,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func emit(_ line: String) {
         WallpaperWindowController.emit(line)
     }
+
+    // MARK: - Phase 4 菜单动作（Plan 04-04）
+
+    /// 「立即下一个」的行为侧（MENUBAR-04）。RED 骨架：真实接线（轮换器 + 打点）在 T3。
+    func nextVideoNow() {}
+
+    /// 「重新扫描文件夹」的行为侧（MENUBAR-05）。RED 骨架：真实接线（失效缓存 + 重扫）在 T3。
+    func rescanFolderNow() {}
 }

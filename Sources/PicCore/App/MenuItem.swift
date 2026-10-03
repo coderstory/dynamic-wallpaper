@@ -6,6 +6,10 @@ import Foundation
 /// `MenuContentView` 必须遍历 `MenuItemID.allCases` 渲染，文案来源单一到 `MenuBarModel`。
 public enum MenuItemID: String, CaseIterable {
     case pauseResume
+    // 立即下一个（Phase 4 / MENUBAR-04）。
+    case nextVideo
+    // 重新扫描文件夹（Phase 4 / MENUBAR-05）。
+    case rescanFolder
     case openSettings
     case quit
 }
@@ -15,6 +19,8 @@ public struct MenuBarModel {
     public static func label(for id: MenuItemID, isPaused: Bool) -> String {
         switch id {
         case .pauseResume: return isPaused ? "继续" : "暂停"
+        case .nextVideo: return ""
+        case .rescanFolder: return ""
         case .openSettings: return "打开设置窗口"
         case .quit: return "退出"
         }
@@ -28,10 +34,16 @@ public struct MenuBarModel {
     @MainActor
     public static func perform(_ id: MenuItemID, isPaused: Bool,
                                store: SettingsStore, arbiter: HoldArbiter,
-                               quit: () -> Void) {
+                               quit: () -> Void,
+                               nextVideo: () -> Void = {},
+                               rescanFolder: () -> Void = {}) {
         switch id {
         case .pauseResume:
             arbiter.set(.manualPause, active: !isPaused)
+        case .nextVideo:
+            break
+        case .rescanFolder:
+            break
         case .openSettings:
             // 设置窗口由调用方处理；Phase 2 只需骨架，Phase 5 填内容。
             break

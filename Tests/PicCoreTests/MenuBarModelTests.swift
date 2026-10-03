@@ -59,13 +59,13 @@ final class MenuBarModelTests: XCTestCase {
 
     // MARK: - 标签数量
 
-    func testLabelsHaveExactlyThreeEntriesInEveryState() {
+    func testLabelsHaveExactlyFiveEntriesInEveryState() {
         for isPaused in [false, true] {
             let labels = MenuBarModel.labels(isPaused: isPaused)
             XCTAssertEqual(labels.count, MenuItemID.allCases.count,
                            "菜单项数量必须恒等于 MenuItemID.allCases")
-            XCTAssertEqual(labels.count, 3, "本 Phase 交付三项菜单")
-            XCTAssertEqual(Set(labels).count, labels.count, "三项文案不得重复")
+            XCTAssertEqual(labels.count, 5, "本 Phase 起共五项菜单（Phase 2 三项 + Phase 4 新增两项）")
+            XCTAssertEqual(Set(labels).count, labels.count, "五项文案不得重复")
         }
     }
 
@@ -145,10 +145,62 @@ final class MenuBarModelTests: XCTestCase {
         XCTAssertEqual(target.applies.count, 0, "打开设置不得把决策推给播放端")
     }
 
+    // MARK: - Phase 4 新增两项（Plan 04-04 T1）
+
+    func testNextVideoAndRescanLabelsAreDistinctAndPathless() {
+        for isPaused in [false, true] {
+            XCTAssertEqual(MenuBarModel.label(for: .nextVideo, isPaused: isPaused),
+                           "立即下一个", "「立即下一个」文案逐字冻结（Phase 5 的 UI-SPEC 引用它）")
+            XCTAssertEqual(MenuBarModel.label(for: .rescanFolder, isPaused: isPaused),
+                           "重新扫描文件夹", "「重新扫描文件夹」文案逐字冻结（Phase 5 的 UI-SPEC 引用它）")
+        }
+        let next = MenuBarModel.label(for: .nextVideo, isPaused: false)
+        let rescan = MenuBarModel.label(for: .rescanFolder, isPaused: false)
+        XCTAssertNotEqual(next, rescan, "两条新文案必须不同")
+        for label in [next, rescan] {
+            XCTAssertFalse(label.contains(".mp4"), "菜单文案里出现了媒体扩展名：\(label)")
+            XCTAssertFalse(label.contains("/"), "菜单文案里出现了路径分隔符：\(label)")
+            XCTAssertFalse(label.contains(Self.sentinelFilename), "菜单文案里出现了哨兵文件名：\(label)")
+        }
+    }
+
+    func testPerformNextVideoCallsOnlyItsInjectedClosure() {
+        let target = SpyTarget()
+        let arbiter = HoldArbiter(target: target)
+        var quitCalls = 0
+        var nextCalls = 0
+
+        MenuBarModel.perform(.nextVideo, isPaused: false, store: makeStore(),
+                             arbiter: arbiter, quit: { quitCalls += 1 },
+                             nextVideo: { nextCalls += 1 })
+
+        XCTAssertEqual(nextCalls, 1, "「立即下一个」必须调注入的闭包，且只调一次")
+        XCTAssertEqual(quitCalls, 0, "立即下一个不得触发退出")
+        XCTAssertTrue(arbiter.decision.shouldPlay, "立即下一个不得改动播放状态")
+        XCTAssertEqual(target.applies.count, 0, "立即下一个不得把决策推给播放端")
+    }
+
+    func testPerformRescanFolderCallsOnlyItsInjectedClosure() {
+        let target = SpyTarget()
+        let arbiter = HoldArbiter(target: target)
+        var quitCalls = 0
+        var rescanCalls = 0
+
+        MenuBarModel.perform(.rescanFolder, isPaused: false, store: makeStore(),
+                             arbiter: arbiter, quit: { quitCalls += 1 },
+                             rescanFolder: { rescanCalls += 1 })
+
+        XCTAssertEqual(rescanCalls, 1, "「重新扫描文件夹」必须调注入的闭包，且只调一次")
+        XCTAssertEqual(quitCalls, 0, "重新扫描文件夹不得触发退出")
+        XCTAssertTrue(arbiter.decision.shouldPlay, "重新扫描文件夹不得改动播放状态")
+        XCTAssertEqual(target.applies.count, 0, "重新扫描文件夹不得把决策推给播放端")
+    }
+
     // MARK: - 枚举本身的形状
 
-    func testMenuItemIDsAreExactlyTheThreeFixedItems() {
-        XCTAssertEqual(MenuItemID.allCases, [.pauseResume, .openSettings, .quit],
-                       "菜单项是三项，永不追加（MENUBAR-03 / 06 / 07；04/05 属 Phase 4）")
+    func testMenuItemIDsAreExactlyTheFiveFixedItems() {
+        XCTAssertEqual(MenuItemID.allCases,
+                       [.pauseResume, .nextVideo, .rescanFolder, .openSettings, .quit],
+                       "五项菜单，顺序冻结：新增项插在 openSettings 之前、quit 保持最后（分隔线规则依赖它）")
     }
 }
