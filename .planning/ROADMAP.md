@@ -185,7 +185,7 @@ Plans:
   4. 速度（0.5×–2×，**保持原音高** —— 实际听 0.5× / 2× 的人声确认不变调）与声音开关/音量**改动当场生效**，不重启、不等下次换片，且重启 app 后保留
   5. 运行状态卡显示：当前是否暂停 + **暂停原因**（全屏/锁屏/熄屏/睡眠/电池）+ ffmpeg 可用性
 
-**Plans**: 3/4 plans executed (pending)（串行 4 波，wave N 依赖 wave N-1）
+**Plans**: 4/4 plans executed (pending)（串行 4 波，wave N 依赖 wave N-1）
 
 **Wave 1**
 - [x] 05-01-PLAN.md — xcodeproj + 设置窗 tracer：SettingsPresentation / SettingsApplier / SettingsView / SettingsComponents 骨架与菜单栏「打开设置」接线
@@ -197,7 +197,7 @@ Plans:
 - [x] 05-03-PLAN.md — 空态 + 运行状态卡：计数 0 警告黄空态瓷砖、暂停原因（全屏/锁屏/熄屏/睡眠/电池）与 ffmpeg 可用性展示
 
 **Wave 4** *(blocked on Wave 3 completion)*
-- [ ] 05-04-PLAN.md — XCUITest + 门禁收口：SettingsWindowUITests / SettingsControlsUITests + `run-uitests.sh` 进 `test.sh`
+- [x] 05-04-PLAN.md — XCUITest + 门禁收口：SettingsWindowUITests / SettingsControlsUITests + `run-uitests.sh` 进 `test.sh`
 
 **UI hint**: yes
 **Notes**:
@@ -305,7 +305,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 2. 播放内核竖切 | 4/4 | Done| 2026-10-03 |
 | 3. 系统事件仲裁 | 5/5 | Done | 2026-10-03 |
 | 4. 媒体库与轮换 | 7/7 | In Progress|  |
-| 5. 设置窗口与即时生效 | 3/4 | In Progress|  |
+| 5. 设置窗口与即时生效 | 4/4 | In Progress|  |
 | 6. 转码与独立窗口 | 4/5 | In Progress|  |
 | 7. 打包、开机自启与整机验收 | 1/4 | In Progress|  |
 
