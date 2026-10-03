@@ -4,6 +4,10 @@ import Observation
 /// 播放模式。形状在此定死；Phase 4 只新增 case，不动 `SettingsStore` 的签名。
 public enum PlayMode: String, CaseIterable, Sendable {
     case loopSingle
+    // 列表循环：按顺序走完一圈再回到第一条（PLAY-04 / Plan 04-02）。
+    case loopList
+    // 列表随机：一轮内每条恰好一次（PLAY-05 / TEST-03）。
+    case shuffle
 }
 
 /// 所有用户设置的单一真相源（★ 三个接口之一）。
