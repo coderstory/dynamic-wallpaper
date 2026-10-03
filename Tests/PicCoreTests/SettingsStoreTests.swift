@@ -158,6 +158,25 @@ final class SettingsStoreTests: XCTestCase {
                        "关掉也必须能持久化 —— 否则设置窗里关掉的开关会自己开回来")
     }
 
+    /// 第八键（`launchAtLogin`）的默认值与往返。
+    ///
+    /// ⚠️ 默认 false 是**产品决策**不是实现细节：自启是用户显式打开的东西，
+    /// 默认开等于替用户往开机项里塞一个登录项（且要靠 unregister 才收得回来）。
+    ///
+    /// round-trip 是 SYS-01 的前提：开关不持久化，用户拨开的设置重启即丢，
+    /// 「开机自启」这项判据就无从谈起。
+    func testLaunchAtLoginDefaultsFalseAndRoundTrips() {
+        XCTAssertFalse(SettingsStore.Seed().launchAtLogin, "种子层的默认值必须是 false")
+        XCTAssertFalse(makeStore().launchAtLogin, "空 UserDefaults 下解析出的值必须是 false")
+
+        let store = makeStore()
+        store.launchAtLogin = true
+        store.persist()
+        XCTAssertTrue(defaults.bool(forKey: SettingsStore.Key.launchAtLogin))
+
+        XCTAssertTrue(makeStore().launchAtLogin, "重建的 store 必须读回 true")
+    }
+
     /// 锁住「加参数没有破坏既有调用形态」（纯追加的回归防线）。
     ///
     /// 既有六字段一个都没改名、没改顺序 —— 所以**位置无关的具名传参**必须照旧编译。

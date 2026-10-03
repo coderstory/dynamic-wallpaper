@@ -79,6 +79,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         loader: PlayerLoadingAdapter(player: player, arbiter: arbiter)
     )
 
+    /// 开机自启的唯一写入口（SYS-01 / Plan 07-02 T2）。
+    ///
+    /// ⚠️ 必须**强持有** —— emit 闭包捕获了 `self` 的 `emit(_:)`，
+    /// 让它随用随建会出现「实例被回收后闭包仍活着」的窗口。
+    /// lazy：构造参数要引用 `self.emit`，属性默认值里引用不了 self。
+    private lazy var autostart = AutoStartManager { [weak self] line in self?.emit(line) }
+
     private var ticker: Timer?
     /// D-05：0.5 秒 `Timer` 已删。`PIC_HOLD` 改由对 `arbiter.decision` 的观察驱动，
     /// 观察者由 `armHoldObservation()` 一次性注册并在 `onChange` 里重新 arm。
@@ -103,6 +110,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory)
         // 生效策略当场打一行，SC1「Dock 无图标」就不靠肉眼。
         emit("ACTIVATION_POLICY_RAW=\(NSApp.activationPolicy().rawValue)")
+        // SYS-01：每次启动对齐一次用户偏好与系统登录项状态。
+        // 偏好为 false 时 disableBoth 是幂等清理（app 被移动过 / plist 残留）；
+        // 偏好为 true 时重新注册，顺带把 app 移动造成的路径漂移改回来。
+        // ⚠️ 刻意不嵌进 startWallpaper() —— 04-05 对那条路径有「一字不动」约束。
+        autostart.setEnabled(store.launchAtLogin)
         wiring()
         // Plan 04-04：首启按需弹文件夹选择框 + 扫描起播。必须走 Task + await ——
         // pickFolder() 的模态面板要在主 run loop 上跑，在 launch 回调里同步
@@ -281,6 +293,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 重算一次。视图不直接持有 AppDelegate —— 经 PicApp 注入闭包调本方法。
     func reapplyBatteryHold() {
         settingsApplier.applyBatteryPolicy(isOnBattery: lastIsOnBattery)
+    }
+
+    /// 设置窗「开机自启」toggle 的行为侧：拨动即刻落系统侧（A→B 决策在
+    /// `AutoStartManager` 内），状态与状态行由那一层打。
+    ///
+    /// 视图不持有 AppDelegate（D-10），经 PicApp 注入闭包调本方法 ——
+    /// 与 `reapplyBatteryHold()` 同一条装配通道，不开第二条。
+    func setLaunchAtLogin(_ enabled: Bool) {
+        autostart.setEnabled(enabled)
     }
 
     // MARK: - Phase 6 转码入口（Plan 06-04 T2）
