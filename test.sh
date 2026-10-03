@@ -336,6 +336,58 @@ probe_line probe-fullscreen.sh fullscreen-signals.log    '^FULLSCREEN_VERDICT=' 
 probe_line probe-display.sh    display-sleep-signals.log '^DISPLAY_SLEEP_TRANSITION='     "熄屏/睡眠跃迁观测已采集（03-03 探针，关键行存在）"
 probe_line probe-power.sh      power-signals.log         '^POWER_TRANSITION='             "电池跃迁观测已采集（03-04 探针，关键行存在）"
 
+# ---- Plan 04-06 T1：Phase 4 源码层门禁（媒体库与轮换）----
+# ⚠️ 措辞纪律（照 test.sh:144-147 与 :265-268 的原话）：本段新增判据的 `no()`
+#   文案必须带上 `ok()` 的同一句判据名（逐字相同），红绿靠 ✅ / ❌ 前缀区分 ——
+#   下游会在红日志里按 `❌ <判据名>` 定位是哪一条红了。判据一个都不放宽，只改文案。
+# ⚠️ 本段只读源码计数（全部经 src_count），不跑探针脚本、不跑 swift build、
+#   不碰任何转码命令。编译与单测由本脚本既有段承担。
+echo ""
+echo "── Phase 4：媒体库与轮换（源码层）────"
+
+# ① Media/ 分层：只做文件系统与探针，不引渲染层。目录不存在时 src_count 返回 -1，
+#    本项报红 —— Phase 4 门禁要求 Phase 4 的产物在，这是有意的。
+N=$(src_count 'import AppKit' 'Sources/PicCore/Media')
+[ "$N" = "0" ] && ok "Media/ 零 AppKit 依赖（只做文件系统与探针）" \
+  || no "Media/ 零 AppKit 依赖（只做文件系统与探针）" "剥注释后 Sources/PicCore/Media 内计数 = $N，期望 0（目录不存在时为 -1）"
+
+N=$(src_count 'import SwiftUI' 'Sources/PicCore/Media')
+[ "$N" = "0" ] && ok "Media/ 零 SwiftUI 依赖（只做文件系统与探针）" \
+  || no "Media/ 零 SwiftUI 依赖（只做文件系统与探针）" "剥注释后 Sources/PicCore/Media 内计数 = $N，期望 0（目录不存在时为 -1）"
+
+# ② 面板唯一落点：token 带括号数「构造调用」—— 冻结类名 NSOpenPanelFolderPicker
+#    自带无括号子串，裸 token 会被它恒撑到 2（04-04 Deviation 2 / 04-05 Deviation 1
+#    的移交形态）。等于 0 说明 SYS-03 没实现，大于 1 说明出现了第二处落点。
+N=$(src_count 'NSOpenPanel(' 'Sources')
+[ "$N" = "1" ] && ok "文件夹选择面板全仓唯一落点（FolderPicker）" \
+  || no "文件夹选择面板全仓唯一落点（FolderPicker）" "构造调用 NSOpenPanel( 剥注释后全仓计数 = $N，期望恰好 1：等于 0 说明 SYS-03 没实现，大于 1 说明出现了第二处落点"
+
+# ③ 轮换器零播放进度读取（PLAY-06 / D-10「到点就切 ≠ 播完才切」的常驻代理）。
+#    单文件计数：先拷进临时目录再对该目录 src_count（04-02 的既有做法）。
+#    四个标识符是判据的定义，必须逐字出现在判据名里 —— 只要轮换器能读到其中
+#    任何一个，一个「等播完再换」的实现就能悄悄混进来。
+RC="$TMP/rotation-src"; mkdir -p "$RC"
+cp Sources/PicCore/Playback/RotationController.swift "$RC/" 2>/dev/null
+if [ -f "$RC/RotationController.swift" ]; then
+  N=$(src_count 'AVPlayer' "$RC")
+  [ "$N" = "0" ] && ok "轮换器零播放进度读取（AVPlayer）" \
+    || no "轮换器零播放进度读取（AVPlayer）" "剥注释后 RotationController.swift 内计数 = $N，期望 0"
+  N=$(src_count 'arbiterCurrentPosition' "$RC")
+  [ "$N" = "0" ] && ok "轮换器零播放进度读取（arbiterCurrentPosition）" \
+    || no "轮换器零播放进度读取（arbiterCurrentPosition）" "剥注释后 RotationController.swift 内计数 = $N，期望 0"
+  N=$(src_count 'currentTime' "$RC")
+  [ "$N" = "0" ] && ok "轮换器零播放进度读取（currentTime）" \
+    || no "轮换器零播放进度读取（currentTime）" "剥注释后 RotationController.swift 内计数 = $N，期望 0"
+  N=$(src_count 'AVPlayerItemDidPlayToEndTime' "$RC")
+  [ "$N" = "0" ] && ok "轮换器零播放进度读取（AVPlayerItemDidPlayToEndTime）" \
+    || no "轮换器零播放进度读取（AVPlayerItemDidPlayToEndTime）" "剥注释后 RotationController.swift 内计数 = $N，期望 0"
+else
+  no "轮换器零播放进度读取（AVPlayer）" "文件缺失：Sources/PicCore/Playback/RotationController.swift 不在（04-02 未执行）"
+  no "轮换器零播放进度读取（arbiterCurrentPosition）" "文件缺失：Sources/PicCore/Playback/RotationController.swift 不在（04-02 未执行）"
+  no "轮换器零播放进度读取（currentTime）" "文件缺失：Sources/PicCore/Playback/RotationController.swift 不在（04-02 未执行）"
+  no "轮换器零播放进度读取（AVPlayerItemDidPlayToEndTime）" "文件缺失：Sources/PicCore/Playback/RotationController.swift 不在（04-02 未执行）"
+fi
+
 echo ""
 echo "── 渲染 ───────────────────────────────"
 swiftc -O -parse-as-library -target arm64-apple-macosx15.0 -o "$TMP/render" $SRC 2>/dev/null \
