@@ -70,15 +70,17 @@ final class RotationControllerTests: XCTestCase {
         return (controller, scheduler)
     }
 
-    // MARK: - 用例 1：单循环永远停在同一条（PLAY-03）
+    // MARK: - 用例 1：轮换到点在单循环下永远停在同一条（PLAY-03）
 
     func testLoopSingleAlwaysReturnsTheSameItem() {
-        let (controller, _) = makeController(random: SeededRandomSource(seed: 42))
+        let (controller, scheduler) = makeController(random: SeededRandomSource(seed: 42))
         controller.setItems(Self.threeItems)
         controller.setMode(.loopSingle)
         controller.start()
 
-        for _ in 0..<5 { controller.advanceNow() }
+        // 轮换路径驱动：锁定的语义只约束「到点」。用户手动「立即下一个」按 reason
+        // 分流到用例 8。
+        for _ in 0..<5 { scheduler.fire() }
 
         XCTAssertEqual(controller.currentIndex, 0,
                        "单循环下 currentIndex 必须恒为 0 —— 不前进")
@@ -215,9 +217,10 @@ final class RotationControllerTests: XCTestCase {
         controller.advanceNow()
         XCTAssertEqual(controller.currentIndex, 1)
 
-        // 切到单循环：下一次 advance 就按新模式走（当场生效）。
+        // 切到单循环：下一次 advance 就按新模式走（当场生效）。轮换路径驱动 ——
+        // 锁定的语义只约束到点那一路。
         controller.setMode(.loopSingle)
-        controller.advanceNow()
+        scheduler.fire()
         XCTAssertEqual(controller.currentIndex, 0,
                        "从 1 出发，单循环必须回到 0 —— 列表循环会给 2，被这条区分")
 
@@ -234,5 +237,41 @@ final class RotationControllerTests: XCTestCase {
         XCTAssertGreaterThan(scheduler.scheduleCount, scheduleCountBeforeIntervalChange,
                              "setInterval 必须当场重排程")
         XCTAssertNotNil(scheduler.pending, "重排程后必须有 pending 的下一程")
+    }
+
+    // MARK: - 用例 8：单循环下用户显式「立即下一个」照样换片（G-04-3 / MENUBAR-04）
+
+    func testUserRequestedAdvancesInLoopSingle() {
+        let (controller, _) = makeController(random: SeededRandomSource(seed: 42))
+        controller.setItems(Self.threeItems)
+        controller.setMode(.loopSingle)
+        controller.start()
+
+        for _ in 0..<3 { controller.advanceNow() }
+
+        XCTAssertEqual(controller.advances.map(\.index), [1, 2, 0],
+                       "单循环下用户要求下一个必须按列表前进 —— 恒返 [0,0,0] 是 G-04-3")
+        XCTAssertTrue(controller.advances.allSatisfy { $0.reason == .userRequested },
+                      "这条路径全程是用户意图")
+        XCTAssertEqual(controller.currentIndex, 0, "三条一轮，走完三条回到 0")
+    }
+
+    // MARK: - 用例 9：轮换到点在单循环下仍锁定同一条（PLAY-03）
+
+    func testRotationElapsedHoldsLoopSingleLocked() {
+        let (controller, scheduler) = makeController(random: SeededRandomSource(seed: 42))
+        controller.setItems(Self.threeItems)
+        controller.setMode(.loopSingle)
+        controller.setInterval(5)
+        controller.start()
+
+        for _ in 0..<3 { scheduler.fire() }
+
+        XCTAssertEqual(controller.advances.map(\.index), [0, 0, 0],
+                       "轮换到点在单循环下必须锁死在同一条")
+        XCTAssertTrue(controller.advances.allSatisfy { $0.reason == .rotationElapsed },
+                      "这条路径全程是轮换，不是用户意图")
+        XCTAssertEqual(scheduler.scheduleCount, 4,
+                       "start 排 1 次 + 每次切完重排 3 次")
     }
 }
