@@ -189,6 +189,60 @@
   `run-probe.sh holds`，见 03-05），确认真锁/真解锁各产生一次 `holds` 变化。
 - **status**：open
 
+### W-2026-10-03-17 · deviation · Phase 3 / Plan 03-02
+
+- **描述**：SYS-02（壁纸窗口不做 Space 级差异化处理）的 `test.sh` 判据口径从
+  「token `activeSpaceDidChangeNotification` 出现 0 次」改为两条排除式判据。
+- **证据**：旧判据原文 `test.sh:138-139`（Phase 3 修订前）：
+  `N=$(src_count 'activeSpaceDidChangeNotification')` /
+  `[ "$N" = "0" ] && ok "Sources/ 零 Space 级特殊处理（SYS-02 自动判据）"`。
+  现树实测：Phase 3 开工前 `src_count` 在 `Sources/` 内计数 = 0。
+  D-02 拍板后 `Sources/PicCore/System/FullscreenDetector.swift` 注册了该通知 → 计数变 1 → 旧判据转红
+  → `test.sh` 以 `exit "$FAIL"` 非 0 退出 → 03-05 的 `TEST_SH_RC == 0` 与 AC 全红，
+  且 03-05 的插桩反向验证基线「本来就是红的」→ `TESTSH_CRITERION_IS_BLIND` 从此不可能再转绿。
+- **保留的不变量**：Phase 2 锁的是**不变量**（不做 Space 级差异化处理），不是**具体正则**（token 出现 0 次）。
+  代理失效了，**不变量本身一个字都没变**。
+- **纠正（两条排除式判据）**：
+  ① `src_count 'fullScreenAuxiliary' 'Sources/PicCore/Render' >= 1` —— 壁纸窗口仍走系统默认 `collectionBehavior`，不加 Space 相关位。
+  ② `src_count 'kCGSSpace'` 与 `src_count 'CGSSetActiveSpace'` 全为 0 —— 产品代码零 Space **身份**读取。
+- **为什么这两个 token 能守住原意**（已在本机 SDK 头文件核实，不是推断）：
+  订阅 `NSWorkspace.activeSpaceDidChangeNotification` 只得到「Space 变了」这个**边沿**，通知本身不附带任何 Space 身份；
+  真要按 Space 做差异化，只能去读会话字典的 Space 序号键（键名含 `kCGSSpace`），
+  或调私有 `CGSSetActiveSpace` 去切 Space。判据 ② 盯的正是这两条路径。
+- **插桩反向验证（已实跑）**：向 `FullscreenDetector.swift` 插一行含 `kCGSSpaceNumber` 的能编译代码 →
+  `swift build` 仍 RC=0（插桩不能编译，否则 `test.sh` 会先红在 `swift build` 上，等于用编译失败冒充判据转红）
+  → `test.sh` 汇总失败 ≥ 1 且「产品代码零 Space 身份读取」项 ❌ → 恢复后 `cmp -s` 一致、回到失败 0。
+- **被推翻的一个 token**：修订时曾想用 `NSWorkspace.activeSpaceUserInfoKey` 作代理。
+  本机 SDK 核实：`NSWorkspace.h` 中与 Space 相关的声明只有 `NSWorkspaceActiveSpaceDidChangeNotification`，
+  **没有** `activeSpaceUserInfoKey` 这个成员（编译报 `type 'NSWorkspace' has no member 'activeSpaceUserInfoKey'`）。
+  拿一个不存在的 API 当判据 token，这条判据会永远抓不到任何东西 —— 它会绿，但绿得没有意义。
+  已改用 `kCGSSpace` / `CGSSetActiveSpace`。
+- **status**：open
+
+### W-2026-10-03-18 · deviation · Phase 3 / Plan 03-02
+
+- **描述**：D-02 原文要求「几何外信号**必须能独立触发暂停**」，
+  但 03-02 的实现把几何编进了信号字段名，合取的第二项因此不是承重项。
+- **证据**：
+  - D-02 原文（`03-CONTEXT.md`）：「几何信号可以保留作辅助，但**不得单独作为判定依据**；
+    **几何外信号必须能独立触发暂停**」。
+  - 编排器 2026-10-03 钦点的是**合取**：两个公开 `NSWorkspace` 通知与几何
+    `verdict = nonGeometricActive && covering`。那个决定本身与 D-02 后半句不一致。
+  - 实现形状：`FullscreenSignals` 的两个信号位叫 `spaceChangedWhileFullyCovering` /
+    `frontmostAppChangedWhileFullyCovering`，都带 `WhileFullyCovering`。因此 `nonGeometricActive` 恒蕴含
+    「此刻几何满覆盖」，`verdict = nonGeometricActive && covering` 的**第二项在结构上不是承重项**；
+    真正承重的是第一项。
+  - 后果：「信号成立但几何不足 → 判定仍为 false」这一行在当前字段命名下**不可达**。
+  - `FullscreenDetectorTests` 的第 1/2 条用例证明的是「几何单独为真时判 false」，
+    不是「信号单独为真时能触发」。
+- **影响**：**Phase 3 交付的是「几何与几何外信号缺一不可」的合取判定，不是 D-02 字面意义的
+  「信号可独立触发暂停」。** Phase 5 / Phase 7 读到 D-02 时**不得据此认为已拿到独立触发能力**。
+- **解开条件**：独立触发需要另一条**不依赖几何**的信号（例如对目标应用窗口的 `AXFullScreen` 观察）。
+  本 Phase 不做，也不在 Phase 3 的成功标准里。
+  注：该路径需辅助功能权限，而 PITFALLS Pitfall 2 记录了同类项目为覆盖率阈值申请该权限的争议，
+  本项目不申请（`03-CONTEXT.md` 的 `threat_model` 已把「EoP」列为不适用）。
+- **status**：open
+
 ## resolved
 
 - **W-2026-10-03-09** · `NSApp.terminate` 第二处 —— 本 Phase 已收敛为 1 处并挂进 `test.sh` 每次重验

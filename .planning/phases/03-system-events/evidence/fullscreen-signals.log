@@ -1,0 +1,31 @@
+FULLSCREEN_SIGNALS_REGISTERED=1 space=NSWorkspaceActiveSpaceDidChangeNotification activate=NSWorkspaceDidActivateApplicationNotification deactivate=NSWorkspaceDidDeactivateApplicationNotification
+SCREEN_FRAME=0.0,0.0,1470.0,956.0
+VISIBLE_FRAME=0.0,90.0,1470.0,833.0
+INSET=14,9,14,9 source=evidence/inset.log
+COVERAGE=1.000
+COVERING=1
+NON_GEOMETRIC=0
+WINDOW pid=1139 owner=DevDesk layer=0 alpha=1.00 bounds=0.0,33.0,1470.0,833.0
+WINDOW pid=1227 owner=Ghostty layer=0 alpha=1.00 bounds=0.0,33.0,1470.0,833.0
+WINDOW pid=3332 owner=音乐 layer=0 alpha=1.00 bounds=442.0,174.0,586.0,446.0
+WINDOW pid=3332 owner=音乐 layer=0 alpha=1.00 bounds=245.0,97.0,980.0,600.0
+WINDOW_COUNT=4 layer0_alpha_gt_0
+WINDOW_DICT_KEY=kCGWindowAlpha
+WINDOW_DICT_KEY=kCGWindowBounds
+WINDOW_DICT_KEY=kCGWindowIsOnscreen
+WINDOW_DICT_KEY=kCGWindowLayer
+WINDOW_DICT_KEY=kCGWindowMemoryUsage
+WINDOW_DICT_KEY=kCGWindowName
+WINDOW_DICT_KEY=kCGWindowNumber
+WINDOW_DICT_KEY=kCGWindowOwnerName
+WINDOW_DICT_KEY=kCGWindowOwnerPID
+WINDOW_DICT_KEY=kCGWindowSharingState
+WINDOW_DICT_KEY=kCGWindowStoreType
+STYLEMASK_UNAVAILABLE=1 reason=not_a_key_in_CGWindowList_dictionary
+FULLSCREEN_VERDICT=0 reason=geometry_without_signal coverage=1.000 non_geometric=0
+FULLSCREEN_TRANSITION=unobservable reason=session_locked CGSSessionScreenIsLocked=1
+FULLSCREEN_OBSERVERS_REMOVED=1
+PROBE_DRIVER_RC=0
+WINDOW_DICT_KEY_COUNT=11
+WINDOW_DICT_STYLE_KEY_COUNT=0
+FULLSCREEN_LOG_LINES=28

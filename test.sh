@@ -135,8 +135,28 @@ N=$(src_count 'import AVFoundation' 'Sources/PicCore/State')
 N=$(src_count 'absoluteString')
 [ "$N" = "0" ] && ok "Sources/ 不用 URL 的字符串形式做存在性检查（D-14 / Pitfall 5）" || no "Sources/ 出现 URL 字符串形式" "剥注释后计数 = $N，期望 0"
 
-N=$(src_count 'activeSpaceDidChangeNotification')
-[ "$N" = "0" ] && ok "Sources/ 零 Space 级特殊处理（SYS-02 自动判据）" || no "Sources/ 出现 Space 变更通知订阅" "剥注释后计数 = $N，期望 0"
+# SYS-02（Phase 2 锁定的不变量）：窗口不做 Space 级差异化处理。
+# ⚠️ Phase 3 / Plan 03-02 起口径由「token 出现 0 次」改为下面两条排除式判据 ——
+# D-02 要求 FullscreenDetector 订阅 activeSpaceDidChangeNotification 作为几何之外的
+# 判别信号，那是「订阅通知做检测」，不是「按 Space 做差异化行为」。见
+# .planning/WINDOWS.md 的 W-2026-10-03-17 · deviation。
+
+# ⚠️ 下面两条的 `no()` 文案**必须带上 `ok()` 的同一句判据名**：
+# 下游 plan（03-05）会在**变异后的红日志**里 `grep -c '❌ 产品代码零 Space 身份读取'`，
+# 靠这个字符串确认「是这一条红了」。失败文案写成另一句就查不到 —— 03-01 首跑时正是这个原因。
+# （另一侧：绿日志里的 `ok()` 行带 ✅ 而非 ❌，不会自中）
+# ① 壁纸窗口仍走系统默认行为：collectionBehavior 四项原样，不加任何 Space 相关位。
+N=$(src_count 'fullScreenAuxiliary' 'Sources/PicCore/Render')
+[ "$N" -ge 1 ] 2>/dev/null && ok "壁纸窗口仍走系统默认 Space 行为（collectionBehavior 未被加塞）" \
+  || no "壁纸窗口仍走系统默认 Space 行为（collectionBehavior 被加塞）" "Sources/PicCore/Render 内 fullScreenAuxiliary 计数 = $N，期望 ≥ 1"
+
+# ② 产品代码里没有任何「按 Space 身份分支」的痕迹：订阅变更通知拿不到、也不需要
+#    Space 的**身份**，真要按 Space 做差异化就必须去读 Space 序号。
+#    （这条才是 SYS-02「不做差异化处理」的直接代理；订阅动作本身被 ① 与本条共同约束。）
+N=$(src_count 'kCGSSpace')
+M=$(src_count 'CGSSetActiveSpace')
+[ "$N$M" = "00" ] && ok "产品代码零 Space 身份读取（不做差异化处理）" \
+  || no "产品代码零 Space 身份读取（不做差异化处理）" "kCGSSpace=$N CGSSetActiveSpace=$M，期望全 0"
 
 N=$(src_count 'kCGWindowName')
 [ "$N" = "0" ] && ok "Sources/ 不读窗口标题（T-02-03 隐私）" || no "Sources/ 读了窗口标题键" "剥注释后计数 = $N，期望 0"
