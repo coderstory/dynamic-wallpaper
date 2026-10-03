@@ -56,11 +56,25 @@ public final class MediaCoordinator {
     @discardableResult
     public func apply(scanOutcome: Result<Int, MediaLibrary.MediaLibraryError>,
                       folderConfigured: Bool) -> LibraryState {
-        // RED 阶段的编译骨架：行为故意错误（永远显示、从不降级、无幂等门），
-        // 由 MediaCoordinatorTests 转红证明。
-        presenting.show()
-        lastState = .playing
-        onStateChange?(.playing)
-        return .playing
+        let next = LibraryAvailability.evaluate(folderConfigured: folderConfigured, scanOutcome: scanOutcome)
+
+        // 幂等门：连续同样的输入不重复执行（第一次由 hasAppliedOnce 放行 ——
+        // `lastState` 的默认值区分不了「未调用过」与「调用过且状态相同」）。
+        if hasAppliedOnce {
+            guard next != lastState else { return lastState }
+        }
+        hasAppliedOnce = true
+
+        switch next {
+        case .playing:
+            presenting.show()
+        case .folderUnconfigured, .folderMissing, .noPlayableVideos:
+            stopping.stopPlayback()
+            presenting.hide()
+        }
+
+        lastState = next
+        onStateChange?(next)
+        return next
     }
 }
