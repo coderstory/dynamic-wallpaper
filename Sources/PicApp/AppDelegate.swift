@@ -103,10 +103,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 这是 D-10 允许的「优先级只用于文案排序」的落点。
         let active = !reasons.isEmpty
         let reason = reasons.first.map { String(describing: $0) } ?? "(none)"
-        // 恢复时锚点已被仲裁器消费掉，这里报的是**恢复前的播放位置**，
+        // 形状与 Phase 2 定死的那一串一致（`02-03-PLAN.md:174-175`）：**resumeAt 只出现在
+        // 解除分支**。恢复时锚点已被仲裁器消费掉，所以它报的是恢复前的播放位置，
         // 由 `PlayerController.arbiterCurrentPosition` 给出，不含路径与文件名。
-        let pos = player.arbiterCurrentPosition()
-        emit(String(format: "PIC_HOLD active=%d reason=%@ %@ resumeAt=%.3f", active ? 1 : 0, reason, snapshot, pos))
+        // 两个分支共用同一个输出格式串（那条字面量在全文件恰好 1 处，挂在 test.sh 每次重验），
+        // 尾部按需拼接 —— hold 中那行不能带 resumeAt，否则下游按 `…holds=(screenLocked)$`
+        // 锚定行尾的判据永远命中不了。
+        var line = String(format: "PIC_HOLD active=%d reason=%@ %@", active ? 1 : 0, reason, snapshot)
+        if !active {
+            line += String(format: " resumeAt=%.3f", player.arbiterCurrentPosition())
+        }
+        emit(line)
     }
 
     /// `--quit-after <秒>` —— **可测性用的调试开关，不是产品能力**。
