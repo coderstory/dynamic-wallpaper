@@ -15,11 +15,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let player = PlayerController()
     let arbiter = HoldArbiter()
     let wallpaper = WallpaperWindowController()
+    /// 必须**强持有**：否则没人调 `stop()`，observer 泄漏（T-03-03）。
+    let lockWatcher = LockWatcher(names: lockSignalNames())
 
     private var ticker: Timer?
-    private var holdObserver: Timer?
+    /// D-05：0.5 秒 `Timer` 已删。`PIC_HOLD` 改由对 `arbiter.decision` 的观察驱动，
+    /// 观察者由 `armHoldObservation()` 一次性注册并在 `onChange` 里重新 arm。
     private var tickSeq = 0
     private var loopProbe: LoopProbe?
+    /// `observeHold()` 在本进程内被调用的次数 —— 打在**去重门之前**。
+    /// D-05 唯一的机器判据：12 秒零决策变化的窗口里它必须恒为 1；
+    /// 0.5 秒轮询会涨到约 24（见 `observeHold()` 的注释）。
+    private var holdObserverTicks = 0
     /// Plan 02-04 T2：显示刷新驱动的**测量器**，不是渲染路径的一部分。
     /// 它回答「打包成 .app 之后本进程能不能拿到显示刷新回调」（PDCA-A4），
     /// 测满窗口即自行 invalidate，产品不留常驻定时器。
@@ -42,20 +49,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// 暂停/恢复的运行期可观测性 —— 打一行 `PIC_HOLD`，让「暂停」在进程内可 grep。
     ///
-    /// 这一层**不判任何东西**，只记录。播放状态仍由 `HoldArbiter` 一处决定；
-    /// 观察者轮询它，是因为菜单的点击路径不经过 AppDelegate，而插一个回调进去
-    /// 会让「谁改播放状态」这件事多出一个入口（D-11）。
+    /// 这一层**不判任何东西**，只记录。播放状态仍由 `HoldArbiter` 一处决定。
+    ///
+    /// ⚠️ D-05：这里曾经是一个 0.5 秒轮询定时器，短于它的暂停会漏采。
+    /// 现改为观察 `arbiter.decision`：菜单的点击路径不经过
+    /// AppDelegate，而插一个回调进去会让「谁改播放状态」这件事多出一个入口（D-11）——
+    /// 所以这一层只读，不写。
     private func startHoldObserver() {
-        let t = Timer(timeInterval: 0.5, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.observeHold() }
+        armHoldObservation()
+    }
+
+    /// 注册一次对 `arbiter.decision` 的观察。
+    ///
+    /// `withObservationTracking` 的一次性语义：变化后必须**重新 arm**，否则只报一次变化。
+    /// 首次 arm 当场读一次 `decision` 并打首行 `PIC_HOLD`（`observeHold()`），
+    /// 所以「启动即已处于 hold 中」也会被记录下来。
+    private func armHoldObservation() {
+        let arbiter = self.arbiter
+        withObservationTracking {
+            _ = arbiter.decision
+        } onChange: { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.observeHold()
+                self.armHoldObservation()
+            }
         }
-        RunLoop.main.add(t, forMode: .common)
-        holdObserver = t
+        observeHold()
     }
 
     private var lastHoldSnapshot: String?
 
     private func observeHold() {
+        // D-05 唯一的机器判据。**必须在去重门之前**：`observeHold()` 里有
+        // `guard snapshot != lastHoldSnapshot else { return }`，去重门让「0.5 秒轮询」
+        // 与「观察驱动」在同一判据下输出完全相同（都是 1 行），那是空判（D-07：
+        // 一条从没红过的判据不证明它会红）。本行打在门外：观察器被调用几次就是几。
+        holdObserverTicks += 1
+        emit(String(format: "PIC_HOLD_OBSERVER_TICKS=%d", holdObserverTicks))
+
         let reasons = arbiter.decision.activeReasons
         // 空集必须写成 (none) 而不是空串 —— 空串会让 grep 匹配到别的行。
         let list = reasons.map { String(describing: $0) }.joined(separator: ",")
@@ -63,15 +95,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard snapshot != lastHoldSnapshot else { return }
         lastHoldSnapshot = snapshot
 
-        let manual = arbiter.isManuallyPaused
-        if manual {
-            emit("PIC_HOLD active=1 reason=manualPause \(snapshot)")
-        } else {
-            // 恢复时锚点已被仲裁器消费掉，这里报的是**恢复前的播放位置**，
-            // 由 `PlayerController.arbiterCurrentPosition` 给出，不含路径与文件名。
-            let pos = player.arbiterCurrentPosition()
-            emit(String(format: "PIC_HOLD active=0 reason=manualPause %@ resumeAt=%.3f", snapshot, pos))
-        }
+        // active / reason 都从 `decision.activeReasons` 派生（D-11 的 veto 语义）。
+        // 此前 `active` 取自「是否手动暂停」那个派生量，且 `reason` 在两个分支里都写死成
+        // 手动暂停 —— 只有 `.screenLocked` 生效时会打出 `active=0` 却报手动暂停的
+        // 那一行，两个字段互相矛盾，`active=1 reason=screenLocked` 结构上打不出来。
+        // `reason` 取 `reasons.first`（不是 `last`）：`order` 升序，用户手动暂停优先，
+        // 这是 D-10 允许的「优先级只用于文案排序」的落点。
+        let active = !reasons.isEmpty
+        let reason = reasons.first.map { String(describing: $0) } ?? "(none)"
+        // 恢复时锚点已被仲裁器消费掉，这里报的是**恢复前的播放位置**，
+        // 由 `PlayerController.arbiterCurrentPosition` 给出，不含路径与文件名。
+        let pos = player.arbiterCurrentPosition()
+        emit(String(format: "PIC_HOLD active=%d reason=%@ %@ resumeAt=%.3f", active ? 1 : 0, reason, snapshot, pos))
     }
 
     /// `--quit-after <秒>` —— **可测性用的调试开关，不是产品能力**。
@@ -94,8 +129,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// 装配点（D-10）。每根线都只接一次，重复调用是幂等的。
+    ///
+    /// ⚠️ 顺序（D-06 / `W-2026-10-03-10`）：`lockWatcher.start` 必须跑在
+    /// `startWallpaper()` 之前 —— `start()` 会**同步**回调一次当前锁屏状态，
+    /// 本会话自起播起屏幕一直锁着，没有跃迁可等。反了的话 `holds` 在起播那一刻是空集。
     func wiring() {
         arbiter.attach(player)
+        lockWatcher.start { [arbiter] isLocked in
+            arbiter.set(.screenLocked, active: isLocked)
+        }
+    }
+
+    /// `PIC_LOCK_SIGNAL_PREFIX` —— **测试脚手架，不是产品能力**（`W-2026-10-03-15`）。
+    ///
+    /// 非空时把 `LockSignalNames` 的两个名字换成 `"<prefix>locked"` / `"<prefix>unlocked"`，
+    /// 于是探针可以投合成事件而不碰系统通知名（那会让同机其它壁纸 app 一起暂停）。
+    /// 不设这个变量时与系统名完全一致，不出现在菜单与设置里。
+    private static func lockSignalNames() -> LockSignalNames {
+        guard let prefix = ProcessInfo.processInfo.environment["PIC_LOCK_SIGNAL_PREFIX"],
+              !prefix.isEmpty else { return .system }
+        return LockSignalNames(locked: "\(prefix)locked", unlocked: "\(prefix)unlocked")
     }
 
     /// Plan 02-04 T2：把 Phase 1 的显示刷新降级观察搬进产品。
@@ -145,6 +198,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        lockWatcher.stop()   // Pitfall 4：observer 注册与注销严格配对（T-03-03）
         emit("PIC_TERMINATED pid=\(ProcessInfo.processInfo.processIdentifier) reason=application_will_terminate")
     }
 
@@ -171,6 +225,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // looper 的模板 item 属性在 init 时就冻结，挂在 item 上「改设置立即生效」是假的。
         wallpaper.attach(player: player.player)
         player.load(url: url)
+        // 03-05 替换：这一行直连播放器，绕过仲裁器（D-06 / W-2026-10-03-10）。
+        // Phase 3 已保证 `lockWatcher.start` 的同步回调在 `startWallpaper()` 之前跑完，
+        // 所以此刻 `arbiter.decision.holds` 已可能非空 —— 03-05 把这行换成
+        // `arbiter.applyCurrentDecision()`。本 plan 保留原样以免抢下一个 plan 的口径。
         player.player.play()
         // 设置在起播之后落位：挂在 player 上的速度/音量必须在播放中改才生效（D-13）。
         player.setRate(store.rate)

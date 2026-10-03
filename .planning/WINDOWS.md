@@ -143,7 +143,54 @@
   输出逐字节有效，`grep -c '跳过'` 命中。
 - **status**：resolved（Phase 3/4 若新增中文输出脚本，同样需要这一行）
 
+### W-2026-10-03-14 · deviation · Phase 3 / Plan 03-01
+
+- **描述**：`HoldReason` 新增 5 个 case 的 `order` 取值，与 Phase 2 文件头注释的预告不符。
+- **证据**：`Sources/PicCore/State/HoldReason.swift` 的 Phase 2 注释写「Phase 3 在此新增：
+  fullscreen(0) / screenLocked(1) / displayAsleep(2) / systemSleeping(3) / battery(4)」，
+  而 `manualPause` 已占着 0（`HoldArbiterTests` 的幂集用例在 Phase 2 实测通过，
+  `testActiveReasonsSorted` 断言 `activeReasons` 按 `order` 排好序）。
+- **影响**：两个 case 共用同一个 `order` 时，`PlaybackDecision.activeReasons`
+  （即 `holds.sorted()`）在这两者之间**顺序不确定** —— `Set` 的迭代顺序不由 `order` 决定，
+  D-10 允许的「优先级只用于 UI 文案排序」就失效了。
+- **纠正**：`order` 取值改为 `manualPause=0`（Phase 2 的值，一个字未改）、其余依次 1…5。
+  实测 `HoldReason.allCases.map(\.order) == [0,1,2,3,4,5]`（单测断言），
+  幂集恰 64 组（`1 << allCases.count == 64`）。**只做纯追加**：加 5 个 `case` 与 5 个 `order` 分支，
+  未重命名、未重签名、未删除任何已有声明。
+- **status**：resolved（值已定死并挂进单测每次重验）
+
+### W-2026-10-03-15 · unrun-verify · Phase 3 / Plan 03-01
+
+- **描述**：`PIC_LOCK_SIGNAL_PREFIX` 环境变量把 `LockSignalNames` 指向测试通知名，
+  它是**测试脚手架，不是产品能力** —— 但它是一行留在产品源码里的开关。
+- **证据**：`Sources/PicApp/AppDelegate.swift` 的 `lockSignalNames()`；
+  `evidence/lock-wiring.log:LOCK_SIGNAL_REGISTERED` 记 `locked=com.local.pic.tests.lock.locked`，
+  全文 `com.apple.screenIsLocked` 计数 = 0（合成事件一次都没碰系统通知名）。
+- **风险**：后续读者可能把它误当成面向用户的启动参数。它不设时与系统名完全一致，
+  菜单与设置里都不出现（T-03-04 已按 `W-2026-10-03-08` 的先例登记）。
+- **解开条件**：Phase 5 引入 `.xcodeproj` 后把探针改成 XCUITest 的 launch argument，
+  或四个 Watcher 都有稳定注入点后删掉该变量。
+- **status**：open
+
+### W-2026-10-03-16 · unrun-verify · Phase 3 / Plan 03-01
+
+- **描述**：**真实锁屏跃迁在本会话无法观测** —— 合成通知只证明接线，不冒充系统跃迁。
+- **证据**：`evidence/lock-wiring.log:LOCK_TRANSITION=unobservable reason=session_locked CGSSessionScreenIsLocked=1`；
+  `LOCK_SESSION_AT_START=1 real_CGSSessionScreenIsLocked=1 session_keys=14`。
+  本机会话自 `applicationDidFinishLaunching` 起一直锁着，driver 跑的 6 秒里没有跃迁可等。
+- **保留的边界**：`LockWatcher.start()` 的**同步**回调已实测生效
+  （`LOCK_START_SYNC_DELIVERED=1 locked=1`，且不投递任何通知就发生），
+  但这只证明「订阅后立刻能用真实会话状态置位」，**不证明**跃迁时
+  `com.apple.screenIsLocked` 真的会投递 —— 后者沿用 Phase 1 的结论（PDCA-A7）。
+  本次合成的两次投递走的是**注入的通知中心 + 注入的通知名**，
+  连「系统通知中心能否收到」这一层都没碰到。
+- **影响**：PAUSE-02 / PAUSE-06 的**接线**已证明；「真实跃迁触发暂停」**未**证明。
+- **解开条件**：解锁后跑 `bash scripts/probe-lock.sh` 的一个变体（或 Phase 3 的活体
+  `run-probe.sh holds`，见 03-05），确认真锁/真解锁各产生一次 `holds` 变化。
+- **status**：open
+
 ## resolved
 
 - **W-2026-10-03-09** · `NSApp.terminate` 第二处 —— 本 Phase 已收敛为 1 处并挂进 `test.sh` 每次重验
 - **W-2026-10-03-13** · `test.sh` UTF-8 locale 下按字节偏移丢 2 字节 —— 已用 `export LC_ALL=C` 修复，未改判据语义
+- **W-2026-10-03-14** · `HoldReason.order` 与 Phase 2 注释预告冲突 —— 已改为 1…5 并挂进单测每次重验
