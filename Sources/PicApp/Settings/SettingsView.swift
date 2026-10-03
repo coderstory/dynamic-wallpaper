@@ -12,10 +12,12 @@ struct SettingsView: View {
     @Environment(SettingsStore.self) private var store
     @Environment(SettingsApplier.self) private var applier
     @Environment(HoldArbiter.self) private var arbiter
+    @Environment(SettingsSessionState.self) private var session
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// 「电池时播放」toggle 的当场重估。**闭包注入**，视图不持有 AppDelegate
-    /// （与 terminate / presentSettings 同型的注入模式，D-10 装配点不动）。
+    /// 动作闭包一律经 PicApp 注入 —— 视图不持有 AppDelegate（D-10 装配点不动）。
+    let requestFolder: () -> Void
+    let rescanLibrary: () -> Void
     let reapplyBatteryHold: () -> Void
 
     // ── 唯一保留的 @State（都不是「渲染假数据」）──
@@ -24,8 +26,6 @@ struct SettingsView: View {
     // 开机自启：本地 @State，不持久化（SettingsStore 7 键冻结，不加第 8 键）。
     // 行为接线：Phase 7 SYS-01
     @State private var launchAtLogin = false
-    // 计数与空态皮的真数据源（MediaLibraryReport）在 05-03 接线。
-    @State private var playableCount = 0
     @State private var breathe = false
 
     var body: some View {
@@ -61,26 +61,11 @@ struct SettingsView: View {
             Card {
                 Row(symbol: "folder.fill", title: "文件夹",
                     sub: store.sourceFolder.isEmpty ? "未设置" : store.sourceFolder) {
-                    // 行为接线：05-03（复用 Phase 4 的 NSOpenPanel + 重扫管线）
-                    Button("选择…") {}.buttonStyle(GlowButton())
+                    Button("选择…") { requestFolder() }.buttonStyle(GlowButton())
+                        .disabled(session.isScanning)
+                        .accessibilityIdentifier("select-button")
                 }
-                HStack(spacing: 12) {
-                    ZStack {
-                        Circle().fill(Color.pAccent).frame(width: 6, height: 6)
-                            .shadow(color: Color.pGlow, radius: 4)
-                            .frame(width: 26)
-                    }
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text("\(playableCount)").font(mono(20, .semibold))
-                            .foregroundStyle(Color.pAccent)
-                            .shadow(color: Color.pGlow, radius: 7)
-                        Text("个可用视频").font(mono(11.5)).foregroundStyle(Color.pFg.opacity(0.6))
-                    }
-                    Spacer(minLength: 12)
-                    // 行为接线：05-03（与维护卡的「扫描」同一重扫动作）
-                    Button("重新扫描") {}.buttonStyle(GlowButton())
-                }
-                .padding(.horizontal, 13).frame(minHeight: 42)
+                countRow
             }
             Hint(t: "递归扫子目录 · 只认 MP4 / MOV / M4V")
 
@@ -142,8 +127,7 @@ struct SettingsView: View {
 
     // MARK: - 右列
 
-    private var rightColumn: some View {
-        VStack(alignment: .leading, spacing: 12) {
+    private var rightColumn: some View {        VStack(alignment: .leading, spacing: 12) {
             SectionHead(t: "电源与系统")
             Card {
                 Row(symbol: "battery.75", title: "电池时播放", sub: "默认关") {
@@ -160,9 +144,10 @@ struct SettingsView: View {
 
             SectionHead(t: "维护").padding(.top, 4)
             Card {
-                // 行为接线：05-03（同一重扫动作；spike 缺的行，UI-SPEC §13 要求补齐）
-                Row(symbol: "arrow.triangle.2.circlepath", title: "重新扫描") {
-                    Button("扫描") {}.buttonStyle(GlowButton())
+                // 纯展示行：可点的重扫只留来源卡计数行一处，避免两个入口语义漂移。
+                Row(symbol: "arrow.triangle.2.circlepath", title: "重新扫描",
+                    sub: lastScanLabel ?? "本会话未扫描") {
+                    Text("").frame(width: 0)
                 }
                 Row(symbol: "arrow.left.arrow.right", title: "转码",
                     sub: "MKV / AVI → MP4 · 待后续版本", hairline: false) {
@@ -174,23 +159,72 @@ struct SettingsView: View {
 
             SectionHead(t: "运行状态").padding(.top, 4)
             Card {
-                // 暂停与否是真值（arbiter 派生量）；原因文案的全 6 case 映射在 05-03，
-                // 这里先渲染 reason token 列表。
-                Row(symbol: arbiter.decision.shouldPlay ? "play.circle.fill" : "pause.circle.fill",
-                    title: arbiter.decision.shouldPlay ? "播放中" : "已暂停",
-                    sub: statusReasonTokens.isEmpty ? nil : statusReasonTokens) {
+                Row(symbol: running ? "play.circle.fill" : "pause.circle.fill",
+                    title: running ? SettingsPresentation.playbackRunningTitle
+                                   : SettingsPresentation.playbackPausedTitle,
+                    sub: joinedReasons.isEmpty ? nil : joinedReasons) {
                     Text("").frame(width: 0)
                 }
-                // 行为接线：05-03（FFmpegAvailability 的 PATH 探测）
-                Row(symbol: "checkmark.seal.fill", title: "ffmpeg", sub: "未检测", hairline: false) {
+                .accessibilityIdentifier("status-paused")
+                Row(symbol: "checkmark.seal.fill", title: "ffmpeg",
+                    sub: FFmpegAvailability.label(available: ffmpegAvailable), hairline: false) {
                     Text("").frame(width: 0)
                 }
+                .accessibilityIdentifier("status-ffmpeg")
             }
         }
     }
 
-    private var statusReasonTokens: String {
-        arbiter.decision.activeReasons.map { String(describing: $0) }.joined(separator: "、")
+    // MARK: - 来源卡计数行（空态皮）
+
+    private var isEmpty: Bool {
+        session.lastLibraryState.map(SettingsPresentation.isEmptyState) ?? false
+    }
+
+    private var countRow: some View {
+        HStack(spacing: 12) {
+            if isEmpty {
+                Tile(symbol: "exclamationmark", warn: true)
+            } else {
+                Circle().fill(Color.pAccent).frame(width: 6, height: 6)
+                    .shadow(color: Color.pGlow, radius: 4)
+                    .frame(width: 26)
+            }
+            VStack(alignment: .leading, spacing: 1) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text("\(session.playableCount)").font(mono(20, .semibold))
+                        .foregroundStyle(isEmpty ? Color.pWarn : Color.pAccent)
+                        .shadow(color: isEmpty ? Color.pWarnGlow : Color.pGlow, radius: 7)
+                    Text("个可用视频").font(mono(11.5)).foregroundStyle(Color.pFg.opacity(0.6))
+                }
+                if isEmpty {
+                    Text(SettingsPresentation.emptyStateBody).font(mono(10.5))
+                        .foregroundStyle(Color.pFg.opacity(0.6))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            Spacer(minLength: 12)
+            // 空态下**保持可用**：它是恢复路径，置灰等于把用户锁在坏掉的屏幕上。
+            Button("重新扫描") { rescanLibrary() }.buttonStyle(GlowButton())
+                .disabled(session.isScanning)
+                .accessibilityIdentifier("rescan-button")
+        }
+        .padding(.horizontal, 13).frame(minHeight: 42)
+    }
+
+    // MARK: - 运行状态卡读数
+
+    private var running: Bool { arbiter.decision.shouldPlay }
+
+    private var joinedReasons: String {
+        SettingsPresentation.joinedReasons(arbiter.decision.activeReasons)
+    }
+
+    /// 纯 PATH 可执行位判定，零执行；每次 body 求值重跑（一份 PATH 的开销可忽略）。
+    private var ffmpegAvailable: Bool { FFmpegAvailability.resolveFromPATH() }
+
+    private var lastScanLabel: String? {
+        session.lastScanDate.map { "上次扫描 " + $0.formatted(.dateTime.hour().minute()) }
     }
 
     // MARK: - 真绑定（每个写入口都是 store → applier → persist）
@@ -254,6 +288,8 @@ struct SettingsView: View {
             withAnimation(.easeInOut(duration: 10).repeatForever(autoreverses: true)) { breathe = true }
         }
         emitWindowGeometry()
+        WallpaperWindowController.emit(
+            "PIC_FFMPEG available=\(ffmpegAvailable ? 1 : 0) label=\(FFmpegAvailability.label(available: ffmpegAvailable))")
     }
 
     /// 几何探针（SC-1 的探针半边）：窗口出现后打一行 `PIC_SETTINGS_WINDOW`，

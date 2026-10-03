@@ -2,9 +2,9 @@ import Foundation
 import XCTest
 @testable import PicCore
 
-/// ffmpeg 可用性判定的单测（Plan 05-03 T1）。
+/// ffmpeg 可用性判定的单测。
 ///
-/// ⚠️ 本文件**不依赖本机 PATH**：每条用例自建临时目录并注入权限位，干净 clone
+/// ⚠️ 不依赖本机 PATH：每条用例自建临时目录并注入权限位，干净 clone
 /// 与任意 PATH 下读数一致。判定只看「可执行文件」，**零执行**（Phase 5 硬边界）——
 /// 这里面的 `ffmpeg` 是占位文件，从不被运行过。
 final class FFmpegAvailabilityTests: XCTestCase {

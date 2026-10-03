@@ -42,6 +42,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         presenting: WallpaperPresenter(controller: wallpaper),
         stopping: PlaybackStopper(player: player)
     )
+    /// 设置窗的会话态读数（计数 / 空态 / 扫描时间）。**不进 store**：
+    /// 七键冻结，这些都不是用户设过的偏好。
+    let sessionState = SettingsSessionState()
     /// 04-05 T2：轮换 → 装载的路由器。强持有（它持 `rotation.onAdvance` 闭包）；
     /// lazy：init 引用 self 的其它属性。
     private lazy var router = PlaybackRouter(
@@ -426,8 +429,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 再扫只会对同一件事打第二遍（D-17：一个数不两种读法）。
     private func bootstrapAfterWiring() async {
         // 正常扫描路径的状态变更由协调器打（04-03 冻结的出口）。
+        // 会话态也在**这个 handler** 里更新 —— 打点处仍是恰好 2 处（取消分支 +
+        // 这里），再开一处会让 04-04 的取消分支语义漂成两个真相源。
         coordinator.onStateChange = { [weak self] state in
             self?.emit("PIC_LIBRARY_STATE=" + LibraryAvailability.token(state))
+            self?.sessionState.update(state: state)
         }
         guard await requestFolderIfNeeded() else { return }
         await rescanAndApply()
@@ -453,33 +459,54 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return true
         }
         emit("PIC_FOLDER_REQUEST_REASON=unconfigured")
-        // 面板是模态窗口：.accessory 的 app 弹它之前必须激活（T-02-09 的单点），
-        // 弹完必须恢复 —— 少了恢复这一步，Dock 图标会永久留下（T-04-20）。
-        presentSettingsWindow()
-        let url = await picker.pickFolder()
-        hideSettingsAndRestorePolicy()
-        guard let url else {
+        switch await pickFolder() {
+        case .accepted:
+            return true
+        case .cancelled:
             emit("PIC_FOLDER_PICK_CANCELLED=1")
             // 取消路径直接 return false，不调 coordinator.apply —— 这一行是取消
             // 路径记录该 token 的唯一方式（与上面的 onStateChange 处理器各有独立语义）。
             emit("PIC_LIBRARY_STATE=" + LibraryAvailability.token(.folderUnconfigured))
             return false
-        }
-        guard FolderRequestPolicy.isAcceptableSelection(url) else {
+        case .rejected:
             emit("PIC_FOLDER_PICK_REJECTED=1")
             return false
         }
+    }
+
+    private enum FolderPickOutcome { case accepted, cancelled, rejected }
+
+    /// 弹面板 → 校验 → 写盘。**不**扫描、不发状态行：取消的语义由调用方决定
+    /// （首启的取消 = 从没配过；设置窗的取消 = 保持现状，两者不能共用同一行）。
+    private func pickFolder() async -> FolderPickOutcome {
+        // 面板是模态窗口：.accessory 的 app 弹它之前必须激活（T-02-09 的单点），
+        // 弹完必须恢复 —— 少了恢复这一步，Dock 图标会永久留下（T-04-20）。
+        presentSettingsWindow()
+        let url = await picker.pickFolder()
+        hideSettingsAndRestorePolicy()
+        guard let url else { return .cancelled }
+        guard FolderRequestPolicy.isAcceptableSelection(url) else { return .rejected }
         store.sourceFolder = FolderRequestPolicy.normalizedPath(url)
         store.persist()
         // 只打 PICKED=1，不打路径（T-03-02：目录路径不进日志，设置窗是唯一例外）。
         emit("PIC_FOLDER_PICKED=1")
-        return true
+        return .accepted
+    }
+
+    /// 设置窗「选择…」的行为侧（SOURCE-07）：与首启引导走**同一个**面板落点，
+    /// 选完立即重扫。取消不动现状 —— 当前文件夹继续生效，因此不发任何状态行。
+    func requestFolderNow() {
+        Task {
+            if await pickFolder() == .accepted { await rescanAndApply() }
+        }
     }
 
     /// 「切换目录」与「重新扫描」走**同一条**路径 —— 两处实现必然会漂。
     /// 04-05：扫描结果交给协调器后，按返回的 `LibraryState` 分派装载
     /// （`.playing` → `router.start`，SC1/SC4；三个隐藏态 → `router.stop`）。
     private func rescanAndApply() async {
+        sessionState.isScanning = true
+        defer { sessionState.isScanning = false }
         guard let folder = store.resolvedFolderURL() else {
             dispatchPlayback(for: coordinator.apply(scanOutcome: .success(0),
                                                     folderConfigured: false), items: [])
@@ -492,6 +519,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         emit("PIC_ROT_MODE=\(store.playMode.rawValue)")
         do {
             let report = try await library.scan(folder: folder)
+            sessionState.playableCount = report.playableCount
             dispatchPlayback(for: coordinator.apply(scanOutcome: .success(report.playableCount),
                                                     folderConfigured: true),
                              items: report.items)
@@ -528,13 +556,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         emit("PIC_ROT_ADVANCES=\(rotation.advances.count)")
     }
 
-    /// 「重新扫描文件夹」的行为侧（MENUBAR-05 / SOURCE-05）：显式失效缓存再重扫 ——
+    /// 「重新扫描」的唯一落点（MENUBAR-05 与设置窗共用）：显式失效缓存再重扫 ——
     /// 不失效的话菜单项会看起来「点了没反应」。单次 Task 串行：连点不会并发扫
     /// 两遍；每次点击都打一行读数，重复点击在 evidence 里可数（T-04-21）。
-    func rescanFolderNow() {
-        emit("PIC_MENU_ACTION=rescan_folder")
+    func rescanLibrary() {
         library.invalidateCache()
         Task { await rescanAndApply() }
+    }
+
+    /// 菜单侧薄壳：只多打一行菜单动作读数（设置窗不经过菜单，故不打）。
+    func rescanFolderNow() {
+        emit("PIC_MENU_ACTION=rescan_folder")
+        rescanLibrary()
     }
 }
 

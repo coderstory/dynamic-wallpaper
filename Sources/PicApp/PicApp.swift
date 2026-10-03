@@ -19,10 +19,13 @@ struct PicApp: App {
 
     var body: some Scene {
         Window("Pic 设置", id: "settings") {
-            SettingsView(reapplyBatteryHold: { appDelegate.reapplyBatteryHold() })
+            SettingsView(requestFolder: { appDelegate.requestFolderNow() },
+                         rescanLibrary: { appDelegate.rescanLibrary() },
+                         reapplyBatteryHold: { appDelegate.reapplyBatteryHold() })
                 .environment(appDelegate.store)
                 .environment(appDelegate.arbiter)
                 .environment(appDelegate.settingsApplier)
+                .environment(appDelegate.sessionState)
                 // MENUBAR-02 的关窗路径（T-02-09 既有）：关窗只隐藏 + 策略回 .accessory。
                 .onDisappear { appDelegate.hideSettingsAndRestorePolicy() }
         }

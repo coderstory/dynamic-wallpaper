@@ -94,7 +94,7 @@ final class SettingsPresentationTests: XCTestCase {
                        ["单循环", "列表循环", "随机"])
     }
 
-    // ---- Plan 05-03 T1：空态文案 / 三态一张皮 / 暂停原因 / 状态卡标题 ----
+    // ---- 空态文案 / 三态一张皮 / 暂停原因 / 状态卡标题 ----
 
     /// UI-02 逐字硬需求。哨兵写在本测试里 —— 常量改一个字这里就红。
     func testEmptyStateBodyMatchesSpecVerbatim() {
