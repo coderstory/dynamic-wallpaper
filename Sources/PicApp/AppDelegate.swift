@@ -4,8 +4,8 @@ import PicCore
 
 /// 唯一装配点（D-10）。
 ///
-/// 本 Phase 只接 Phase 2 已有的三根线：播放层挂载、仲裁器接播放端、菜单的暂停/继续。
-/// **不接**全屏/锁屏/电源/显示器 watcher（Phase 3）、**不接**扫描与轮换（Phase 4）。
+/// Phase 2 只接了三根线；Phase 3 在这里接齐四个 Watcher —— 本文件是全仓**唯一**
+/// 把系统信号变成 `HoldReason` 的地方（D-09 单向流：`Watcher → HoldArbiter → PlayerController`）。
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let store = SettingsStore(
@@ -15,8 +15,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let player = PlayerController()
     let arbiter = HoldArbiter()
     let wallpaper = WallpaperWindowController()
-    /// 必须**强持有**：否则没人调 `stop()`，observer 泄漏（T-03-03）。
+    // ---- Phase 3 的四个常驻信号源 ----
+    // ⚠️ 四个都必须**强持有**。谁创建谁 `stop()`：observer / IOKit run loop source /
+    // 显示器重配置回调一旦没人摘就永久泄漏（T-03-03 / T-03-10 / T-03-15）。
+    // 只在闭包里临时捕获不构成持有 —— 那样 `stop()` 无人可调。
     let lockWatcher = LockWatcher(names: lockSignalNames())
+    let fullscreenDetector = FullscreenDetector()
+    let displayWatcher = DisplayWatcher()
+    let powerWatcher = PowerWatcher()
 
     private var ticker: Timer?
     /// D-05：0.5 秒 `Timer` 已删。`PIC_HOLD` 改由对 `arbiter.decision` 的观察驱动，
@@ -114,6 +120,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             line += String(format: " resumeAt=%.3f", player.arbiterCurrentPosition())
         }
         emit(line)
+
+        // D-12 的数据落点的可观测出口：`HoldStatus.summary` 的派生值 + 原因条数。
+        // 紧跟在每次 `PIC_HOLD` 变化之后，不另起定时器 —— 与上面同一处去重门，
+        // 因此**不改变** `PIC_HOLD_OBSERVER_TICKS` 的计数语义（D-05 的判据照旧）。
+        let status = arbiter.holdStatus
+        emit(String(format: "PIC_HOLD_SUMMARY summary=%@ reasons=%d",
+                    status.summary ?? "(none)", status.reasons.count))
     }
 
     /// `--quit-after <秒>` —— **可测性用的调试开关，不是产品能力**。
@@ -135,13 +148,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    /// 装配点（D-10）。每根线都只接一次，重复调用是幂等的。
+    /// 装配点（D-09 单向流）。每根线都只接一次，重复调用是幂等的。
     ///
-    /// ⚠️ 顺序（D-06 / `W-2026-10-03-10`）：`lockWatcher.start` 必须跑在
-    /// `startWallpaper()` 之前 —— `start()` 会**同步**回调一次当前锁屏状态，
-    /// 本会话自起播起屏幕一直锁着，没有跃迁可等。反了的话 `holds` 在起播那一刻是空集。
+    /// ⚠️ **时序契约（D-06 / `W-2026-10-03-10`）**：四根 Watcher 线必须全部落位之后，
+    /// `applicationDidFinishLaunching` 才会去 `startWallpaper()`。四个 `start()`
+    /// 都**同步**回调一次当前状态，所以 `startWallpaper()` 读到的 `arbiter.decision`
+    /// 已经包含本会话的全部系统信号 —— 锁屏中的会话不会先播一下再被压住。
+    ///
+    /// ⚠️ **本方法只接线，不在这里兜底补 `set`。** 「`start()` 里同步读一次当前状态」
+    /// 这条契约由各自拥有源文件的 plan 负责（03-01 的 `LockWatcher.start` + 单测 +
+    /// `LOCK_START_SYNC_DELIVERED`；03-02 / 03-03 / 03-04 各自的同步重算 + 单测）。
+    /// 在这里手动补一次会让同一条契约变成两处实现，并给 D-09 的单向流多一个入口。
+    ///
+    /// 顺序：先三个 `NSWorkspace` / IOKit 的，最后 `lockWatcher` —— 后者会立刻用
+    /// 真实会话状态置位，放在最后让它读到的是前面三者已就位的最终态。
     func wiring() {
         arbiter.attach(player)
+
+        // 四根线都只做「信号 → arbiter.set(_:active:)」的固定映射，不解析任何字符串。
+        fullscreenDetector.start { [arbiter] isFullscreen in
+            arbiter.set(.fullscreen, active: isFullscreen)
+        }
+        displayWatcher.start { [arbiter] signals in
+            arbiter.set(.displayAsleep, active: signals.displayAsleep)
+            arbiter.set(.systemSleeping, active: signals.systemSleeping)
+        }
+        powerWatcher.start { [arbiter, store] isOnBattery in
+            // 「要不要暂停」是 BatteryHoldPolicy 的纯函数（D-11：开关默认关闭），
+            // 「结果喂给谁」是装配层的事 —— 两者分开，判据才能在单测里独立成立。
+            arbiter.set(.battery, active: BatteryHoldPolicy.shouldHold(
+                isOnBattery: isOnBattery,
+                pauseOnBatteryEnabled: store.pauseOnBattery))
+        }
         lockWatcher.start { [arbiter] isLocked in
             arbiter.set(.screenLocked, active: isLocked)
         }
@@ -205,7 +243,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        lockWatcher.stop()   // Pitfall 4：observer 注册与注销严格配对（T-03-03）
+        // Pitfall 4：observer / run loop source / 重配置回调的注册与注销严格配对
+        // （T-03-03 / T-03-10 / T-03-15）。四个 Watcher 在 `wiring()` 里 start，
+        // 这里就摘四个 —— 两侧成对，长跑期的泄漏证据在 Phase 7。
+        lockWatcher.stop()
+        fullscreenDetector.stop()
+        displayWatcher.stop()
+        powerWatcher.stop()
         emit("PIC_TERMINATED pid=\(ProcessInfo.processInfo.processIdentifier) reason=application_will_terminate")
     }
 
@@ -232,15 +276,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // looper 的模板 item 属性在 init 时就冻结，挂在 item 上「改设置立即生效」是假的。
         wallpaper.attach(player: player.player)
         player.load(url: url)
-        // 03-05 替换：这一行直连播放器，绕过仲裁器（D-06 / W-2026-10-03-10）。
-        // Phase 3 已保证 `lockWatcher.start` 的同步回调在 `startWallpaper()` 之前跑完，
-        // 所以此刻 `arbiter.decision.holds` 已可能非空 —— 03-05 把这行换成
-        // `arbiter.applyCurrentDecision()`。本 plan 保留原样以免抢下一个 plan 的口径。
-        player.player.play()
-        // 设置在起播之后落位：挂在 player 上的速度/音量必须在播放中改才生效（D-13）。
-        player.setRate(store.rate)
+        // D-06 / W-2026-10-03-10：起播决策**只**从仲裁器出，零播放器直连。
+        // 四个 Watcher 的 start() 已在 wiring() 里同步置位，所以此刻 decision 已含
+        // 本会话的全部系统信号 —— 锁屏中的会话不会先播一下再被压住。
+        arbiter.applyCurrentDecision()
+        // D-13：设置必须挂在 player 上（不是 item）、且在起播决策**之后**落位。
+        //
+        // 🔴 但 `setRate` 整段门在「应当播放」之后（W-2026-10-03-21）。这不是风格偏好：
+        // `PlayerController.setRate(r)` 的实现就是 `player.rate = r`（PlayerController.swift:51），
+        // SDK `AVPlayer.h:150` 明文 —— 设置非零 rate 会让 `timeControlStatus` 变成
+        // `.waitingToPlayAtSpecifiedRate` 或 `.playing`。本机实测：pause() 之后置 rate=1.0，
+        // `timeControlStatus` 在 0.25 秒内由 `.paused`(0) 变 `.playing`(1)。
+        // 无条件调用它，已 hold 的播放器会被重新拉起，活体判据 `TICK … status=paused` 命中数为 0。
+        //
+        // ⚠️ 这条门控是本 Phase 最容易被后人「顺手清理」掉的一行，判据与证据见
+        // `HoldStatusTests.testSetRateOnStartPathIsGatedByShouldPlay`（含删除该门控的变异验证）。
         player.setVolume(store.volume)
         player.setMuted(store.isMuted)
+        if arbiter.decision.shouldPlay {
+            player.setRate(store.rate)
+        }
     }
 
     private func firstVideoURL(in folder: URL) -> URL? {

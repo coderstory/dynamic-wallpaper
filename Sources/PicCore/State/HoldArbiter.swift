@@ -62,4 +62,22 @@ public final class HoldArbiter {
 
         target?.arbiterApply(decision)
     }
+
+    /// 把**当前** decision 直接交给播放端，**不经过** `set` 的并/差与锚点逻辑。
+    ///
+    /// 起播路径用它，取代菜单边界外的直连播放（D-06 / `W-2026-10-03-10`）：
+    /// 四个 Watcher 已在 `wiring()` 里先置位，所以「已 hold 却先播一下」不会发生。
+    ///
+    /// ⚠️ 它**不碰续播锚点、不触发 seek** —— 起播时若顺带 seek 到锚点，
+    /// 锁屏会话下会把播放头拽回暂停前的位置。单测
+    /// `testApplyCurrentDecisionForwardsCurrentDecisionWithoutTouchingAnchor` 锁住这一条。
+    public func applyCurrentDecision() { target?.arbiterApply(decision) }
+
+    /// 「当前为什么暂停」的对外读数（D-12 的数据落点）。
+    ///
+    /// **纯派生量**：`decision` 是唯一真相源，这里不缓存、不另存。
+    /// Phase 5 的运行状态卡读它；Phase 3 只产数据，零渲染。
+    public var holdStatus: HoldStatus {
+        HoldStatus(shouldPlay: decision.shouldPlay, reasons: decision.activeReasons)
+    }
 }
