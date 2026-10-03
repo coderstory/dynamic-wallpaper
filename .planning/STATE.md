@@ -159,6 +159,7 @@ Items acknowledged and deferred at milestone close, most recent first:
 | Phase | State | Resume |
 |-------|-------|--------|
 | 01 | verification_deferred_human | 见下 —— 四项需真人在场，共约 22 分钟 |
+| 04 | verification_deferred_human | 5 项需解锁会话 —— 见 `04-UAT.md`（SC1 首启即播 / SC2 真探针拒坏文件 / SC3 立即下一个 / SC4 重启自动播 / SC5 删目录降级恢复） |
 
 **Phase 1 待人工补跑清单（自动化无法覆盖，已核实为硬约束非疏漏）：**
 
