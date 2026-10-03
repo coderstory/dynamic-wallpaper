@@ -84,6 +84,8 @@ SettingsStore   : 含 Battery 相关开关位（Seed 已定义 sourceFolder/rate
 
 - **全屏检测走「几何之外加判别信号」**（见 D-02）
 - **构建系统维持 D-01 原案：SwiftPM → Phase 5 引入 Xcode 工程。** UI 测试（TEST-07~10）必须有 `.xcodeproj`，但单测（TEST-01~06）用 `swift test` 即可，不必提前背 `project.pbxproj` 的成本。
+- **交付的 `.app` 必须剥离测量脚手架。** Phase 2 实测：产品代码 1279 行里有 **493 行（38.5%）是测量脚手架**，其中 `LoopProbe` **206 行会进交付的 `.app`**。用户 2026-10-03 拍板：**`.app` 只含产品代码**，探针留在源码里不进 bundle。
+  → 这条要在 `build.sh` 落地，并加判据：**打进 `.app` 的二进制里不得出现探针符号**。实现阶段（Phase 4 或 7）必须做。
 
 ### Claude's Discretion
 - 4 个 Watcher 的具体实现方式（`DistributedNotificationCenter` 订阅哪些 name / `NSWorkspace` 通知的组合）
