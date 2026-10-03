@@ -222,10 +222,10 @@ Plans:
   4. 产物落在**用户选择的壁纸目录内**，原视频保留不删
   5. 产物**不会被再次扫描**成待转码输入（反复扫描不产生死循环），半成品 `.tmp` 不进播放目录，转完的 MP4 立即可被壁纸播到
 
-**Plans**: 1/5 plans executed (pending)（wave 1 双并行 → 2 → 3 → 4 串行）
+**Plans**: 2/5 plans executed (pending)（wave 1 双并行 → 2 → 3 → 4 串行）
 
 **Wave 1** *(06-01 与 06-02 零文件重叠，可并行)*
-- [ ] 06-01-PLAN.md — 参数构造内核：TranscodeCommand（实际命令可审计）/ TranscodeOutputNaming（`Converted/` 产物命名）/ TranscodeCandidateFilter / ConvertedLibrary，纯逻辑 + 单测
+- [x] 06-01-PLAN.md — 参数构造内核：TranscodeCommand（实际命令可审计）/ TranscodeOutputNaming（`Converted/` 产物命名）/ TranscodeCandidateFilter / ConvertedLibrary，纯逻辑 + 单测
 - [x] 06-02-PLAN.md — 检测 + 进度解析：ExternalToolLocator（PATH 探测 `ffmpeg`，检测不到多条安装途径）+ ProgressParser
 
 **Wave 2** *(blocked on Wave 1 completion)*
@@ -300,7 +300,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 3. 系统事件仲裁 | 5/5 | Done | 2026-10-03 |
 | 4. 媒体库与轮换 | 6/6 | In Progress|  |
 | 5. 设置窗口与即时生效 | 0/4 | Not started | - |
-| 6. 转码与独立窗口 | 1/5 | In Progress|  |
+| 6. 转码与独立窗口 | 2/5 | In Progress|  |
 | 7. 打包、开机自启与整机验收 | TBD | Not started | - |
 
 ---
