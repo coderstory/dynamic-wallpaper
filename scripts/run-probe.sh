@@ -34,7 +34,13 @@ BIN="$ROOT/.build/debug/Pic"
 SRC_PROBE="$ROOT/Sources/PicCore/Playback/WindowProbe.swift"
 SPIKE_PROBE="$ROOT/.planning/spike/WindowProbe.swift"
 FIXTURES="$ROOT/fixtures"
-APP_BIN="$ROOT/build/Pic.app/Contents/MacOS/Pic"
+# 交付 .app 自 Phase 7 起以 -DPIC_NO_PROBE 构建，测量符号已剥离。refresh 的
+# app_bundle 轮要读 REFRESH_* 读数，所以它的读数改从**保留探针**的 PicProbe.app 取。
+APP_BIN="$ROOT/build/PicProbe.app/Contents/MacOS/Pic"
+# `app` 子命令钉死在交付 app 上 —— 判据名说的是「交付 app」，读数就必须来自
+# 交付 app。不跟 APP_BIN 改道，否则 evidence/app-bundle.log 会标称交付 app
+# 却记着 PicProbe 的读数（假绿灯的跨文件形态）。
+DELIVERY_BIN="$ROOT/build/Pic.app/Contents/MacOS/Pic"
 TMP="$(mktemp -d)"
 APP_PID=""
 
@@ -311,8 +317,8 @@ cmd_loop() {
 # 层级探针与 cmd_order 用同一套两个二进制，判据口径完全一致。
 cmd_app() {
   mkdir -p "$EV"
-  if [ ! -x "$APP_BIN" ]; then
-    log "APP_BUNDLE_MISSING path=$APP_BIN （先跑 bash build.sh）"
+  if [ ! -x "$DELIVERY_BIN" ]; then
+    log "APP_BUNDLE_MISSING path=$DELIVERY_BIN （先跑 bash build.sh）"
     return 1
   fi
   echo "WARN=will_restart_Finder" >&2
@@ -328,7 +334,7 @@ cmd_app() {
   fi
 
   log "APP_START mode=bundle_exec"
-  PIC_SOURCE_FOLDER="$FIXTURES" "$APP_BIN" > "$TMP/app.out" 2> "$TMP/app.err" &
+  PIC_SOURCE_FOLDER="$FIXTURES" "$DELIVERY_BIN" > "$TMP/app.out" 2> "$TMP/app.err" &
   APP_PID=$!
   sleep 4
   if ! kill -0 "$APP_PID" 2>/dev/null; then
