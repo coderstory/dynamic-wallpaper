@@ -71,5 +71,28 @@ public final class WallpaperWindowController {
 
     public static func emit(_ line: String) {
         FileHandle.standardError.write((line + "\n").data(using: .utf8)!)
+        mirror(line)
+    }
+
+    /// `PIC_EVIDENCE_FILE` 证据桥（Phase 5 / Plan 05-01）：非空时把每行 mirror 进
+    /// 文件，让 XCUITest 与探针的读数可 grep。**未设该变量时行为与原实现逐字节
+    /// 一致**（只写 stderr）。惰性取值一次（static let）；失败静默 —— 证据桥是
+    /// 观测面，不允许它影响产品路径。
+    private static let evidenceFileURL: URL? = {
+        guard let path = ProcessInfo.processInfo.environment["PIC_EVIDENCE_FILE"],
+              !path.isEmpty else { return nil }
+        return URL(fileURLWithPath: path)
+    }()
+
+    private static func mirror(_ line: String) {
+        guard let url = evidenceFileURL else { return }
+        let fm = FileManager.default
+        if !fm.fileExists(atPath: url.path) {
+            guard fm.createFile(atPath: url.path, contents: nil) else { return }
+        }
+        guard let handle = try? FileHandle(forWritingTo: url) else { return }
+        defer { try? handle.close() }
+        _ = try? handle.seekToEnd()
+        try? handle.write(contentsOf: (line + "\n").data(using: .utf8)!)
     }
 }

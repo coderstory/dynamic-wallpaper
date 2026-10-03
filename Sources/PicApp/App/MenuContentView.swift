@@ -48,8 +48,18 @@ struct MenuContentView: View {
         ForEach(MenuItemID.allCases, id: \.self) { id in
             if id == .quit { Divider() }
             Button(MenuBarModel.label(for: id, isPaused: isPaused)) { activate(id, isPaused: isPaused) }
+                .settingsShortcut(for: id)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: MenuContentView.openSettingsNotification)) { _ in
+            // `--open-settings` 测试脚手架投的通知在这里落地 —— 调的是用户路径的
+            // 两个函数（presentSettings 闭包 + openWindow），不开第二个入口。
+            presentSettings()
+            openWindow(id: "settings")
         }
     }
+
+    /// AppDelegate 的 `--open-settings` 脚手架投递的通知名。
+    private static let openSettingsNotification = Notification.Name("PicOpenSettings")
 
     private func activate(_ id: MenuItemID, isPaused: Bool) {
         switch id {
@@ -75,25 +85,18 @@ struct MenuContentView: View {
     }
 }
 
-/// 设置窗口的**最小骨架**（MENUBAR-02 的完整形态属 Phase 5）。
-///
-/// 这里只有一行只读的源目录路径 —— 路径只出现在用户主动打开的设置窗里，
-/// 菜单栏那一侧永远不出现文件名或路径（MENUBAR-08）。
-struct SettingsSkeletonView: View {
-    @Environment(SettingsStore.self) private var store
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("源目录")
-                .font(.headline)
-            Text(store.resolvedFolderURL()?.path ?? "未设置")
-                .font(.system(.body, design: .monospaced))
-                .textSelection(.enabled)
-            Text("设置项在 Phase 5 交付")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+/// ⌘, 的渲染载体（MENUBAR-06）：只有 `openSettings` 挂快捷键，其余项原样通过。
+/// 独立 ViewModifier 而不是行内条件分支 —— 菜单的 Button 字面量必须保持单一个
+/// （菜单门语义），if/else 分支会逼出第二个 Button 字面量。
+/// 应用入口在 PicApp.swift 的 `settingsShortcut(for:)`：计数门锁本文件内
+/// `MenuShortcut` 字面量恰好 1 次（结构体声明已占用），在这里再写一次应用会是 2。
+struct MenuShortcut: ViewModifier {
+    let id: MenuItemID
+    func body(content: Content) -> some View {
+        if id == .openSettings {
+            content.keyboardShortcut(",", modifiers: .command)
+        } else {
+            content
         }
-        .padding(16)
-        .frame(width: 420, alignment: .leading)
     }
 }

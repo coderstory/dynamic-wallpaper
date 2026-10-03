@@ -15,6 +15,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let player = PlayerController()
     let arbiter = HoldArbiter()
     let wallpaper = WallpaperWindowController()
+    /// Phase 5 tracer：设置「当场生效」的唯一落点（装配在 wiring 旁，D-10）。
+    /// lazy：构造参数要引用上面的持有者，属性默认值里引用不了 self；访问都在主线程。
+    lazy var settingsApplier = SettingsApplier(store: store, player: player, arbiter: arbiter)
     // ---- Phase 3 的四个常驻信号源 ----
     // ⚠️ 四个都必须**强持有**。谁创建谁 `stop()`：observer / IOKit run loop source /
     // 显示器重配置回调一旦没人摘就永久泄漏（T-03-03 / T-03-10 / T-03-15）。
@@ -77,6 +80,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         startLoopProbeIfRequested()
         startHoldObserver()
         scheduleQuitAfterIfRequested()
+        openSettingsIfRequested()
         startObservability()
     }
 
@@ -172,6 +176,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         emit("PIC_QUIT_AFTER_SCHEDULED seconds=\(seconds)")
         DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { [weak self] in
             MainActor.assumeIsolated { self?.terminateApp() }
+        }
+    }
+
+    /// `--open-settings` —— **测试脚手架，不是产品能力**（照 `--quit-after` 先例，
+    /// T-05-03 同型处置：本地单用户 app，CLI 参数本就等价于「坐在键盘前」）。
+    /// XCUITest/探针没有真人点菜单栏，用它与 `PicOpenSettings` 通知走**用户路径的
+    /// 两个函数**（presentSettingsWindow + MenuContentView 的 openWindow），不开第二个
+    /// 入口。不传这个参数时一行都不跑，菜单里也不出现。
+    private func openSettingsIfRequested() {
+        guard CommandLine.arguments.contains("--open-settings") else { return }
+        presentSettingsWindow()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            NotificationCenter.default.post(name: Notification.Name("PicOpenSettings"), object: nil)
         }
     }
 
@@ -387,6 +404,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 04-05（SC4）：顺序写死 —— 先取目录、再扫描、最后起播。反序会让首次
         // 启动在没有目录/扫描结果时先走一遍 PIC_NO_SOURCE。
         await startWallpaper()
+        emitBootSettings()
+    }
+
+    /// `PIC_SETTINGS_BOOT`：启动时把 7 键里的 6 个可调值各打一次（TEST-04 的
+    /// 重启回读锚点）。值全部来自 store —— 探针 seed 什么、这里就回读什么。
+    /// 一行、每个值只出现一次（D-17）。
+    private func emitBootSettings() {
+        emit("PIC_SETTINGS_BOOT rate=\(store.rate) volume=\(store.volume) muted=\(store.isMuted ? 1 : 0) playMode=\(store.playMode.rawValue) rotationInterval=\(Int(store.rotationInterval)) pauseOnBattery=\(store.pauseOnBattery ? 1 : 0)")
     }
 
     /// 该不该弹文件夹选择框由 FolderRequestPolicy 纯函数决定（SYS-03 / SOURCE-07）。
