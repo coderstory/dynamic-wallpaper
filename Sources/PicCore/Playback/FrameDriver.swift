@@ -35,6 +35,9 @@ import QuartzCore
 /// displayLink 与 Timer 在**同一处** `invalidate()`（D-14 / Pitfall 4）。
 /// 刻意不引入 Phase 1 Pitfall 16 提到的 15 秒 teardown 宽限期 —— 本 Phase 只做
 /// 窗口生命周期，那条宽限期是为切换视频时让旧 renderer 自然退场设计的。
+/// 不传 `-DPIC_NO_PROBE` 时（本文件的默认态）整个声明区都在；交付构建由
+/// `build.sh` 的 `-Xswiftc -DPIC_NO_PROBE` 打开开关，把测量脚手架从交付二进制里剥掉。
+#if !PIC_NO_PROBE
 @MainActor
 public final class FrameDriver: NSObject {
 
@@ -118,3 +121,4 @@ public final class FrameDriver: NSObject {
         }
     }
 }
+#endif

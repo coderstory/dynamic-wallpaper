@@ -14,6 +14,9 @@ import CoreGraphics
 /// D-04：本文件**不需要**桌面图标层的值，因此不出现取层级值的那个 CoreGraphics 函数，
 /// 也不出现任何层级数字字面量。「我方层 < 图标层」这一半由 `.planning/spike/` 里的
 /// throwaway 探针承担（`run-probe.sh order` 现编译现跑），两边都不硬编码。
+/// 不传 `-DPIC_NO_PROBE` 时（本文件的默认态）整个声明区都在；交付构建由
+/// `build.sh` 的 `-Xswiftc -DPIC_NO_PROBE` 打开开关，把测量脚手架从交付二进制里剥掉。
+#if !PIC_NO_PROBE
 public enum WindowProbe {
 
     /// 「桌面层家族」的带宽：以我方层级为中心上下各多少级算作同一族。
@@ -165,4 +168,5 @@ struct PicWindowProbeMain {
         }
     }
 }
+#endif
 #endif

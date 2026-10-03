@@ -19,6 +19,9 @@ import Foundation
 /// 每过一个 loop 边界 `AVPlayer.currentTime()` 就会归零，所以「跨边界单调不减」
 /// 这件事在原理上就测不出来。它单独记成 `LOOP_POS_MONOTONIC`，且无条件附一行
 /// `LOOP_POS_NOTE` 说明它是探针构造的 artifact 还是播放缺陷 —— 不许混为一谈。
+/// 不传 `-DPIC_NO_PROBE` 时（本文件的默认态）整个声明区都在；交付构建由
+/// `build.sh` 的 `-Xswiftc -DPIC_NO_PROBE` 打开开关，把测量脚手架从交付二进制里剥掉。
+#if !PIC_NO_PROBE
 @MainActor
 public final class LoopProbe {
 
@@ -204,3 +207,4 @@ public final class LoopProbe {
         FileHandle.standardError.write((line + "\n").data(using: .utf8)!)
     }
 }
+#endif
