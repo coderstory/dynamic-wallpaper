@@ -53,7 +53,10 @@ private struct MenuBarLabel: View {
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        Image(systemName: "photo.on.rectangle")
+        // 菜单栏图标 = 设计定稿的 menubar-v1（ASSET-02）。bundle 里存的是
+        // menubar-v1Template{,@2x,@3x}.png —— 名字带 Template 后缀时 AppKit 自动
+        // 置 isTemplate，深浅色由系统适配。@2x/@3x 变体由具名查找自动带上。
+        Image("menubar-v1Template")
             .onReceive(NotificationCenter.default.publisher(for: Notification.Name("PicOpenSettings"))) { _ in
                 presentSettings()
                 openWindow(id: "settings")

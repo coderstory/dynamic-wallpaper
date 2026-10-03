@@ -14,6 +14,8 @@ echo "==> 清理"
 rm -rf "$OUT" "$DIST"
 mkdir -p "$OUT" "$DIST"
 
+ASSETS=".planning/design/assets"
+
 # 探针符号计数。必须 `grep -cE` —— 裸 grep 的 '|' 是字面量，恒 0 假绿灯
 # （RESEARCH 坑 1 / W-2026-10-03-35）。
 probe_symbols() { nm "$1/Contents/MacOS/$APP_NAME" | grep -cE 'LoopProbe|WindowProbe|FrameDriver'; }
@@ -29,8 +31,23 @@ assemble_app() {
   # 刻意不在这里再内联一份 heredoc —— 两份手写同一份 plist 必然漂移，
   # 而 AC「diff 两份退出 0」就是防这件事的（cp 过去即可逐字一致）。
   cp "Sources/PicApp/Resources/Info.plist" "$app/Contents/Info.plist"
+  # 图标：.icns 由 iconutil 出（CFBundleIconFile=Pic 指向它）；菜单栏用
+  # menubar-v1 的 Template 三档。menubar-v2 是对照稿，一个都不拷。
+  cp "$OUT/Pic.icns" "$app/Contents/Resources/Pic.icns"
+  cp "$ASSETS/menubar-v1.png"     "$app/Contents/Resources/menubar-v1Template.png"
+  cp "$ASSETS/menubar-v1@2x.png"  "$app/Contents/Resources/menubar-v1Template@2x.png"
+  cp "$ASSETS/menubar-v1@3x.png"  "$app/Contents/Resources/menubar-v1Template@3x.png"
   codesign --force --deep -s - "$app"
 }
+
+# iconutil 路（不依赖 actool / .xcassets，与 SwiftPM 路线同构）：
+# .planning/design/assets/ 里的文件名已经是 iconset 规范名，直接 cp 进 .iconset。
+# iconset 目录刻意留在 build/ 里不清理 —— 判据要数它（ASSET-01）。
+echo "==> 出 .icns（iconutil，图标真相源 = .planning/design/assets/）"
+rm -rf "$OUT/${APP_NAME}.iconset"
+mkdir -p "$OUT/${APP_NAME}.iconset"
+cp "$ASSETS"/icon_*.png "$OUT/${APP_NAME}.iconset/"
+iconutil -c icns "$OUT/${APP_NAME}.iconset" -o "$OUT/Pic.icns"
 
 echo "==> 编译交付产物（D-01：走 SwiftPM，不走 xcodebuild）"
 # 二进制出自 swift build 的 release 产物，不再手编 spike 源。
