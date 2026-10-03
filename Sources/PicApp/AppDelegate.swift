@@ -45,6 +45,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 设置窗的会话态读数（计数 / 空态 / 扫描时间）。**不进 store**：
     /// 七键冻结，这些都不是用户设过的偏好。
     let sessionState = SettingsSessionState()
+    // ---- Phase 6 的 ffmpeg 判定与转码队列（Plan 06-04 T2 交付）----
+    /// 单一真相源（D-17 收编）：设置窗状态卡、维护行置灰态、转码窗徽章读的都是它。
+    /// lazy：构造参数要引用上面的持有者，属性默认值里引用不了 self。
+    private lazy var ffmpegLocator: ExternalToolLocator =
+        ExternalToolLocator(which: ProcessWhichProbe(), fileSystem: FileManagerExecutableProbe())
+    /// 转码窗徽章复用**同一个** locator —— 入口置灰与徽章不许出现两套判定（D-17）。
+    var transcodeLocator: ExternalToolLocator { ffmpegLocator }
+    /// 最近一次的判定结论。`refreshFFmpegAvailability()` 的唯一写入口。
+    private(set) var ffmpegAvailability: FFmpegToolStatus = .unavailable
+    /// 转码队列的持有者 —— 窗口与 06-05 的 `onBatchFinished` 接的是同一个实例。
+    lazy var transcodeQueue: TranscodeQueue = {
+        TranscodeQueue(
+            runner: ProcessTranscodeRunner(),
+            naming: TranscodeOutputNaming(
+                root: store.resolvedFolderURL() ?? URL(fileURLWithPath: NSTemporaryDirectory())),
+            availability: { [weak self] in self?.ffmpegAvailability ?? .unavailable },
+            freeSpaceProvider: { url in
+                (try? url.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]))?
+                    .volumeAvailableCapacityForImportantUsage
+            })
+    }()
     /// 04-05 T2：轮换 → 装载的路由器。强持有（它持 `rotation.onAdvance` 闭包）；
     /// lazy：init 引用 self 的其它属性。
     private lazy var router = PlaybackRouter(
@@ -256,6 +277,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settingsApplier.applyBatteryPolicy(isOnBattery: lastIsOnBattery)
     }
 
+    // MARK: - Phase 6 转码入口（Plan 06-04 T2）
+
+    /// ffmpeg 判定的**唯一**写入口（Q7 的新鲜化）：启动查一次 + 每次点「打开…」重查。
+    /// 用户中途装上 ffmpeg 不用重启 app —— 但必须有一处「点之前重查」，
+    /// 靠开窗时的旧读数就是 T-06-18 的陈旧值欺骗。
+    func refreshFFmpegAvailability() {
+        ffmpegAvailability = ffmpegLocator.locate()
+        // 只打 token 不打路径（T-03-02）：路径只进窗口徽章。
+        emit("PIC_FFMPEG=\(ffmpegIsAvailable ? "available" : "unavailable")")
+    }
+
+    /// 设置窗读数与入口置灰共用这一份（不出现两套判定）。
+    var ffmpegIsAvailable: Bool {
+        if case .available = ffmpegAvailability { return true }
+        return false
+    }
+
+    /// 设置窗「维护」行「打开…」的行为侧：先重查拿新鲜判定 —— 可用就调 `openWindow`
+    /// 开窗并返回 true，不可用返回 false 让视图弹三途径安装说明。
+    /// 分派留在装配层：置灰态与徽章读的是同一份 `ffmpegAvailability`，不在视图里判。
+    @discardableResult
+    func openTranscodeWindow(_ openWindow: () -> Void) -> Bool {
+        refreshFFmpegAvailability()
+        if case .available = ffmpegAvailability {
+            openWindow()
+            return true
+        }
+        return false
+    }
+
     /// `PIC_LOCK_SIGNAL_PREFIX` —— **测试脚手架，不是产品能力**（`W-2026-10-03-15`）。
     ///
     /// 非空时把 `LockSignalNames` 的两个名字换成 `"<prefix>locked"` / `"<prefix>unlocked"`，
@@ -441,6 +492,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 启动在没有目录/扫描结果时先走一遍 PIC_NO_SOURCE。
         await startWallpaper()
         emitBootSettings()
+        // 启动查一次 ffmpeg（Q7）。追加在既有步骤之后，不动 04-05 写死的顺序。
+        refreshFFmpegAvailability()
     }
 
     /// `PIC_SETTINGS_BOOT`：启动时把 7 键里的 6 个可调值各打一次（TEST-04 的

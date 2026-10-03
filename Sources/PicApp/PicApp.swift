@@ -21,7 +21,13 @@ struct PicApp: App {
         Window("Pic 设置", id: "settings") {
             SettingsView(requestFolder: { appDelegate.requestFolderNow() },
                          rescanLibrary: { appDelegate.rescanLibrary() },
-                         reapplyBatteryHold: { appDelegate.reapplyBatteryHold() })
+                         reapplyBatteryHold: { appDelegate.reapplyBatteryHold() },
+                         ffmpegAvailable: { appDelegate.ffmpegIsAvailable },
+                         openTranscode: { appDelegate.openTranscodeWindow($0) },
+                         refreshFFmpeg: {
+                             appDelegate.refreshFFmpegAvailability()
+                             return appDelegate.ffmpegIsAvailable
+                         })
                 .environment(appDelegate.store)
                 .environment(appDelegate.arbiter)
                 .environment(appDelegate.settingsApplier)
@@ -47,6 +53,12 @@ struct PicApp: App {
             // 用户路径的两个函数（presentSettingsWindow + openWindow）。
             MenuBarLabel(presentSettings: { appDelegate.presentSettingsWindow() })
         }
+
+        // 转码窗（Phase 6）。全 app 唯一出现列表的地方；开窗动作由设置窗
+        // 「维护」行的 `openWindow(id:)` 触发 —— 与设置窗同一套开窗机制。
+        TranscodeScene(queue: appDelegate.transcodeQueue,
+                       locator: appDelegate.transcodeLocator,
+                       wallpaperRootProvider: { appDelegate.store.resolvedFolderURL() })
     }
 }
 

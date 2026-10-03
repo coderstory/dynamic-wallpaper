@@ -4,72 +4,60 @@ import XCTest
 
 /// ffmpeg 可用性判定的单测。
 ///
-/// ⚠️ 不依赖本机 PATH：每条用例自建临时目录并注入权限位，干净 clone
-/// 与任意 PATH 下读数一致。判定只看「可执行文件」，**零执行**（Phase 5 硬边界）——
-/// 这里面的 `ffmpeg` 是占位文件，从不被运行过。
+/// ⚠️ 不依赖本机 PATH / 文件系统：判定经 `ExternalToolLocator` 注入，which 与
+/// 文件系统都是本文件自带的假件（不跨文件引用 06-02 的测试替身）。判定只看
+/// 「可执行文件」，**零执行** —— 这里的 ffmpeg 只是路径串，从不被运行过。
 final class FFmpegAvailabilityTests: XCTestCase {
 
-    private var sandbox: URL!
-
-    override func setUp() async throws {
-        sandbox = FileManager.default.temporaryDirectory
-            .appendingPathComponent("pic-ffmpeg-\(UUID().uuidString)", isDirectory: true)
-        try FileManager.default.createDirectory(at: sandbox, withIntermediateDirectories: true)
+    /// which 替身：status 是 terminationStatus 语义，path 是 stdout 去空白（nil = 空串）。
+    private struct FakeWhich: WhichProbing {
+        let status: Int32
+        let path: String?
+        func whichFFmpeg() -> (status: Int32, path: String?) { (status, path) }
     }
 
-    override func tearDown() async throws {
-        try? FileManager.default.removeItem(at: sandbox)
+    /// 文件系统替身：集合外的路径 = 不存在**或**存在但不可执行（判定不可区分，故并为一类）。
+    private struct FakeFS: ExecutableFileProbing {
+        let executables: Set<String>
+        func isExecutableFile(atPath path: String) -> Bool { executables.contains(path) }
     }
 
-    /// 造一个名字叫 ffmpeg 的占位文件并设权限位。内容与判定无关，只求 `isExecutableFile` 有对象可判。
-    private func makeFfmpeg(in dir: URL, mode: Int) throws {
-        let file = dir.appendingPathComponent("ffmpeg")
-        try Data("#!".utf8).write(to: file)
-        try FileManager.default.setAttributes([.posixPermissions: NSNumber(value: mode)],
-                                              ofItemAtPath: file.path)
+    /// 状态卡的读数 = locator 结论经 `FFmpegAvailability.available` 的投影。
+    private func statusCardSays(
+        whichStatus: Int32 = 1,
+        whichPath: String? = nil,
+        executables: Set<String> = []
+    ) -> Bool {
+        let locator = ExternalToolLocator(
+            which: FakeWhich(status: whichStatus, path: whichPath),
+            fileSystem: FakeFS(executables: executables)
+        )
+        return FFmpegAvailability.available(locator.locate())
     }
 
-    private func makeDir(_ name: String) throws -> URL {
-        let dir = sandbox.appendingPathComponent(name, isDirectory: true)
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir
+    func testExplicitProbePathIsReportedAvailable() {
+        XCTAssertTrue(statusCardSays(executables: ["/opt/homebrew/bin/ffmpeg"]))
     }
 
-    func testExecutableFfmpegInSearchPathIsAvailable() throws {
-        let dir = try makeDir("with")
-        try makeFfmpeg(in: dir, mode: 0o755)
-        XCTAssertTrue(FFmpegAvailability.resolve(searchPaths: [dir.path]))
+    func testMissingFFmpegYieldsUnavailable() {
+        XCTAssertFalse(statusCardSays())
     }
 
-    func testMissingFfmpegYieldsUnavailable() throws {
-        let dir = try makeDir("empty")
-        XCTAssertFalse(FFmpegAvailability.resolve(searchPaths: [dir.path]))
+    /// 判定跟着 locator 的显式探测表走，不是自己数 PATH 目录 ——
+    /// 不在探测表上的路径存在也算「没装」，这正是「两套判定」的形状之一。
+    func testPathOutsideProbeTableYieldsUnavailable() {
+        XCTAssertFalse(statusCardSays(executables: ["/opt/homebrew/bin/ffmpeg-not-exec"]))
     }
 
-    /// 执行位是判定的一部分：有文件但 0644 等价于没装。
-    func testNonExecutableFfmpegYieldsUnavailable() throws {
-        let dir = try makeDir("noexec")
-        try makeFfmpeg(in: dir, mode: 0o644)
-        XCTAssertFalse(FFmpegAvailability.resolve(searchPaths: [dir.path]))
+    /// which 命中也算装 —— 装在自定义路径、但不在两条显式探测路径上的机器靠它兜底。
+    func testWhichFallbackIsReportedAvailable() {
+        XCTAssertTrue(statusCardSays(whichStatus: 0, whichPath: "/opt/custom/bin/ffmpeg"))
     }
 
-    /// 畸形输入不抛不崩，只是「没找到」。
-    func testEmptyAndMalformedPathsYieldUnavailable() {
-        XCTAssertFalse(FFmpegAvailability.resolve(searchPaths: []))
-        XCTAssertFalse(FFmpegAvailability.resolve(searchPaths: [""]))
-        XCTAssertFalse(FFmpegAvailability.resolve(searchPaths: ["::", "", ":"]))
-    }
-
-    func testResolveFromPATHSplitsColonSeparatedDirs() throws {
-        let missing = try makeDir("a")
-        let found = try makeDir("b")
-        try makeFfmpeg(in: found, mode: 0o755)
-        XCTAssertTrue(FFmpegAvailability.resolveFromPATH(
-            environment: ["PATH": "\(missing.path):\(found.path)"]))
-        XCTAssertTrue(FFmpegAvailability.resolveFromPATH(
-            environment: ["PATH": "\(missing.path)::\(found.path)"]))
-        XCTAssertFalse(FFmpegAvailability.resolveFromPATH(environment: ["PATH": ""]))
-        XCTAssertFalse(FFmpegAvailability.resolveFromPATH(environment: [:]))
+    /// 🔴 D-17 收编的核心判据：GUI 最小 PATH 下（`which` 失败）显式探测仍命中。
+    /// 收编前这套判定读的是 `PATH` 环境变量，本机会误报「未安装」。
+    func testGuiMinimalPathStillFindsHomebrewInstall() {
+        XCTAssertTrue(statusCardSays(whichStatus: 1, executables: ["/opt/homebrew/bin/ffmpeg"]))
     }
 
     /// 文案与「状态卡只报可用性」（UI-SPEC §12）——版本串属 Phase 6。
