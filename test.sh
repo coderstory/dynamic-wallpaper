@@ -608,6 +608,97 @@ else
 fi
 
 echo ""
+echo "── Phase 7 交付：产物形态 + evidence ──"
+# ⚠️ 措辞纪律（照 test.sh:144-147 与 :265-268 的原话）：本段 `no()` 文案必须带
+#   `ok()` 的同一句判据名（逐字相同），红绿靠 ✅ / ❌ 前缀区分。
+# ⚠️ 本段**不重跑任何探针**，只读 Phase 7 自己已入库的 evidence（照 Phase 4 的
+#   p4_line 纪律：重跑会覆盖已入库证据）。
+# ⚠️ 本段**不复用** Phase 3 的 probe 读法 —— 那个 helper 把 evidence 路径硬编码在
+#   Phase 3 的目录下，读不到 Phase 7 的目录，复用会假红。这里另起一套读法。
+# ⚠️ 干净 clone 里没有 build/ 与 evidence/ —— 走 skip 不走红。
+
+P7EV=".planning/phases/07-delivery/evidence"
+
+# ---- 产物形态（build/ 在时才查）----
+if [ ! -d build ]; then
+  skip "交付二进制零探针符号（07-01 成对判据）"  "build/ 不存在，跑 bash build.sh 后再验"
+  skip "PicProbe 保留探针（成对正控）"           "build/ 不存在，跑 bash build.sh 后再验"
+  skip "交付二进制零探针符号 —— spctl 拒绝 rc=3（未签名未公证的正向断言）" "build/ 不存在"
+  skip "app 图标 CFBundleIconFile=Pic 且 Pic.icns 非空" "build/ 不存在"
+  skip "菜单栏图标用 v1（menubar-v1 在位、v2 零残留）"   "build/ 不存在"
+else
+  P7APP="build/Pic.app/Contents/MacOS/Pic"
+  P7PROBE="build/PicProbe.app/Contents/MacOS/Pic"
+
+  # 成对判据：只有 == 0 一条就是 grep 模式空集的假绿灯 —— 正控侧必须 ≥ 1。
+  # ⚠️ 必须 `grep -cE`：裸 grep 的 '|' 是字面量，恒 0 假绿灯（build.sh 同一教训）。
+  NS=$(nm "$P7APP" 2>/dev/null | grep -cE 'LoopProbe|WindowProbe|FrameDriver')
+  NP=$(nm "$P7PROBE" 2>/dev/null | grep -cE 'LoopProbe|WindowProbe|FrameDriver')
+  [ "$NS" = "0" ] && ok "交付二进制零探针符号（07-01 成对判据）" \
+    || no "交付二进制零探针符号（07-01 成对判据）" "剥符号后计数 = $NS，期望 0"
+  [ "${NP:-0}" -ge 1 ] 2>/dev/null && ok "PicProbe 保留探针（成对正控）" \
+    || no "PicProbe 保留探针（成对正控）" "剥符号后计数 = ${NP:-<无此产物>}，期望 ≥ 1（正控缺失则上一条的 0 无意义）"
+
+  # spctl 是**正向**断言：未签名未公证的 app 就该被拒，rc=3 才是 PACK-02 的形态面。
+  # 把它当失败就是把判据方向写反（W-2026-10-03-47）。
+  # ⚠️ 变量名不能叫 SRC —— test.sh:30 的 SRC 是**渲染段的源文件清单**，
+  #    这里覆盖它会让「设置窗渲染」段编译一个空列表而恒红。
+  spctl -a -t exec -vv build/Pic.app >/dev/null 2>&1
+  SPCTL_RC=$?
+  [ "$SPCTL_RC" -eq 3 ] && ok "交付二进制零探针符号 —— spctl 拒绝 rc=3（未签名未公证的正向断言）" \
+    || no "交付二进制零探针符号 —— spctl 拒绝 rc=3（未签名未公证的正向断言）" \
+       "spctl -a -t exec 返回 rc=$SPCTL_RC，期望 3（预期拒绝；0 反而说明被认可了）"
+
+  P7RES="build/Pic.app/Contents/Resources"
+  if [ "$(plutil -extract CFBundleIconFile raw build/Pic.app/Contents/Info.plist 2>/dev/null)" = "Pic" ] \
+     && [ -s "$P7RES/Pic.icns" ]; then
+    ok "app 图标 CFBundleIconFile=Pic 且 Pic.icns 非空"
+  else
+    no "app 图标 CFBundleIconFile=Pic 且 Pic.icns 非空" \
+       "CFBundleIconFile=$(plutil -extract CFBundleIconFile raw build/Pic.app/Contents/Info.plist 2>/dev/null) Pic.icns=$( [ -s "$P7RES/Pic.icns" ] && echo nonempty || echo missing)"
+  fi
+  MV2=$(find "$P7RES" -name 'menubar-v2*' 2>/dev/null | wc -l | tr -d ' ')
+  if [ -f "$P7RES/menubar-v1Template.png" ] && [ "$MV2" = "0" ]; then
+    ok "菜单栏图标用 v1（menubar-v1 在位、v2 零残留）"
+  else
+    no "菜单栏图标用 v1（menubar-v1 在位、v2 零残留）" "menubar-v1Template.png 在位=$([ -f "$P7RES/menubar-v1Template.png" ] && echo yes || echo no) v2 残留=$MV2，期望 v1 在位且 v2 为 0"
+  fi
+fi
+
+# ---- evidence 关键行（只读已入库证据；文件不存在走 skip）----
+p7_line() {   # $1=evidence 文件名  $2=关键行正则  $3=判据名
+  local f="$P7EV/$1"
+  if [ ! -f "$f" ]; then
+    skip "$3" "$f 不存在（Phase 7 的对应采集脚本未跑或证据未入库）"
+    return
+  fi
+  if grep -qE "$2" "$f"; then ok "$3"; else no "$3" "$f 里没有匹配 /$2/ 的行"; fi
+}
+
+p7_line sys01.log '^SYS01_ACTIVE_ROUTE=(smappservice|launchagent)$' \
+  "SYS-01 实测路线已判定（ACTIVE_ROUTE 非 none）"
+p7_line probe-strip.log '^PROBE_STRIP_DELIVERY_SYMBOLS=0$' \
+  "交付二进制零探针符号 —— 探针剥离证据已入库"
+p7_line stress-rotation.log '^STRESS_VERDICT=pass$' \
+  "50 换片压测通过（≥50 次且内存回基线 ±10%）"
+p7_line packaging.log '^PACK_REPEAT_CONSISTENT=1$' \
+  "重复构建结果一致（SC1，锚 .app 而非 DMG）"
+p7_line packaging.log '^PACK_SPCTL_RC=3$' \
+  "重复构建结果一致 —— DMG 形态 spctl rc=3 已入库"
+p7_line uninstall.log '^UNINSTALL_RESIDUE_TOTAL=0$' \
+  "卸载残留复查为 0（域 / plist / LaunchAgent / BTM 四项）"
+
+# ---- 7 天长跑：**skip 分支**。人工周期不许被自动判据卡死，也不许被算成已通过 ----
+SOAKLOG="$P7EV/soak/soak.log"
+if [ ! -f "$SOAKLOG" ]; then
+  skip "7 天长跑（人工周期，SOAK_VERDICT 未收口）" "尚无 $SOAKLOG；按 UAT-SOAK.md 跑满 7 天后才有结论"
+elif grep -qE '^SOAK_VERDICT=' "$SOAKLOG"; then
+  ok "7 天长跑（人工周期，SOAK_VERDICT=$(grep -oE '^SOAK_VERDICT=.*' "$SOAKLOG" | tail -1 | cut -d= -f2)）"
+else
+  skip "7 天长跑（人工周期，SOAK_VERDICT 未收口）" "$SOAKLOG 里没有 SOAK_VERDICT= 行（采样未落或未跑分析器）"
+fi
+
+echo ""
 echo "── 渲染 ───────────────────────────────"
 swiftc -O -parse-as-library -target arm64-apple-macosx15.0 -o "$TMP/render" $SRC 2>/dev/null \
   && "$TMP/render" "$TMP/out.png" >/dev/null 2>&1 \

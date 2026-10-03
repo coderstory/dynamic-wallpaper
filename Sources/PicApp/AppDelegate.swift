@@ -425,6 +425,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         displayWatcher.stop()
         powerWatcher.stop()
         emit("PIC_TERMINATED pid=\(ProcessInfo.processInfo.processIdentifier) reason=application_will_terminate")
+        // 退出快照：自动轮换的累计切换数。**只在退出这一条路径上打** ——
+        // nextVideoNow() 里的 PIC_ROT_ADVANCES= 是菜单手动 next 专用，两者读同一个
+        // rotation.advances.count 但触发点与语义不同（压测全程无人点菜单，短的那条不 emit）。
+        // ⚠️ 反直觉陷阱：PIC_ROT_ADVANCES 是本键的**前缀**，将来数「手动 next 打点」那条线
+        // 必须写成带等号的 'PIC_ROT_ADVANCES=\('，裸 token 会被这里 +1。
+        emit(String(format: "PIC_ROT_ADVANCES_TOTAL=%d", rotation.advances.count))
     }
 
     // MARK: - 竖切主体
