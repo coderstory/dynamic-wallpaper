@@ -53,7 +53,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// D-05：0.5 秒 `Timer` 已删。`PIC_HOLD` 改由对 `arbiter.decision` 的观察驱动，
     /// 观察者由 `armHoldObservation()` 一次性注册并在 `onChange` 里重新 arm。
     private var tickSeq = 0
+#if !PIC_NO_PROBE
     private var loopProbe: LoopProbe?
+#endif
     /// `observeHold()` 在本进程内被调用的次数 —— 打在**去重门之前**。
     /// D-05 唯一的机器判据：12 秒零决策变化的窗口里它必须恒为 1；
     /// 0.5 秒轮询会涨到约 24（见 `observeHold()` 的注释）。
@@ -61,7 +63,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Plan 02-04 T2：显示刷新驱动的**测量器**，不是渲染路径的一部分。
     /// 它回答「打包成 .app 之后本进程能不能拿到显示刷新回调」（PDCA-A4），
     /// 测满窗口即自行 invalidate，产品不留常驻定时器。
+#if !PIC_NO_PROBE
     private var frameDriver: FrameDriver?
+#endif
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // D-05：菜单栏 app 无 Dock 图标。断言时注意 .accessory 的 rawValue 是 1 不是 0。
@@ -76,8 +80,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 置位，弹框期间系统信号不丢。04-05：起播改在 bootstrap 末尾
         //（先取目录、再扫描、最后 startWallpaper，顺序写死）。
         Task { await bootstrapAfterWiring() }
+#if !PIC_NO_PROBE
         startFrameDriver()
         startLoopProbeIfRequested()
+#endif
         startHoldObserver()
         scheduleQuitAfterIfRequested()
         openSettingsIfRequested()
@@ -268,6 +274,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// `NSScreen.main` 在本机单屏下唯一（`inset.log:SCREENS_COUNT=1`）；
     /// 多屏时每个屏各一个 displayLink，本 Phase 不展开 —— Phase 3 接
     /// `DisplayWatcher` 时再一并处理。
+    #if !PIC_NO_PROBE
     private func startFrameDriver() {
         guard let screen = NSScreen.main else {
             emit("REFRESH_DRIVER=no_screen")
@@ -277,6 +284,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         frameDriver = driver
         driver.attach(to: screen)
     }
+#endif
 
     /// 渲染层建好 AVPlayerLayer 后注进来（Plan 02-04 打包复测时调用）。
     /// 本 plan 不调它：`attach(player:)` 已经把同一个 player 交给窗口侧的图层，
@@ -388,11 +396,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         tickSeq += 1
         let seconds = player.player.currentTime().seconds
         let pos = seconds.isFinite ? String(format: "%.3f", seconds) : "nan"
+#if !PIC_NO_PROBE
         emit("TICK seq=\(tickSeq) pos=\(pos) status=\(LoopProbe.statusToken(player.player.timeControlStatus)) items=\(player.player.items().count)")
+#endif
     }
 
     /// `scripts/run-probe.sh loop` 设 `PIC_LOOP_SECONDS=300` 才启动 300 秒观察；
     /// 不设这个变量时代码一行都不跑，tracer 与日常开发零开销。
+    #if !PIC_NO_PROBE
     private func startLoopProbeIfRequested() {
         guard let raw = ProcessInfo.processInfo.environment[LoopProbe.secondsEnvKey],
               let seconds = Int(raw), seconds > 0 else { return }
@@ -402,6 +413,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         loopProbe = probe
         probe.start()
     }
+#endif
 
     private func emit(_ line: String) {
         WallpaperWindowController.emit(line)
