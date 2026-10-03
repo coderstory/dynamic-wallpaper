@@ -1,0 +1,13 @@
+# 会话锁定态在本 Phase 执行期间变了两次 —— Phase 3 全部活体读数都是「采集时刻」的读数。
+# 采集：2026-10-03T03:55:16Z
+##
+READ_1 label=plan_start_at_11:25 CGSSessionScreenIsLocked_key_present=false session_keys=11 CGDisplay_IS_ASLEEP=0
+READ_1_CONSEQUENCE=产品实跑读到 PIC_HOLD active=0 holds=(none) 与 status=playing（无 hold）
+READ_2 label=holds_probe_at_11:47 CGSSessionScreenIsLocked=1 session_keys=14 CGDisplay_IS_ASLEEP=1
+READ_2_CONSEQUENCE=holds-live.log 的活体 hold：holds=(screenLocked,displayAsleep)，7/7 条 TICK status=paused
+READ_3 label=after_capture_at_11:50 CGDisplay_IS_ASLEEP=0
+READ_3_CONSEQUENCE=采集窗口过后显示器点亮；holds-live.log 的 displayAsleep 只对该 12 秒窗口成立
+READ_4 label=testsh_probe_rerun_at_11:53 CGSSessionScreenIsLocked_key_present=false session_keys=11
+READ_4_CONSEQUENCE=bash test.sh 复跑 probe-fullscreen.sh 时采到 COVERAGE=0.000 WINDOW_COUNT=0 FULLSCREEN_VERDICT=0 reason=not_covering
+NOTE=03-02 已入库的 evidence/fullscreen-signals.log 未被覆盖（COVERAGE=1.000 是锁屏会话下的读数），本文件另记这次复采
+NOTE=四次读取跨越锁/解锁两次切换。**未**为了制造锁屏态去锁屏，也**未**为了凑 reason 去改产品。

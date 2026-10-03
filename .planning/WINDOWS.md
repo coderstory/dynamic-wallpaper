@@ -304,6 +304,116 @@
   `willSleep` 那条投递延迟交 Phase 7 的 20 轮休眠/唤醒一起量。
 - **status**：open
 
+---
+
+## Phase 3 的 W 编号分配表（Plan 03-05 收口）
+
+| 编号 | 归属 | 类别 | 内容 |
+|---|---|---|---|
+| `-14` ~ `-16` | 03-01 T1 | deviation / unrun-verify | `order` 取值更正 / `PIC_LOCK_SIGNAL_PREFIX` 是脚手架 / 锁屏真实跃迁未观测 |
+| `-17` | 03-02 T2 | deviation | SYS-02 判据口径由「token 出现 0 次」改为排除式（B2） |
+| `-18` | 03-02 T2 | deviation | D-02 语义降级：交付的是合取判定，不是「信号可独立触发暂停」（W5） |
+| `-19` | 03-03 + 03-04 | deviation | 描述 A…E：SDK 与计划两处事实更正 + 注入式变异改点 + 跃迁未观测 + SettingsStore 是纯追加 + **号段一号两用** |
+| `-20` | **本 plan T2** | unrun-verify | Phase 3 四类跃迁未观测（锁屏跃迁 / 熄屏 / 睡眠 / 拔电源），逐条列解开条件 |
+| `-21` | **本 plan T2** | deviation | 起播路径的设置落位必须门在 `decision.shouldPlay` 后（`setRate` 会复活播放，B1） |
+| `-22` | **本 plan T2** | resolved | `W-2026-10-03-10` 的直连 `player.player.play()` 已换成 `arbiter.applyCurrentDecision()` |
+
+`-19` 由 03-03 与 03-04 共用是**既有事实**（见该条描述 E）。`-20` ~ `-22` 由 03-05 独占，
+无第二个 plan 声明。本 plan 未新建 `-19`，也未改动 `-14` ~ `-19` 的任何既有条目正文。
+
+### W-2026-10-03-20 · unrun-verify · Phase 3 / Plan 03-05
+
+- **描述**：Phase 3 的四类系统跃迁在本会话**一条都没观测到**，合并登记，逐条给解开条件。
+- **证据**：`evidence/holds-live.log` 的 `LOCK_STATE_AT_START=1 source=CGSessionCopyCurrentDictionary.CGSSessionScreenIsLocked loginwindow_pid=489`
+  与 `LOCK_READ_RAW=LOCKED=1 KEYS=14` —— **会话全程锁着**，`com.apple.screenIsLocked` 没有跃迁可等；
+  `evidence/display-sleep-signals.log` 的 `DISPLAY_SLEEP_TRANSITION=unobservable` 与
+  `SYSTEM_SLEEP_TRANSITION=unobservable`（各带 `reason=session_locked CGSSessionScreenIsLocked=1 loginwindow_pid=489`）；
+  `evidence/power-signals.log` 的 `POWER_TRANSITION=unobservable reason=requires_physical_unplug … action=unplug_power_cord_required`；
+  `evidence/fullscreen-signals.log` 的 `FULLSCREEN_TRANSITION=unobservable reason=session_locked`。
+- **已证实的部分（本条不否认）**：`holds-live.log` 里的 hold 是**真实系统信号驱动的**，
+  不是合成通知 —— `PIC_HOLD active=1 reason=screenLocked holds=(screenLocked,displayAsleep)`
+  与 `PIC_HOLD_SUMMARY summary=锁屏,显示器熄屏 reasons=2`，且 `TICK_PAUSED_LINES=7`。
+  两个 reason 都是「启动即同步重算」读到的当前态（锁屏会话 + 显示器已熄），**跃迁本身**仍未观测。
+- **逐条解开条件**：
+  | 跃迁 | 为什么观测不到 | 解开条件 |
+  |---|---|---|
+  | 锁屏跃迁 | 会话自始至终 `CGSSessionScreenIsLocked=1`，无 lock→unlock 边沿 | 解锁会话后重跑 `bash scripts/probe-lock.sh`，需看到一次真实的 locked→unlocked 投递与 `seeks` 回锚点 |
+  | 显示器熄屏 | `CGDisplay_IS_ASLEEP=1` 是**稳态**，点亮那一下没发生 | 点亮显示器后重跑 `bash scripts/probe-display.sh`，需在 熄屏→点亮 两个跃迁下各见一次回调 |
+  | 系统睡眠 | 外部 `caffeinate` 挡着（`POWER_PREVENT_SYSTEM_SLEEP=1`），且 `willSleep` 的投递延迟本会话量不到 | 撤掉 `caffeinate` 并在解锁会话下进入睡眠；投递延迟交 Phase 7 的 20 轮休眠/唤醒 |
+  | 拔电源 | 本机在 AC 上（`pmset -g batt` = `AC Power`），本会话无物理动作 | 真拔一次电源线后重跑 `bash scripts/probe-power.sh`（开关需为打开态） |
+- **影响**：PAUSE-01 / PAUSE-03 / PAUSE-04 / PAUSE-05 的**接线**已证（四个 `start()` 的同步重算都生效，
+  活体 hold 由真实读数产生），**跃迁触发**未证。四条 SC 的结论因此含 `BLOCKED` 分量，见 `03-VERDICT.md`。
+- **status**：open
+
+### W-2026-10-03-21 · deviation · Phase 3 / Plan 03-05
+
+- **描述**：**起播路径的设置落位必须整段门在 `decision.shouldPlay` 后面。**
+  这是本 Phase 最容易被后人「顺手清理」掉的一条门控，必须留档。
+- **依据**：`PlayerController.setRate(_:)` 的实现就是 `player.rate = r`（`Sources/PicCore/Playback/PlayerController.swift:51`）。
+  SDK `AVPlayer.h:150` 明文：「Setting the rate to a non-zero value causes the value of `timeControlStatus`
+  to become either `WaitingToPlayAtSpecifiedRate` or `Playing`.」本机实测：pause 之后置 rate=1.0，
+  `timeControlStatus` 在 0.25 秒内由 `.paused`(0) 变 `.playing`(1)。
+- **为什么必须门**：把菜单边界外的 `player.player.play()` 换成 `arbiter.applyCurrentDecision()`
+  （D-06）**只是第一步**。`setRate` 本身就是一根能恢复播放的线 —— 不门住它，锁屏会话下起播照样走，
+  活体判据 `^TICK … status=paused` 命中数为 **0**。⚠️ 该现象的病因**独立于 D-06 的时序**：
+  不要去调 `startWallpaper()` 与 `wiring()` 的先后，那是错修法。
+- **证据**：`Sources/PicApp/AppDelegate.swift` 里 `if arbiter.decision.shouldPlay {`（行 296）
+  < `player.setRate(store.rate)`（行 297）；`bash test.sh` 的判据
+  「起播路径的 setRate 门在 shouldPlay 之后（W-2026-10-03-21 / B1）」；
+  `HoldStatusTests.testSetRateOnStartPathIsGatedByShouldPlay` 的两次变异都转红
+  （删门控 → 编译失败；把门控换成恒真 → `XCTAssertEqual failed: ("1") is not equal to ("0")`）。
+- **活体证据**：`evidence/holds-live.log` 的 `TICK_PAUSED_LINES=7`、`TICK_LINES=7` —— 已 hold 时播放器全程是 `paused`。
+- **影响**：**零**。门控只在 `shouldPlay == false` 时生效，此时按 D-13 本来也不该落位速率。
+- **status**：open（留档防 Phase 4~7 清理）
+
+### W-2026-10-03-22 · resolved · Phase 3 / Plan 03-05
+
+- **描述**：`W-2026-10-03-10` 登记的 `AppDelegate.startWallpaper()` 起播直连 `player.player.play()` 已收口。
+- **证据**：`Sources/PicApp/AppDelegate.swift` 的起播序列现为
+  `arbiter.applyCurrentDecision()` → `player.setVolume(store.volume)` → `player.setMuted(store.isMuted)`
+  → `if arbiter.decision.shouldPlay { player.setRate(store.rate) }`；
+  剥注释后 `player.player.play()` 计数 = **0**、`player.player.pause()` 计数 = **0**
+  （`bash test.sh` 的「起播路径零播放器直连」每次重验）；
+  `arbiter.applyCurrentDecision()` 计数 = **1**，且出现在 `player.setVolume(` **之前**（D-13 仍成立）。
+- **活体证据**：`evidence/holds-live.log` 的 `PIC_HOLD active=1 reason=screenLocked holds=(screenLocked,displayAsleep)`
+  与同窗口 7 条 `status=paused` —— 「已 hold 却先播一下」在真实锁屏会话下没有发生。
+- **新增成员的边界**：`HoldArbiter.applyCurrentDecision()` **不碰续播锚点、不触发 seek**
+  （单测 `testApplyCurrentDecisionForwardsCurrentDecisionWithoutTouchingAnchor`：设锚点 33.0 后调用它，
+  `target.seeks` 仍为空，随后解除时 `seeks == [33.0]`）。若它 seek 到锚点，锁屏起播会把播放头拽回暂停处。
+- **原窗口的风险描述**（「可能在已 hold 的情况下先 `play()` 一下才被压住」）已不成立。
+- **status**：resolved
+
+
+### W-2026-10-03-23 · deviation · Phase 3 / Plan 03-05
+
+- **描述**：**装配之后，`FullscreenDetector` 在本机会间歇性把 `.fullscreen` 置位，导致壁纸被误暂停。**
+  这条在 03-05 之前**在产品里结构上不可达** —— `FullscreenDetector` 从未被 `start()` 过；
+  本 plan 在 `wiring()` 里接上第一根线之后，它才第一次在产品里生效。
+- **证据**：`evidence/fullscreen-falsepositive.log`。一次插桩观测（临时在 `HoldArbiter.set()` 的
+  `target?.arbiterApply` 之前打一行 `DBG_SET`，插桩已移除）读到
+  `DBG_SET after=fullscreen before=` → 同一轮 `PIC_HOLD` 由 `holds=(none)` 变为 `holds=(fullscreen)`，
+  该轮 `TICK` 为 playing 4 / paused 1。**命中频率：3 轮中 1 轮；随后 5 轮复跑均未复现**
+  （`PAUSED_TICKS` 全 0）。如实结论：**间歇性，本会话给不出稳定复现率。**
+- **成因（属 03-02 的判定口径，非本 plan 引入）**：03-02 的合取判定是
+  `verdict = nonGeometricActive && covering`。本机 Ghostty 恒覆盖（Phase 1 已记
+  `FALSE_POSITIVE_OBSERVED=1`，`fullscreen-signals.log:COVERAGE=1.000`）→ `covering` 恒真；
+  前台应用一变 `nonGeometricActive` 即真 → 误判。D-02 要求「几何之外信号必须能独立触发暂停」，
+  该要求已满足；但**反向**的误暂停方向本会话被实测到了。
+- **未修的原因**：改判定口径属 D-02 的架构决策，且需要重新采集真实跃迁样本来选判别信号 ——
+  本会话无跃迁可采，**改了就是在没有证据的情况下改架构**。留档交给能采集跃迁的阶段。
+- **对判据的影响**：`evidence/holds-live.log` 的第一条 `PIC_HOLD` 在锁屏会话下是
+  `holds=(screenLocked,displayAsleep)` 而**不是** `holds=(screenLocked)` —— 本会话锁屏与熄屏两个
+  真实信号同时成立。多出来的 `displayAsleep` 属**真实读数**（`CGDisplay_IS_ASLEEP=1`，见
+  `display-sleep-signals.log`），**未**为了凑单 reason 去改产品。
+- **附：本条与计划 AC 的编号不一致**。`03-05-PLAN.md` 的 `<action>` 说追加 `-20`（四类跃迁未观测）、
+  `-21`（B1）、`-22`（W-10 resolved），而同一份计划的 AC 又要求存在 `-23` 并称其为
+  「四类跃迁未观测汇总」。两条在同一份文件里互斥。处置：内容按 `<action>` 的三段写入
+  `-20` / `-21` / `-22`（与 `W-2026-10-03-19` 描述 E 里「`-20`~`-23` 仍由 03-05 独占」一致），
+  **四类跃迁的汇总就在 `-20`**；`-23` 另记本条这一项**本 plan 新发现、计划里没有的**事实。
+  两条 AC 都满足（`-23` 存在、`-22` 为 resolved、`uniq -d` 为空），且没有把内容抄两遍。
+- **status**：open
+
+
 ## resolved
 
 - **W-2026-10-03-09** · `NSApp.terminate` 第二处 —— 本 Phase 已收敛为 1 处并挂进 `test.sh` 每次重验

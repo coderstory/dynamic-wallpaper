@@ -1,0 +1,25 @@
+ACTIVATION_POLICY_RAW=1
+PIC_HOLD_OBSERVER_TICKS=1
+PIC_HOLD active=1 reason=screenLocked holds=(screenLocked,displayAsleep)
+PIC_HOLD_SUMMARY summary=锁屏,显示器熄屏 reasons=2
+REFRESH_DRIVER=timer_fallback_hz30
+TICK seq=1 pos=0.000 status=paused items=3
+TICK seq=2 pos=0.000 status=paused items=3
+TICK seq=3 pos=0.000 status=paused items=3
+TICK seq=4 pos=0.000 status=paused items=3
+TICK seq=5 pos=0.000 status=paused items=3
+REFRESH_TICK_COUNT=284
+REFRESH_WINDOW_SECONDS=10.0
+REFRESH_TICK_RATE=28.4
+REFRESH_DRIVER_FINAL=timer_fallback_hz30
+TICK seq=6 pos=0.000 status=paused items=3
+TICK seq=7 pos=0.000 status=paused items=3
+LOCK_STATE_AT_START=1 source=CGSessionCopyCurrentDictionary.CGSSessionScreenIsLocked loginwindow_pid=489
+LOCK_READ_RAW=LOCKED=1 KEYS=14
+OBSERVATION_WINDOW_SECONDS=12
+HOLDS_LIVE=holds=(screenLocked,displayAsleep)
+TICK_LINES=7
+TICK_PAUSED_LINES=7
+OBSERVER_TICKS_MAX=1
+HOLD_SUMMARY_LINES=1
+PIC_HOLD_ACTIVE_LINES=1
