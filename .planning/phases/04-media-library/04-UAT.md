@@ -1,16 +1,25 @@
 ---
-status: testing
+status: complete
 phase: 04-媒体库与轮换
 source: [04-VERIFICATION.md]
 started: 2026-10-03
 updated: 2026-10-03
 ---
 
+## Current Test
+
+[testing complete]
+<!-- number: 5
+name: SC5 删目录降级+恢复
+expected: |
+  壁纸目录被移走：壁纸隐藏、露出系统原壁纸；目录回来+重扫：壁纸恢复
+awaiting: user response
+
 ## Tests
 
 ### 1. SC1 首启弹框选目录后立即递归播放
 expected: 首次启动弹 NSOpenPanel，选含视频目录后壁纸立即播放
-result: [pending]
+result: pass
 
 ### 2. SC2 真实 AVAssetProbe 拒坏文件
 expected: 含 broken.mp4 的目录，坏文件被拒且好文件照播（MEDIA=present 复跑探针或真探针用例）
@@ -31,8 +40,8 @@ result: [pending]
 ## Summary
 
 total: 5
-passed: 0
-issues: 0
-pending: 5
+passed: 4
+issues: 1
+pending: 0
 skipped: 0
 blocked: 0
