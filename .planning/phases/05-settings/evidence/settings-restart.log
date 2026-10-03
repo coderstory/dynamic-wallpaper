@@ -1,0 +1,17 @@
+round=r1 app_rc=0
+SEED_EXPECT=rate=1.75 volume=0.35 muted=1 playMode=shuffle rotationInterval=600 pauseOnBattery=1
+PIC_SETTINGS_BOOT rate=1.75 volume=0.35 muted=1 playMode=shuffle rotationInterval=600 pauseOnBattery=1
+ROUND1_SEEDED=ok
+APPLY_EXPECT=key=pauseOnBattery value=1 applied=1 onBattery=
+PIC_SETTINGS_APPLY key=pauseOnBattery value=1 applied=1 onBattery=0
+ROUND1_APPLY_BATTERY=ok
+round=r2 app_rc=0
+PIC_SETTINGS_BOOT rate=1.75 volume=0.35 muted=1 playMode=shuffle rotationInterval=600 pauseOnBattery=1
+ROUND2_IDEMPOTENT=ok
+round=r3 app_rc=0
+DEFAULT_EXPECT=rate=1.0 volume=1.0 muted=0 playMode=loopSingle rotationInterval=300 pauseOnBattery=0
+PIC_SETTINGS_BOOT rate=1.0 volume=1.0 muted=0 playMode=loopSingle rotationInterval=300 pauseOnBattery=0
+ROUND3_DEFAULTS=ok
+APPLY_BATTERY_LINES_3ROUNDS=3
+APPLY_BATTERY_SINGLE_SITE=ok
+SETTINGS_RESTART_PROBE_OK

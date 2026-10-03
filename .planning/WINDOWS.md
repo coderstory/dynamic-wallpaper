@@ -484,6 +484,31 @@
 - **status**：open
 
 
+### W-2026-10-03-28 · unrun-verify · Phase 5 / Plan 05-02
+
+- **描述**：**「改值 → 重启 → 回读」的交互半边未被自动验证。** 探针
+  `scripts/probe-settings-restart.sh` 覆盖的是 **seeding 路径**（进程名域写值 → 起进程 →
+  `PIC_SETTINGS_BOOT` 逐字回读 → 清场后回默认值，三轮全绿）；真人/XCUITest 在设置窗里
+  拖一次滑杆、翻一次分段、关一次开关，再重启回读的那条路径**本轮没跑**
+  （05-01 的 XCUITest 从未达绿，见 `evidence/uitest.log` 与本 plan 的 Issues）。
+  连带地，`PIC_SETTINGS_APPLY key=…` 在**运行期**的触发行数为 0 ——
+  apply 由控件事件驱动，无人交互就不会触发。
+- **证据**：`evidence/settings-restart.log` 三轮 `ROUND1_SEEDED=ok` /
+  `ROUND2_IDEMPOTENT=ok` / `ROUND3_DEFAULTS=ok`；
+  `evidence/settings-apply.log` 的 `APPLY_EMIT_SITES=6`（emit 落点在位）/
+  `APPLY_RUNTIME_LINES=0`（运行期未触发，如实记 0 而不是省略）。
+  值断言不在探针层，在 `SettingsApplierTests` 四条（applyMode / applyInterval /
+  applyBatteryPolicy 两个方向）。
+- **影响**：PLAY-08/09/10「改完当场生效 + 重启保留」的**机制面与持久面**已证明；
+  **UI 事件 → apply** 这一跳只有代码形态与单测层的机制证明，没有运行期证据行。
+  两条置灰联动的交互断言同理（XCUITest 面归 05-04）。
+- **解开条件**：解锁且屏幕录制已授权的会话里跑 `bash scripts/run-uitests.sh`，
+  用例覆盖「改值 → 断言控件读数 → 退出进程 → 重启 → 断言回读」，
+  或由真人在设置窗手动改一项后重启对照。解锁条件与守卫分支见 `W-2026-10-03-25`
+  与 `W-2026-10-03-48`。
+- **status**：open
+
+
 ## resolved
 
 - **W-2026-10-03-09** · `NSApp.terminate` 第二处 —— 本 Phase 已收敛为 1 处并挂进 `test.sh` 每次重验
