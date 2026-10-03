@@ -53,6 +53,7 @@ SC4 relabelled PARTIAL」），缺口必须落在结论列里，不能塞进脚�
 | 项 | 为什么没跑 | 证据 |
 |---|---|---|
 | SC2 的「无黑帧」 | 本机终端/CLI 无屏幕录制权限，`screencapture` 取回的帧不含桌面内容。判据在**原理上**无法进行，不是脚本没写 | `loop.log:BLACKFRAME=blocked reason=no_screen_recording_permission`；`capture_a_yavg=16`、`capture_b_yavg=16.0027`、`white_control_yavg=235`、`threshold=23.5` —— 两张都停在 YUV 黑电平 16 上 |
+| SC2 的「**铺满 / 无黑边**」 | **独立于「无黑帧」的第二项缺口** —— 同一行引用的 `INSET_LEFT=14 / INSET_RIGHT=14 / INSET_TOP=9 / INSET_BOTTOM=9` 与 `WINDOW_FRAME=14,9,1442,938` 说明该窗口**每一边都比屏幕小 14pt（横）/ 9pt（竖）**；该窗 `isOpaque=true` 且背景为黑。因此「铺满 / 无黑边」**同样从未被看过**，两项不可合并陈述 | `inset.log:INSET_*` `:WINDOW_FRAME`；需解锁 + 肉眼确认 |
 | SC5 的「切换 Space 后壁纸不消失」 | 需真人 Mission Control 操作与多 Space 环境；本机单屏且会话锁定 | `inset.log:SCREENS_COUNT=1`；`gate-rerun.log:REASON=session_locked` |
 | SC1 的「点击和拖动桌面图标不受影响」 | 需真人手点；本 Phase 无屏幕录制权限可作旁证，且用户不在场 | 无自动信号能覆盖「手点」这个动作；本文件不给它编数字 |
 | SC3 的「真人点菜单栏图标退出」 | 无 `.xcodeproj` 故无 XCUITest（D-01），无辅助功能权限 | `WINDOWS.md:W-2026-10-03-07` 已登记。已自动证明的两段：① 菜单 `.quit` 的动作就是 `terminateApp()`（`MenuBarModelTests.testPerformQuitCallsInjectedClosureOnlyOnce`）② `NSApp.terminate` 路径跑完 `applicationWillTerminate` 且进程消失（`quit.log:QUIT_HOOK_SEEN=1` / `QUIT_EXITED=1`）。未证明的是「真人点击 → 同一条路径」这一跳 |
