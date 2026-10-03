@@ -262,6 +262,11 @@ Plans:
   5. 长跑验收：DMG 装出的 `.app` 连续运行 **≥7 天**不重启、不崩溃、内存无单调上涨；电池供电时按设置正确让路，且整段时间内看不出壁纸在播视频
 
 **Plans**: TBD
+- [x] 07-01-PLAN.md
+- [ ] 07-02-PLAN.md
+- [ ] 07-03-PLAN.md
+- [ ] 07-04-PLAN.md
+
 **Notes**:
 - **不签名、不公证**（用户已定），但**要 DMG**；本机已装 `create-dmg` 1.3.0（`/opt/homebrew/bin/create-dmg`）—— 打包是小任务，不是大 Phase
 - 两个脚本尽量短：能用 `xcodebuild` / `swiftc` / `create-dmg` 现成命令解决的不要自己写逻辑（最小代码量方针）
@@ -302,7 +307,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 4. 媒体库与轮换 | 6/7 | In Progress|  |
 | 5. 设置窗口与即时生效 | 2/4 | In Progress|  |
 | 6. 转码与独立窗口 | 3/5 | In Progress|  |
-| 7. 打包、开机自启与整机验收 | TBD | Not started | - |
+| 7. 打包、开机自启与整机验收 | 1/4 | In Progress|  |
 
 ---
 
