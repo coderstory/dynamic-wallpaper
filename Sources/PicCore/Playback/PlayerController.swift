@@ -8,6 +8,8 @@ import Foundation
 ///
 /// 它**不判断「为什么」暂停**（ARCHITECTURE §5.2）—— 只听 `HoldArbiter` 的
 /// `PlaybackDecision` 行事。单向流：Watcher → HoldArbiter → PlayerController。
+/// `stop()` 是 D-11 降级路径的播放器侧落点，与 `WallpaperWindowController.teardown()`
+/// 成对使用（停止 + 隐藏）。
 @MainActor
 public final class PlayerController: NSObject, PlaybackTarget {
 
@@ -78,5 +80,23 @@ public final class PlayerController: NSObject, PlaybackTarget {
         } else {
             player.pause()
         }
+    }
+
+    /// 「没有媒体可播」的落点 —— 不是「暂停」。语义上它与 `arbiterApply` 不同：
+    /// 混用会让 `HoldArbiter` 的状态机看到一个它没下过的决策。
+    ///
+    /// 三步、顺序不可换（Pitfall 4 的注册/注销配对纪律）：
+    /// 1. `disableLooping()` —— 先解绑，否则空队列上的 looper 会立刻报错；
+    /// 2. `looper = nil` —— 必须置 nil。looper 是 `AVQueuePlayer` 的拷贝源，
+    ///    留着它会让下一次 `load(url:)` 里 `looper?.disableLooping()` 作用在
+    ///    一个已经被拆掉的队列上；
+    /// 3. `removeAllItems()` —— 清空队列。
+    ///
+    /// 幂等：对已空的队列重复调用无副作用。**不调 `pause()`** —— 队列空了播放
+    /// 自然停；播放控制是 `arbiterApply` 的唯一入口（D-06 / D-11 的单向流）。
+    public func stop() {
+        looper?.disableLooping()
+        looper = nil
+        player.removeAllItems()
     }
 }
