@@ -20,16 +20,21 @@ public final class SettingsStore {
         public var isMuted: Bool
         public var playMode: PlayMode
         public var rotationInterval: TimeInterval
+        /// 「电池供电时暂停」开关（D-11 / PAUSE-05）。**默认 false** ——
+        /// 默认开会让用户一拿电池本就无故失去壁纸，看起来像 app 坏了。
+        /// Phase 3 纯追加（T-03-14）：前六个字段与它们的默认值一个字未改。
+        public var pauseOnBattery: Bool
 
         public init(sourceFolder: String = "", rate: Float = 1.0, volume: Float = 1.0,
                     isMuted: Bool = false, playMode: PlayMode = .loopSingle,
-                    rotationInterval: TimeInterval = 300) {
+                    rotationInterval: TimeInterval = 300, pauseOnBattery: Bool = false) {
             self.sourceFolder = sourceFolder
             self.rate = rate
             self.volume = volume
             self.isMuted = isMuted
             self.playMode = playMode
             self.rotationInterval = rotationInterval
+            self.pauseOnBattery = pauseOnBattery
         }
     }
 
@@ -41,6 +46,9 @@ public final class SettingsStore {
         public static let muted = "muted"
         public static let playMode = "playMode"
         public static let rotationInterval = "rotationInterval"
+        /// Phase 3 追加的第七个键。前六个键名**一个字未改**（Phase 2 与
+        /// `scripts/dev-seed.sh` 的契约）。
+        public static let pauseOnBattery = "pauseOnBattery"
     }
 
     /// 开发期覆盖入口（D-03）：`swift run` 起的进程没有 bundle id，
@@ -53,6 +61,9 @@ public final class SettingsStore {
     public var isMuted: Bool
     public var playMode: PlayMode
     public var rotationInterval: TimeInterval
+    /// 「电池供电时暂停」。**没有环境变量这一级** —— 电源开关不是开发期覆盖项，
+    /// 只走 `UserDefaults > seed` 两级（Phase 3 追加）。
+    public var pauseOnBattery: Bool
 
     private let defaults: UserDefaults
 
@@ -76,6 +87,7 @@ public final class SettingsStore {
         }
         self.rotationInterval = defaults.object(forKey: Key.rotationInterval) as? Double
             ?? seed.rotationInterval
+        self.pauseOnBattery = defaults.object(forKey: Key.pauseOnBattery) as? Bool ?? seed.pauseOnBattery
     }
 
     /// 解析后的壁纸目录 URL。
@@ -99,5 +111,6 @@ public final class SettingsStore {
         defaults.set(isMuted, forKey: Key.muted)
         defaults.set(playMode.rawValue, forKey: Key.playMode)
         defaults.set(rotationInterval, forKey: Key.rotationInterval)
+        defaults.set(pauseOnBattery, forKey: Key.pauseOnBattery)
     }
 }

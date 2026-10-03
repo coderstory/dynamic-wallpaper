@@ -241,9 +241,38 @@
   本 Phase 不做，也不在 Phase 3 的成功标准里。
   注：该路径需辅助功能权限，而 PITFALLS Pitfall 2 记录了同类项目为覆盖率阈值申请该权限的争议，
   本项目不申请（`03-CONTEXT.md` 的 `threat_model` 已把「EoP」列为不适用）。
+- **描述 D（Plan 03-04 追加）**：`03-CONTEXT.md` 的「已冻结可直接用的接口」段把
+  `SettingsStore` 转述成「**含**电池开关位」，与源码不符 —— `03-04-PLAN.md` 的 `<read_first>`
+  照抄了这句。实测实施前的 `Sources/PicCore/State/SettingsStore.swift`：
+  `Seed` 六个字段 = `sourceFolder` / `rate` / `volume` / `isMuted` / `playMode` / `rotationInterval`，
+  `Key` 六个键 = `sourceFolderPath` / `rate` / `volume` / `muted` / `playMode` / `rotationInterval`，
+  全文 `battery` 计数 **0**。
+- **证据 D**：实际形状是**纯追加** —— `Seed.pauseOnBattery: Bool = false`（`init` 参数**末尾**，带默认值）、
+  `Key.pauseOnBattery = "pauseOnBattery"`（第七键）、`SettingsStore.pauseOnBattery` 存储属性、
+  `init` 里 `defaults.object(forKey: Key.pauseOnBattery) as? Bool ?? seed.pauseOnBattery`
+  （**没有 env 这一级** —— 电源开关不是开发期覆盖项）、`persist()` 多一行。
+  既有六字段 / 六键 / 六行 `defaults.set` / 三级优先解析**一个字未改**，
+  `SettingsStoreTests.testExistingSeedCallSitesStillCompile` 用**位置无关的具名传参**把这条锁住。
+- **描述 E（Plan 03-04 追加）：W 编号段本身冲突。**
+  `03-05-PLAN.md` 的 AC（第 293 行）写「`-19` 归 03-04」，而 `03-03` 在 wave 2 里**已经**
+  用掉了 `### W-2026-10-03-19`。同一个号被两个 plan 各自声明，且 03-05 的另一条 AC 要求
+  `grep -oE '^### W-2026-10-03-[0-9]+' | sort | uniq -d` 的输出**为空**（每个编号只出现一次）。
+  两条 AC 在事实上互斥。
+- **纠正（PLAN_DEVIATION，判据未放宽）**：**不新建第二个 `-19` 标题**，而是把 03-04 的两条
+  追加进**这一个** `-19` 条目（描述 D / E）。理由：
+  ① `uniq -d` 为空是 03-05 的硬判据，新建标题会让它当场转红；
+  ② `03-04-PLAN.md` 自己那条 AC 也要求「该号不被 03-01/02/03/05 复用」—— 被 03-03 复用是**既有事实**，
+     删掉 03-03 的条目等于改别的 plan 的产物，本 plan 无权做；
+  ③ 号段表写在 03-05 里，而实际取号是各 plan 各自进行 —— 真正的错在号段表发布得太晚。
+  → **03-04 的两条 deviation 与 03-03 的三条共用同一个编号，靠「描述 A…E」分区**，
+     标题改为 `Phase 3 / Plan 03-03 + 03-04`。**改的是登记的归口，不是判据。**
+- **影响**：**产品行为零影响**。描述 D 是上下文转述与源码的措辞差异（「追加」vs「已有」），
+  既有六个调用点不受影响；描述 E 是登记簿自身的编号治理问题。
+- **解开条件 D**：无需解锁。描述 E 由 03-05 收口时统一核号段（`-19` 一号两用已在上文留档，
+  `-20`~`-23` 仍由 03-05 独占）。
 - **status**：open
 
-### W-2026-10-03-19 · deviation · Phase 3 / Plan 03-03
+### W-2026-10-03-19 · deviation · Phase 3 / Plan 03-03 + 03-04
 
 - **描述 A**：计划的威胁模型 T-03-10 写「`CGDisplayRegisterReconfigurationCallback` 一旦注册就**绑定在 `CGMainDisplayID()` 上**」—— 本机 SDK 实测**不成立**。
 - **证据 A**：`CGDisplayConfiguration.h:235` 的真实声明是

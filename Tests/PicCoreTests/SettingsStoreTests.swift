@@ -108,4 +108,73 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertEqual(PlayMode.allCases, [.loopSingle],
                        "Phase 2 只枚举单循环；随机/顺序/播完停止属 Phase 4")
     }
+
+    // ── Plan 03-04 T1：PAUSE-05「电池供电时暂停（开关，默认关闭）」的两半 ──────
+    //
+    // D-11 把「默认关闭」提为硬约束，因为它决定的是「用户在电池上会不会莫名其妙
+    // 失去壁纸」这个**用户可见**的后果：默认开 = 用户拿电池本时壁纸无故停住，
+    // 看起来像 app 坏了（PITFALLS Pitfall 2b：宁可少暂停也不要误暂停）。
+    // 这一组用例锁住 PAUSE-05 的两半：**默认关** + **可开可关且能存住**。
+
+    /// 第一半：seed 层与解析层**两道**默认都是 false（T-03-14）。
+    ///
+    /// 两道都要断言：`Seed` 的参数默认值管的是「没给种子」，
+    /// `init` 的 `?? seed.pauseOnBattery` 兜底管的是「给了种子但键不存在」。
+    /// 只断一道，另一道仍可能默认开。
+    func testPauseOnBatteryDefaultsToFalseWithEmptyDefaults() {
+        XCTAssertFalse(SettingsStore.Seed().pauseOnBattery,
+                       "种子层的默认值必须是 false（D-11）")
+        XCTAssertFalse(makeStore().pauseOnBattery,
+                       "空 UserDefaults 下解析出的值必须是 false（D-11）")
+    }
+
+    /// 默认关 ≠ 不可开。开关必须能真正打开，否则 PAUSE-05 的功能那一半不存在。
+    func testSeedCanTurnPauseOnBatteryOn() {
+        let store = makeStore(seed: SettingsStore.Seed(pauseOnBattery: true))
+        XCTAssertTrue(store.pauseOnBattery)
+    }
+
+    /// 既有的两级优先（`UserDefaults` > seed）对新键同样成立。
+    func testUserDefaultsWinsOverSeedForPauseOnBattery() {
+        defaults.set(true, forKey: SettingsStore.Key.pauseOnBattery)
+        let store = makeStore(seed: SettingsStore.Seed(pauseOnBattery: false))
+        XCTAssertTrue(store.pauseOnBattery, "UserDefaults 必须压过 seed")
+    }
+
+    /// 两半中的「可存住」：**真值和假值都得能持久化**。
+    ///
+    /// 只断言存 true 会漏掉「只写 true、false 写不回去」这种实现 ——
+    /// 那正是「用户在设置窗里把开关关掉，改完重启又自己开回来」的故障形状。
+    func testPersistWritesPauseOnBattery() {
+        let store = makeStore()
+
+        store.pauseOnBattery = true
+        store.persist()
+        XCTAssertTrue(defaults.bool(forKey: SettingsStore.Key.pauseOnBattery))
+
+        store.pauseOnBattery = false
+        store.persist()
+        XCTAssertFalse(defaults.bool(forKey: SettingsStore.Key.pauseOnBattery),
+                       "关掉也必须能持久化 —— 否则设置窗里关掉的开关会自己开回来")
+    }
+
+    /// 锁住「加参数没有破坏既有调用形态」（纯追加的回归防线）。
+    ///
+    /// 既有六字段一个都没改名、没改顺序 —— 所以**位置无关的具名传参**必须照旧编译。
+    /// 这条用例的意义是：将来谁把 `pauseOnBattery` 插进既有参数的中间（而不是末尾），
+    /// 或者改了某个既有参数的类型，这里立刻编译不过。
+    func testExistingSeedCallSitesStillCompile() {
+        XCTAssertNotNil(SettingsStore.Seed())
+
+        let store = makeStore(seed: SettingsStore.Seed(
+            sourceFolder: "/from/seed", rate: 1.5, volume: 0.25,
+            isMuted: true, playMode: .loopSingle, rotationInterval: 42
+        ))
+        XCTAssertEqual(store.sourceFolder, "/from/seed")
+        XCTAssertEqual(store.rate, 1.5)
+        XCTAssertEqual(store.volume, 0.25)
+        XCTAssertTrue(store.isMuted)
+        XCTAssertEqual(store.playMode, .loopSingle)
+        XCTAssertEqual(store.rotationInterval, 42)
+    }
 }
