@@ -239,9 +239,15 @@ _Task 1 是 `tdd="true"`：RED 阶段 `swift test` 因 `cannot find 'FFmpegAvail
 - **Verification**：`Executed 6 tests, with 0 failures`。
 - **Committed in:** `f2cf18e`
 
+**9. [Rule 3 - 计划清单不全] `.planning/WINDOWS.md` 不在 `files_modified` 里，但计划要求写**
+- **Issue**：计划的验收判据明写「`LIVE_OBSERVATION` 为 blocked 时 `W-2026-10-03-29` 已在 WINDOWS.md」，W-30 的记账偏差同样要落 WINDOWS.md，而 `files_modified` 漏了这个文件。
+- **Fix**：按计划判据写 WINDOWS.md（两条 open 条目，四要素齐全），在 SUMMARY 记账。
+- **Verification**：`w29=1`；探针的 blocked 分支先 grep 该条目在册才放行。
+- **Committed in:** `e05c655`
+
 ---
 
-**Total deviations:** 8 auto-fixed（1 × Rule 1 计划事实错误 ×2 / 1 × Rule 3 D-15 判据进注释 / 1 × Rule 1 计划与用户指令冲突 / 1 × Rule 1 计划与冻结签名冲突 / 1 × Rule 3 仓内既有风格 / 1 × Rule 2 evidence 缺落点 / 1 × Rule 3 判据脚本自身 / 1 × Rule 1 判据条数回填）
+**Total deviations:** 9 auto-fixed（1 × Rule 1 计划事实错误 ×2 / 1 × Rule 3 D-15 判据进注释 / 1 × Rule 1 计划与用户指令冲突 / 1 × Rule 1 计划与冻结签名冲突 / 1 × Rule 3 仓内既有风格 / 1 × Rule 2 evidence 缺落点 / 1 × Rule 3 判据脚本自身 / 1 × Rule 1 判据条数回填 / 1 × Rule 3 计划清单不全）
 **Impact on plan:** 没有一条放宽读数或改产物凑判据。三条改了判据的**写法**（变异②保型化、条数 5→6 回填、evidence 落原始流），都按计划 `fails_when` 预留的口子做且语义未放松；两条把计划里写错的事实（`.reversed()` 编不过、handler 拿不到计数）按实测改形；一条是用户指令与计划冲突时按指令走并**明确记账**。冻结面（`HoldReason` / `LibraryAvailability` / `MediaLibrary` / `SettingsStore` / `MediaCoordinator` 签名）零改动，`PIC_LIBRARY_STATE` 打点数仍 2、`NSOpenPanel(` 仍 1。
 
 ## Issues Encountered
