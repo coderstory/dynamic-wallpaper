@@ -160,6 +160,7 @@ Items acknowledged and deferred at milestone close, most recent first:
 |-------|-------|--------|
 | 01 | verification_deferred_human | 见下 —— 四项需真人在场，共约 22 分钟 |
 | 04 | verification_deferred_human | 5 项需解锁会话 —— 见 `04-UAT.md`（SC1 首启即播 / SC2 真探针拒坏文件 / SC3 立即下一个 / SC4 重启自动播 / SC5 删目录降级恢复） |
+| 07 | verification_deferred_human | 8 项人工：XCUITest 全套（锁屏）/ create-dmg 授权 / 转码 bench / 7 天长跑 / 听音 / ASSET-03 视觉 / 06-04 窗口行为 / 卸载脚本危险输入（sourceFolderPath 为空，未被真实触发） |
 | 05 | verification_deferred_human | 见下 —— 一项**永远无法自动化**的听音 + 一批解锁会话重跑项 |
 
 **Phase 1 待人工补跑清单（自动化无法覆盖，已核实为硬约束非疏漏）：**
@@ -215,3 +216,6 @@ Resume file: `.planning/phases/04-media-library/.continue-here.md`
 3. SC1「桌面图标可点选拖动」— 可用合成点击 + 截图旁证
 
 ⚠️ **仍未解除**：屏幕锁着，所以「铺满无黑边」「图标点选」这两项即使能截图，也仍需解锁会话才能测到真实桌面内容。
+
+### Phase 3 证据 ⚠️ 说明（2026-10-04，非回归）
+跑 `bash test.sh` 时 Phase 3 四条（LOCK/FULLSCREEN/DISPLAY/POWER）后跟 `⚠️ 该 evidence 的读数与入库版本不同`。已证为**环境噪声**：stash 掉当日全部改动回到干净 HEAD 复跑，四条同样带 ⚠️；两次产物 `cmp` 逐字节一致。成因是当前会话锁定态与 Phase 3 入库时不同（脚本自身提示亦如此）。判据仍全 ✅，非回归。
