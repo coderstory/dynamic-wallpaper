@@ -64,7 +64,7 @@ HoldArbiter     : Set<HoldReason> veto 集合 · set(_:active:) 单一入口
 PlaybackDecision: holds: Set<HoldReason> · shouldPlay = holds.isEmpty · activeReasons 已排序
 PlaybackTarget  : 协议（arbiterCurrentPosition 等）
 PlayerController: AVQueuePlayer + AVPlayerLooper；rate/volume 挂 player 不挂 item
-SettingsStore   : 含 Battery 相关开关位（Seed 已定义 sourceFolder/rate/volume/isMuted/playMode/rotationInterval）
+SettingsStore   : Seed/Key 各 6 个字段，**无电池位**（编排器 2026-10-03 更正：原以为已有，实测没有；Phase 3 纯增量加，带默认值）
 ```
 
 ### 架构（ROADMAP 已定，照抄）
@@ -79,6 +79,14 @@ SettingsStore   : 含 Battery 相关开关位（Seed 已定义 sourceFolder/rate
 - **D-11:**  「电池供电时暂停」**开关默认关闭**。
 
 - **D-12:**  必须对外暴露「**当前为什么暂停**」—— 这是 Phase 5 的 `UI-04` 落点，本 Phase 只需产出数据，不做渲染。
+
+### 编排器一手实测发现（2026-10-03，planner 03-02 已确认）
+
+🔴 **`styleMask.contains(.fullScreen)` 读不到别的进程的窗口。**
+`CGWindowListCopyWindowInfo` 返回的字典共 **11 个 key**：
+`kCGWindowAlpha` / `Bounds` / `IsOnscreen` / `Layer` / `MemoryUsage` / `Name` / `Number` / `OwnerName` / `OwnerPID` / `SharingState` / `StoreType`
+**没有任何 key 含 `tyle` 或 `ullScreen`。** Phase 1 的探针只在自己创建的窗口上读到过 `styleMask`，所以没暴露这一点。
+→ D-02 的「几何之外判别信号」**不能用 `styleMask`**。改用公开 `NSWorkspace` 通知，与几何取**合取**（`nonGeometricActive && covering`）。
 
 ### 用户已确认（2026-10-03）
 
