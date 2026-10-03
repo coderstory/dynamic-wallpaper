@@ -1,29 +1,24 @@
 import AppKit
 import QuartzCore
 
-/// 显示刷新驱动的**测量器**（Plan 02-04 T2 / PDCA-A4）。
+/// 显示刷新驱动的**测量器**。
 ///
 /// ## 它不参与渲染
 ///
 /// 壁纸播放完全不依赖显示刷新 —— `AVPlayer` 按视频自己的时间戳出帧，窗口由
 /// WindowServer 合成。本类**不碰任何渲染路径**：没有 layer、没有 frame counter
-/// 画到屏幕上、没有 `player` 引用。`AppDelegate` 启动它只是为了回答一个问题：
+/// 画到屏幕上、没有 `player` 引用。启动它只为回答一个问题：打包成 `.app` 之后，
+/// 本进程能不能拿到显示刷新回调？Phase 1 在 spike 里测到的是降级路径
+/// （`FRAME_DRIVER=timer_fallback_hz30`），本类就是那次复测的取证体。
 ///
-/// > 在打包成 `.app`（真正的前台应用）之后，本进程能不能拿到显示刷新回调？
+/// 降级兜底是 30Hz `Timer`，长期跑在产品里没有收益、只有成本，所以测满
+/// `windowSeconds` 就自己 `invalidate()`：测量一次性完成，不留常驻定时器。
 ///
-/// Phase 1 在 spike 里测到的是降级路径（`FRAME_DRIVER=timer_fallback_hz30`），
-/// 并把它作为硬约束交给 Phase 2 复测。本类就是那次复测的取证体。
-///
-/// ## 为什么会在测量窗口结束后 invalidate
-///
-/// 降级兜底是 30Hz `Timer`，长期跑在产品里没有收益、只有成本。所以本类测满
-/// `windowSeconds` 就自己 `invalidate()`：测量一次性完成，之后不留常驻定时器。
-///
-/// ## 写法照抄 Phase 1，逻辑不改进
+/// ## 写法照抄，逻辑不改进
 ///
 /// macOS 27 SDK 上，CADisplayLink 的 target/selector 初始化器与它的
-/// preferredFrames…PerSecond 属性标了 `API_UNAVAILABLE(macos)`（D-07），只有 `NSScreen.displayLink` + `CAFrameRateRange`
-/// 这一条路能编过。**不要**"顺手"改回旧写法。
+/// preferredFrames…PerSecond 属性标了 `API_UNAVAILABLE(macos)`（D-07），只有
+/// `NSScreen.displayLink` + `CAFrameRateRange` 这一条路能编过。**不要**"顺手"改回旧写法。
 ///
 /// ⚠️ 上面那两个被禁 API 的**名字在本文件里刻意不写成字面量**：T2 的验收判据是
 /// 「grep 本文件里这两个被禁 API 的名字，计数必须为 0」，而判据数的是**全文**
@@ -32,11 +27,10 @@ import QuartzCore
 ///
 /// ## observer 配对
 ///
-/// displayLink 与 Timer 在**同一处** `invalidate()`（D-14 / Pitfall 4）。
-/// 刻意不引入 Phase 1 Pitfall 16 提到的 15 秒 teardown 宽限期 —— 本 Phase 只做
-/// 窗口生命周期，那条宽限期是为切换视频时让旧 renderer 自然退场设计的。
-/// 不传 `-DPIC_NO_PROBE` 时（本文件的默认态）整个声明区都在；交付构建由
-/// `build.sh` 的 `-Xswiftc -DPIC_NO_PROBE` 打开开关，把测量脚手架从交付二进制里剥掉。
+/// displayLink 与 Timer 在**同一处** `invalidate()`（D-14 / Pitfall 4）。刻意不引入
+/// Phase 1 Pitfall 16 提到的 15 秒 teardown 宽限期 —— 那条是为切换视频时让旧
+/// renderer 自然退场设计的。不传 `-DPIC_NO_PROBE` 时整个声明区都在；交付构建由
+/// `build.sh` 的 `-Xswiftc -DPIC_NO_PROBE` 打开开关，把测量脚手架剥出交付二进制。
 #if !PIC_NO_PROBE
 @MainActor
 public final class FrameDriver: NSObject {
@@ -68,7 +62,6 @@ public final class FrameDriver: NSObject {
     }
 
     /// 1 秒内一个 tick 都没收到 → 拿不到显示刷新回调，退到 30Hz Timer 并如实打一行。
-    /// 写死逻辑照抄 Phase 1 的 `FrameTicker.startFallbackWatchdog()`。
     private func startFallbackWatchdog() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
             guard let self, self.tickCount == 0, self.fallbackTimer == nil else { return }

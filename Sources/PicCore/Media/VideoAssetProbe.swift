@@ -8,9 +8,7 @@ public protocol VideoAssetProbe: Sendable {
 }
 
 /// 默认实现：用异步 `loadTracks(withMediaType:)` 读视频轨。
-///
-/// ⚠️ 不要用同名的同步取值接口 —— macOS 13 起已弃用（本机 macOS 27 实测会打
-/// 弃用警告），判据会变成噪声。
+/// ⚠️ 不要用同名的同步取值接口 —— macOS 13 起已弃用（本机实测会打弃用警告），判据会变成噪声。
 public struct AVFoundationAssetProbe: VideoAssetProbe {
     public init() {}
 

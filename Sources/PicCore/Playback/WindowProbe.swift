@@ -1,21 +1,21 @@
 import AppKit
 import CoreGraphics
 
-/// 产品侧的窗口探针 —— **按 PID 认领**（D-09）。
+/// 产品侧的窗口探针 —— **按 PID 认领**。
 ///
-/// 为什么必须按 PID：本机常驻若干个同类动态壁纸 app。只按层级认领会把别人的窗口
-/// 当成自己的。本探针把这件事变成机器可读的数字，而不是一条纪律：
-/// `FOREIGN_SAME_LEVEL=<n>` 数的是「层级与我方窗口完全相同、owner pid 却不是自己」的窗口数。
+/// 为什么必须按 PID：本机常驻若干个同类动态壁纸 app，只按层级认领会把别人的窗口
+/// 当成自己的。本探针把这件事变成机器可读的数字：`FOREIGN_SAME_LEVEL=<n>` 数的是
+/// 「层级与我方窗口完全相同、owner pid 却不是自己」的窗口数。
 ///
-/// 隐私（T-02-03）：**只**读 `kCGWindowLayer` / `kCGWindowOwnerPID` /
-/// `kCGWindowOwnerName` / `kCGWindowBounds` 四个键。窗口标题那个键一个字节都不碰 ——
-/// 它可能含用户文件名。`test.sh` 每次自动重验「产品源码里那个标题键 0 次」。
+/// 隐私纪律：**只**读 `kCGWindowLayer` / `kCGWindowOwnerPID` / `kCGWindowOwnerName` /
+/// `kCGWindowBounds` 四个键。窗口标题那个键一个字节都不碰 —— 它可能含用户文件名；
+/// `test.sh` 每次自动重验「产品源码里那个标题键 0 次」。
 ///
-/// D-04：本文件**不需要**桌面图标层的值，因此不出现取层级值的那个 CoreGraphics 函数，
-/// 也不出现任何层级数字字面量。「我方层 < 图标层」这一半由 `.planning/spike/` 里的
-/// throwaway 探针承担（`run-probe.sh order` 现编译现跑），两边都不硬编码。
-/// 不传 `-DPIC_NO_PROBE` 时（本文件的默认态）整个声明区都在；交付构建由
-/// `build.sh` 的 `-Xswiftc -DPIC_NO_PROBE` 打开开关，把测量脚手架从交付二进制里剥掉。
+/// 本文件**不需要**桌面图标层的值，因此不出现取层级值的那个 CoreGraphics 函数，
+/// 也不出现任何层级数字字面量。「我方层 < 图标层」这一半由 throwaway 探针承担
+/// （`run-probe.sh order` 现编译现跑），两边都不硬编码。
+/// 不传 `-DPIC_NO_PROBE` 时整个声明区都在；交付构建由 `build.sh` 的
+/// `-Xswiftc -DPIC_NO_PROBE` 打开开关，把测量脚手架从交付二进制里剥掉。
 #if !PIC_NO_PROBE
 public enum WindowProbe {
 
@@ -68,8 +68,8 @@ public enum WindowProbe {
     /// 桌面层窗口相对 `NSScreen.main.frame` 的四个内缩整数（允许为负）。
     ///
     /// ⚠️ 坐标系陷阱：`CGWindowList` 的 bounds 原点在**主屏左上角**，
-    /// `NSScreen.frame` 原点在**全局左下角**。不翻转直接相减得到的数是错的。
-    /// Phase 1 的全屏场景复现过一次这个坑。
+    /// `NSScreen.frame` 原点在**全局左下角**。不翻转直接相减得到的数是错的 ——
+    /// 全屏场景复现过一次这个坑。
     public static func insetReport(targetPid: Int) -> [String] {
         let all = listWindows()
         guard let screen = NSScreen.main else {
@@ -142,8 +142,8 @@ public enum WindowProbe {
 // MARK: - 独立可执行体
 //
 // 同一个文件在两处以不同方式编译：进产品库时下面这段被条件编译剥掉；
-// `scripts/run-probe.sh` 加 -DPIC_WINDOW_PROBE_MAIN 现编译成一个一次性可执行文件，
-// 拿到产品进程的 pid 后对它取证。产品代码一行也不进 .planning/spike/，反向也不破。
+// `scripts/run-probe.sh` 加 -DPIC_WINDOW_PROBE_MAIN 现编译成一次性可执行文件，
+// 拿到产品进程的 pid 后对它取证。产品代码一行也不进 spike 目录，反向也不破。
 #if PIC_WINDOW_PROBE_MAIN
 @main
 struct PicWindowProbeMain {

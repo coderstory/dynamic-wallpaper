@@ -2,28 +2,21 @@ import Foundation
 
 // MARK: - 注入 seam
 
-/// 轮换的调度 seam（Plan 04-02 T2）。
-///
-/// **不标 `@MainActor`**：协议整体标 `@MainActor` 会让 Swift 6 下的 conformance 报
-/// `#ConformanceIsolation`（Phase 1 已实测）；由持有它的 `@MainActor` 类负责隔离。
-/// 单测注入 `ManualScheduler`，生产注入 `SystemRotationScheduler`。
+/// 轮换的调度 seam。**不标 `@MainActor`**：协议整体标会让 Swift 6 的 conformance 报
+/// `#ConformanceIsolation`，由持有它的 `@MainActor` 类负责隔离。单测注入 `ManualScheduler`，生产注入系统调度器。
 public protocol RotationScheduling: AnyObject {
     func schedule(after interval: TimeInterval, _ body: @escaping () -> Void)
     func cancel()
 }
 
-/// 随机源 seam（PLAY-05 的可复现判据靠它）。
-///
-/// **不标 `@MainActor`**，理由同上。**只有 `nextInt(upperBound:)` 这一个方法** ——
-/// 多一个方法就多一处可以在里面藏「恒定实现」的地方。
+/// 随机源 seam（可复现判据靠它）。**不标 `@MainActor`**，理由同上。**只有
+/// `nextInt(upperBound:)` 一个方法** —— 多一个就多一处可以藏「恒定实现」的地方。
 public protocol RandomSource: AnyObject {
     func nextInt(upperBound: Int) -> Int
 }
 
-/// 可播种的随机源（xorshift64）。
-///
-/// 同一个 seed 跑两次得到完全相同的序列（判据可复现）；两个不同 seed 至少有一个
-/// 给出不同顺序 —— 证明随机源真的接上了，不是恒等实现。
+/// 可播种的随机源（xorshift64）。同 seed 两次给出完全相同的序列；两个不同 seed
+/// 至少有一个顺序不同 —— 证明随机源真接上了，不是恒等实现。
 public final class SeededRandomSource: RandomSource {
 
     private var state: UInt64
@@ -45,23 +38,19 @@ public final class SeededRandomSource: RandomSource {
 
 // MARK: - 轮换内核
 
-/// 轮换内核（Plan 04-02 T2）——「下一条播哪条、多久换一条」的唯一真相源。
-///
-/// **与播放端彻底解耦（PLAY-06 / D-10）**：`init` 的签名里没有 player，文件里
-/// 零播放进度读取 —— 「到点就切」在结构上不可被绕过成「等播完再切」。这不是
-/// 洁癖：只要轮换器能读到播放位置，一个「等播完」的实现就能悄悄混进来。
-/// 播放端只通过 `onAdvance` 单向接收下一条。
+/// 轮换内核 ——「下一条播哪条、多久换一条」的唯一真相源。**与播放端彻底解耦**：
+/// `init` 里没有 player、文件里零播放进度读取，「到点就切」在结构上不可被绕过成
+/// 「等播完再切」。这不是洁癖：只要轮换器能读到播放位置，一个「等播完」的实现就能悄悄混进来。
 @MainActor
 public final class RotationController {
 
-    /// 为什么切换。轮换到点 / 用户手动「立即下一个」（MENUBAR-04）。
+    /// 为什么切换。轮换到点 / 用户手动「立即下一个」。
     public enum AdvanceReason: String, Equatable, Sendable {
         case rotationElapsed
         case userRequested
     }
 
-    /// 一次切换的打点。**只记 reason 与 index，不记文件名**
-    /// （T-03-02 隐私纪律：文件名不进任何结构体/日志）。
+    /// 一次切换的打点。**只记 reason 与 index，不记文件名**（隐私纪律）。
     public struct RotationAdvance: Equatable, Sendable {
         public let reason: AdvanceReason
         public let index: Int
@@ -82,11 +71,11 @@ public final class RotationController {
     /// 播放模式。**可读写且直接生效**，不存第二份 —— 下一次 `advance` 就按新值走。
     public var mode: PlayMode
 
-    /// 04-05 的 AppDelegate 用它把「下一条」转成播放端的装载。单向出参。
+    /// 装配层用它把「下一条」转成播放端的装载。单向出参。
     public var onAdvance: ((VideoItem) -> Void)?
 
-    /// 洗牌袋（PLAY-05）：`setItems` 时清空，跨同一次列表内的 `advance` 保持 ——
-    /// 这正是「一轮内每条恰好一次」的实现载体。
+    /// 洗牌袋：`setItems` 时清空，跨同一次列表内的 `advance` 保持 —— 这正是
+    /// 「一轮内每条恰好一次」的实现载体。
     private var bag: [Int] = []
 
     private let scheduler: any RotationScheduling
@@ -97,8 +86,7 @@ public final class RotationController {
 
     // MARK: 生命周期
 
-    /// **没有 player 参数，也没有 interval 参数** —— 这是让「到点就切 ≠ 播完才切」
-    /// 结构上不可绕过的关键。间隔经 `setInterval` 设，默认 300 秒（Seed 同款）。
+    /// **没有 player 参数，也没有 interval 参数** —— 这是让「到点就切 ≠ 播完才切」结构上不可绕过的关键。
     public init(scheduler: any RotationScheduling, random: any RandomSource,
                 mode: PlayMode = .loopSingle) {
         self.scheduler = scheduler
@@ -114,14 +102,13 @@ public final class RotationController {
     }
 
     /// 与 `mode` 属性共用同一个真相源（`mode = newMode`），不另存副本。
-    /// 保留方法入口是因为计划冻结的公开面两者都在（Plan 04-02 Artifacts）。
+    /// 保留方法入口是因为计划冻结的公开面两者都在。
     public func setMode(_ newMode: PlayMode) {
         mode = newMode
     }
 
-    /// **当场重排程**：取消旧定时器、用新间隔重新排 —— Phase 5「所有设置改动
-    /// 立即生效」在轮换侧的落点。尚未 `start()` 时不排（排了会把首程提前到
-    /// `start()` 之前，`scheduleCount` 的读数就漂了）。
+    /// **当场重排程**：取消旧定时器、用新间隔重新排，让设置改动立即生效。尚未
+    /// `start()` 时不排（排了会把首程提前到 `start()` 之前，`scheduleCount` 的读数就漂了）。
     public func setInterval(_ seconds: TimeInterval) {
         interval = seconds
         guard isRunning, !items.isEmpty else { return }
@@ -129,9 +116,8 @@ public final class RotationController {
     }
 
     /// `setItems` 之后调一次：把首条交给 `onAdvance`，并用 `interval` 排下一程。
-    /// 首条装载**不记进 `advances`** —— 它不是一次切换；`advances` 只记
-    /// `.rotationElapsed` / `.userRequested` 两种切换（用例 1/2 的期望数组锁住这条）。
-    /// 空列表时直接返回：不打点、不回调、不排程（04-03 降级路径的共同前置）。
+    /// 首条装载**不记进 `advances`** —— 它不是一次切换。空列表时直接返回：不打点、
+    /// 不回调、不排程（降级路径的共同前置）。
     public func start() {
         guard !items.isEmpty else { return }
         isRunning = true
@@ -147,12 +133,12 @@ public final class RotationController {
 
     // MARK: 切换
 
-    /// 立即下一个（MENUBAR-04「立即下一个」的行为侧）。
+    /// 立即下一个（菜单「立即下一个」的行为侧）。
     public func advanceNow() {
         advance(reason: .userRequested)
     }
 
-    /// 由调度器到点回调进来。**这里不读任何播放进度**（D-10）—— 结构上也读不到。
+    /// 由调度器到点回调进来。**这里不读任何播放进度** —— 结构上也读不到。
     public func rotationElapsed() {
         advance(reason: .rotationElapsed)
     }
@@ -165,8 +151,8 @@ public final class RotationController {
         let nextIndex: Int
         switch mode {
         case .loopSingle:
-            // reason 是「轮换」与「用户要下一条」的唯一区分量：单循环的锁定只约束
-            // 轮换到点，菜单「立即下一个」按列表前进（用户意图优先）。
+            // reason 是「轮换」与「用户要下一条」的唯一区分量：单循环的锁定只约束轮换到点，
+            // 菜单「立即下一个」按列表前进（用户意图优先）。
             if reason == .userRequested {
                 nextIndex = (currentIndex + 1) % items.count
             } else {
@@ -184,8 +170,8 @@ public final class RotationController {
         reschedule()
     }
 
-    /// 重排下一程 —— `setInterval` / `start` / `advance` 三处共用的唯一排程点。
-    /// 切完立刻重排（PLAY-06：到点就切，不等播完；`schedule` 内部先 `cancel()` 旧定时器，不累积）。
+    /// 重排下一程 —— `setInterval` / `start` / `advance` 三处共用的唯一排程点。切完立刻
+    /// 重排（到点就切，不等播完；`schedule` 内部先 `cancel()` 旧定时器，不累积）。
     private func reschedule() {
         scheduler.schedule(after: interval) { [weak self] in
             MainActor.assumeIsolated { self?.rotationElapsed() }

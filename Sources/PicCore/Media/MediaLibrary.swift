@@ -1,6 +1,6 @@
 import Foundation
 
-/// 一次扫描的结果。每个计数一个独立字段（D-17）：『扫了多少条』与『收了多少条』
+/// 一次扫描的结果。每个计数一个独立字段：『扫了多少条』与『收了多少条』
 /// 必须能分开打点，任何一个合并都会让探针输出无法定位是哪一道过滤器吃掉的条目。
 public struct MediaLibraryReport: Equatable, Sendable {
     public let rootPath: String
@@ -17,18 +17,17 @@ public struct MediaLibraryReport: Equatable, Sendable {
     public var playableCount: Int { items.count }
 }
 
-/// 媒体库扫描内核 —— Phase 4 的唯一数据源（04-03 的降级与 04-05 的装配都依赖它）。
-///
-/// 只做文件系统遍历与探针调用并返回数据；任何窗口操作是 `WallpaperWindowController`
-/// 的事。本文件**不 import AppKit / SwiftUI** —— 那会让分层判据被自己的 import 作废。
+/// 媒体库扫描内核。只做文件系统遍历与探针调用并返回数据；任何窗口操作是
+/// `WallpaperWindowController` 的事。本文件**不 import AppKit / SwiftUI** ——
+/// 那会让分层判据被自己的 import 作废。
 @MainActor
 public final class MediaLibrary {
 
     /// 扩展名白名单（小写、无点、大小写不敏感）—— SOURCE-03。
     public static let allowedExtensions: Set<String> = ["mp4", "mov", "m4v"]
 
-    /// 转码产物目录名（D-21 / TRANS-05 防死循环第一层）。该目录被**整棵排除**，
-    /// 且比对是目录名**精确匹配**（converted-lower 不在排除之列）。
+    /// 转码产物目录名。该目录被**整棵排除**，且比对是目录名**精确匹配**
+    ///（converted-lower 不在排除之列）。
     public static let excludedDirectoryName = "Converted"
 
     private let probe: any VideoAssetProbe
@@ -51,16 +50,14 @@ public final class MediaLibrary {
         cached = nil
     }
 
-    /// 递归扫描一个目录。
-    ///
-    /// `useCache: true` 时第二次起直接返回内存缓存（SOURCE-05 的机制基础，
-    /// 明确 `invalidateCache()` 后才触发真正重扫）。
+    /// 递归扫描一个目录。`useCache: true` 时第二次起直接返回内存缓存
+    ///（明确 `invalidateCache()` 后才触发真正重扫）。
     public func scan(folder: URL, useCache: Bool = true) async throws -> MediaLibraryReport {
         if useCache, let cached {
             return cached
         }
 
-        // 存在性检查一律走 path；喂 URL 的字符串形态会让含中文/空格的路径恒为假（D-09）。
+        // 存在性检查一律走 path；喂 URL 的字符串形态会让含中文/空格的路径恒为假。
         guard FileManager.default.fileExists(atPath: folder.path) else {
             throw MediaLibraryError.folderMissing
         }
@@ -92,7 +89,7 @@ public final class MediaLibrary {
             options: enumOptions,
             errorHandler: { _, err in
                 // 必须返回 true：跳过那一项、继续遍历。返回 false 会让一次无权限
-                // 子目录提前终止整趟扫描（T-04-03）。
+                // 子目录提前终止整趟扫描。
                 self.lastError = err as NSError
                 return true
             }
@@ -122,7 +119,7 @@ public final class MediaLibrary {
             }
             acceptedByExtension += 1
 
-            // 目录名精确匹配 Converted —— 不是子串匹配（D-21）。
+            // 目录名精确匹配 Converted —— 不是子串匹配。
             let isInsideConverted = entry.pathComponents.contains { component in
                 component.caseInsensitiveCompare(Self.excludedDirectoryName) == .orderedSame
             }
@@ -131,8 +128,8 @@ public final class MediaLibrary {
                 continue
             }
 
-            // 越界兜底（T-04-01 第二层，与第 4 步重复是故意的纵深）：符号链接解析后
-            // 的真实路径必须仍在根内，否则排除。
+            // 越界兜底：与上面的精确匹配重复是故意的纵深 —— 符号链接解析后的真实路径
+            // 必须仍在根内，否则排除。
             let resolved = entry.resolvingSymlinksInPath().standardizedFileURL.path
             guard resolved.hasPrefix(rootRealPath + "/") else {
                 excludedByContainment += 1

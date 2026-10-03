@@ -2,25 +2,22 @@ import AppKit
 import AVFoundation
 import Foundation
 
-/// 300 秒无缝循环观察 —— ROADMAP Phase 2 SC2「连续观察 5 分钟无缝循环」的取证体。
+/// 300 秒无缝循环观察 —— 「连续观察 5 分钟无缝循环」的取证体。
 ///
-/// 三条判据（全部来自真实采样，不是推断）：
-///   ① `AVPlayerItemFailedToPlayToEndTime` 计数为 0，**且**「播完一条」通知的次数
-///      与观察到的循环圈数相等（`endedCount == cycles`）
-///   ② 采样点 ≥ 140（300 秒 / 2 秒一次，留 10% 抖动余量）
-///   ③ 每一次采样 `status == playing` 且 `items >= 1`
+/// 三条判据（全部来自真实采样，不是推断）：`AVPlayerItemFailedToPlayToEndTime`
+/// 计数为 0 **且**「播完一条」通知次数 == 观察到的循环圈数；采样点 ≥ 140；
+/// 每一次采样 `status == playing` 且 `items >= 1`。
 ///
-/// ⚠️ 判据①里「播完一条」那一半的写法是被实测纠正过的（详见 02-02-SUMMARY 的
-/// `PLAN_DEVIATION`）：计划原写 `endedCount == 0`。但 `AVPlayerLooper` 正是靠这条
-/// 通知驱动「换下一条」的 —— 一个循环正常的播放器**必然**每圈发一次。
-/// 把它判成失败，等于让「在循环」与「不循环」不可区分。
+/// ⚠️ 判据里「播完一条」那一半的写法是被实测纠正过的：计划原写 `endedCount == 0`。
+/// 但 `AVPlayerLooper` 正是靠这条通知驱动「换下一条」的 —— 一个循环正常的播放器
+/// **必然**每圈发一次。把它判成失败，等于让「在循环」与「不循环」不可区分。
 ///
 /// ⚠️ **位置读数的单调性不在判据里**。`AVPlayerLooper` 的队列里放的是克隆 item，
 /// 每过一个 loop 边界 `AVPlayer.currentTime()` 就会归零，所以「跨边界单调不减」
 /// 这件事在原理上就测不出来。它单独记成 `LOOP_POS_MONOTONIC`，且无条件附一行
 /// `LOOP_POS_NOTE` 说明它是探针构造的 artifact 还是播放缺陷 —— 不许混为一谈。
-/// 不传 `-DPIC_NO_PROBE` 时（本文件的默认态）整个声明区都在；交付构建由
-/// `build.sh` 的 `-Xswiftc -DPIC_NO_PROBE` 打开开关，把测量脚手架从交付二进制里剥掉。
+/// 不传 `-DPIC_NO_PROBE` 时整个声明区都在；交付构建由 `build.sh` 的
+/// `-Xswiftc -DPIC_NO_PROBE` 打开开关，把测量脚手架从交付二进制里剥掉。
 #if !PIC_NO_PROBE
 @MainActor
 public final class LoopProbe {
@@ -45,7 +42,7 @@ public final class LoopProbe {
     /// 结束进程的全局调用字面量全仓只在 AppDelegate 里一处，两条路径不会各自漂移。
     private let terminate: () -> Void
     /// 观察者令牌只由主线程增删；标 nonisolated(unsafe) 只是为了让 deinit 能摘干净 ——
-    /// deinit 本身不是主线程隔离的，而观察者泄漏是 D-14 明令禁止的。
+    /// deinit 本身不是主线程隔离的，而观察者泄漏是明令禁止的。
     nonisolated(unsafe) private var tokens: [NSObjectProtocol] = []
     private var sampler: Timer?
     private var samples: [Sample] = []
@@ -64,7 +61,7 @@ public final class LoopProbe {
     }
 
     deinit {
-        // D-14 / Pitfall 4：注册与注销严格配对。removeObserver 本身线程安全，
+        // Pitfall 4：注册与注销严格配对。removeObserver 本身线程安全，
         // 这里不绕道主线程隔离的辅助方法，因为 deinit 不保证在主线程跑。
         let center = NotificationCenter.default
         for t in tokens { center.removeObserver(t) }
