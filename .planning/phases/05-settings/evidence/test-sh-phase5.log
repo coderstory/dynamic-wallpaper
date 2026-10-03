@@ -1,0 +1,608 @@
+=== PHASE 5 收口三件套 2026-10-03T17:41:24Z ===
+Building for debugging...
+Build complete! (0.17秒)
+Building for debugging...
+Build complete! (0.16秒)
+Test Suite 'All tests' started at 2026-10-04 01:41:27.772.
+Test Suite 'PicCoreTests.xctest' started at 2026-10-04 01:41:27.773.
+Test Suite 'ConvertedLibraryTests' started at 2026-10-04 01:41:27.773.
+Test Case '-[PicCoreTests.ConvertedLibraryTests testNonWhitelistedExtensionsExcluded]' started.
+Test Case '-[PicCoreTests.ConvertedLibraryTests testNonWhitelistedExtensionsExcluded]' passed (0.002 seconds).
+Test Case '-[PicCoreTests.ConvertedLibraryTests testPlaybackItemsMergeRootsFirstConvertedAppendedDeduped]' started.
+Test Case '-[PicCoreTests.ConvertedLibraryTests testPlaybackItemsMergeRootsFirstConvertedAppendedDeduped]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.ConvertedLibraryTests testProbeRejectsBrokenFile]' started.
+Test Case '-[PicCoreTests.ConvertedLibraryTests testProbeRejectsBrokenFile]' passed (0.001 seconds).
+Test Case '-[PicCoreTests.ConvertedLibraryTests testScanFindsPlayableItemsInConvertedSubtree]' started.
+Test Case '-[PicCoreTests.ConvertedLibraryTests testScanFindsPlayableItemsInConvertedSubtree]' passed (0.001 seconds).
+Test Case '-[PicCoreTests.ConvertedLibraryTests testScanReturnsEmptyWhenConvertedDirectoryMissing]' started.
+Test Case '-[PicCoreTests.ConvertedLibraryTests testScanReturnsEmptyWhenConvertedDirectoryMissing]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.ConvertedLibraryTests testTmpIntermediatesAreNeverPlayable]' started.
+Test Case '-[PicCoreTests.ConvertedLibraryTests testTmpIntermediatesAreNeverPlayable]' passed (0.001 seconds).
+Test Suite 'ConvertedLibraryTests' passed at 2026-10-04 01:41:27.778.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.005 (0.005) seconds
+Test Suite 'DisplayWatcherTests' started at 2026-10-04 01:41:27.778.
+Test Case '-[PicCoreTests.DisplayWatcherTests testDisplayAsleepAndSystemSleepingAreIndependentReasons]' started.
+Test Case '-[PicCoreTests.DisplayWatcherTests testDisplayAsleepAndSystemSleepingAreIndependentReasons]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.DisplayWatcherTests testOnlyAfterBothClearDoesItSeekToAnchor]' started.
+Test Case '-[PicCoreTests.DisplayWatcherTests testOnlyAfterBothClearDoesItSeekToAnchor]' passed (0.613 seconds).
+Test Case '-[PicCoreTests.DisplayWatcherTests testSignalsAllFalseProducesTwoSetCallsOnClear]' started.
+Test Case '-[PicCoreTests.DisplayWatcherTests testSignalsAllFalseProducesTwoSetCallsOnClear]' passed (0.001 seconds).
+Test Case '-[PicCoreTests.DisplayWatcherTests testStartRecomputesOnceSynchronously]' started.
+Test Case '-[PicCoreTests.DisplayWatcherTests testStartRecomputesOnceSynchronously]' passed (0.304 seconds).
+Test Case '-[PicCoreTests.DisplayWatcherTests testWakingWithDisplayStillAsleepDoesNotResume]' started.
+Test Case '-[PicCoreTests.DisplayWatcherTests testWakingWithDisplayStillAsleepDoesNotResume]' passed (0.001 seconds).
+Test Suite 'DisplayWatcherTests' passed at 2026-10-04 01:41:28.698.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.919 (0.920) seconds
+Test Suite 'ExternalToolLocatorTests' started at 2026-10-04 01:41:28.698.
+Test Case '-[PicCoreTests.ExternalToolLocatorTests testAvailableWhenHomebrewPathExists]' started.
+Test Case '-[PicCoreTests.ExternalToolLocatorTests testAvailableWhenHomebrewPathExists]' passed (0.001 seconds).
+Test Case '-[PicCoreTests.ExternalToolLocatorTests testAvailableWhenIntelBrewPathExists]' started.
+Test Case '-[PicCoreTests.ExternalToolLocatorTests testAvailableWhenIntelBrewPathExists]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.ExternalToolLocatorTests testAvailableWhenWhichSucceeds]' started.
+Test Case '-[PicCoreTests.ExternalToolLocatorTests testAvailableWhenWhichSucceeds]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.ExternalToolLocatorTests testGuiMinimalPathStillFindsHomebrewInstall]' started.
+Test Case '-[PicCoreTests.ExternalToolLocatorTests testGuiMinimalPathStillFindsHomebrewInstall]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.ExternalToolLocatorTests testNotExecutableProbePathIsSkippedNotFatal]' started.
+Test Case '-[PicCoreTests.ExternalToolLocatorTests testNotExecutableProbePathIsSkippedNotFatal]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.ExternalToolLocatorTests testUnavailableWhenNothingFound]' started.
+Test Case '-[PicCoreTests.ExternalToolLocatorTests testUnavailableWhenNothingFound]' passed (0.000 seconds).
+Test Suite 'ExternalToolLocatorTests' passed at 2026-10-04 01:41:28.702.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.003 (0.004) seconds
+Test Suite 'FFmpegAvailabilityTests' started at 2026-10-04 01:41:28.702.
+Test Case '-[PicCoreTests.FFmpegAvailabilityTests testEmptyAndMalformedPathsYieldUnavailable]' started.
+Test Case '-[PicCoreTests.FFmpegAvailabilityTests testEmptyAndMalformedPathsYieldUnavailable]' passed (0.002 seconds).
+Test Case '-[PicCoreTests.FFmpegAvailabilityTests testExecutableFfmpegInSearchPathIsAvailable]' started.
+Test Case '-[PicCoreTests.FFmpegAvailabilityTests testExecutableFfmpegInSearchPathIsAvailable]' passed (0.005 seconds).
+Test Case '-[PicCoreTests.FFmpegAvailabilityTests testLabelIsAvailableOrNotInstalledOnly]' started.
+Test Case '-[PicCoreTests.FFmpegAvailabilityTests testLabelIsAvailableOrNotInstalledOnly]' passed (0.001 seconds).
+Test Case '-[PicCoreTests.FFmpegAvailabilityTests testMissingFfmpegYieldsUnavailable]' started.
+Test Case '-[PicCoreTests.FFmpegAvailabilityTests testMissingFfmpegYieldsUnavailable]' passed (0.001 seconds).
+Test Case '-[PicCoreTests.FFmpegAvailabilityTests testNonExecutableFfmpegYieldsUnavailable]' started.
+Test Case '-[PicCoreTests.FFmpegAvailabilityTests testNonExecutableFfmpegYieldsUnavailable]' passed (0.002 seconds).
+Test Case '-[PicCoreTests.FFmpegAvailabilityTests testResolveFromPATHSplitsColonSeparatedDirs]' started.
+Test Case '-[PicCoreTests.FFmpegAvailabilityTests testResolveFromPATHSplitsColonSeparatedDirs]' passed (0.002 seconds).
+Test Suite 'FFmpegAvailabilityTests' passed at 2026-10-04 01:41:28.716.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.013 (0.014) seconds
+Test Suite 'FolderRequestPolicyTests' started at 2026-10-04 01:41:28.716.
+Test Case '-[PicCoreTests.FolderRequestPolicyTests testConfiguredSourceFolderDoesNotRequestFolder]' started.
+Test Case '-[PicCoreTests.FolderRequestPolicyTests testConfiguredSourceFolderDoesNotRequestFolder]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.FolderRequestPolicyTests testEmptySourceFolderAndNoEnvOverrideRequestsFolder]' started.
+Test Case '-[PicCoreTests.FolderRequestPolicyTests testEmptySourceFolderAndNoEnvOverrideRequestsFolder]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.FolderRequestPolicyTests testEnvOverrideSuppressesTheRequest]' started.
+Test Case '-[PicCoreTests.FolderRequestPolicyTests testEnvOverrideSuppressesTheRequest]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.FolderRequestPolicyTests testIsAcceptableSelectionRejectsNilAndRegularFiles]' started.
+Test Case '-[PicCoreTests.FolderRequestPolicyTests testIsAcceptableSelectionRejectsNilAndRegularFiles]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.FolderRequestPolicyTests testWhitespaceOnlySourceFolderIsTreatedAsUnconfigured]' started.
+Test Case '-[PicCoreTests.FolderRequestPolicyTests testWhitespaceOnlySourceFolderIsTreatedAsUnconfigured]' passed (0.000 seconds).
+Test Suite 'FolderRequestPolicyTests' passed at 2026-10-04 01:41:28.719.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.001 (0.002) seconds
+Test Suite 'FullscreenDetectorTests' started at 2026-10-04 01:41:28.719.
+Test Case '-[PicCoreTests.FullscreenDetectorTests testFalsePositiveWindowGeometryOnePointZeroStaysFalse]' started.
+Test Case '-[PicCoreTests.FullscreenDetectorTests testFalsePositiveWindowGeometryOnePointZeroStaysFalse]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.FullscreenDetectorTests testFrontmostSignalAloneAlsoCounts]' started.
+Test Case '-[PicCoreTests.FullscreenDetectorTests testFrontmostSignalAloneAlsoCounts]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.FullscreenDetectorTests testGeometryAloneNeverTriggersFullscreen]' started.
+Test Case '-[PicCoreTests.FullscreenDetectorTests testGeometryAloneNeverTriggersFullscreen]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.FullscreenDetectorTests testNonGeometricSignalTriggersFullscreenOnlyWhenCovering]' started.
+Test Case '-[PicCoreTests.FullscreenDetectorTests testNonGeometricSignalTriggersFullscreenOnlyWhenCovering]' passed (0.000 seconds).
+Test Suite 'FullscreenDetectorTests' passed at 2026-10-04 01:41:28.720.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'FullscreenGeometryTests' started at 2026-10-04 01:41:28.720.
+Test Case '-[PicCoreTests.FullscreenGeometryTests testFalsePositiveWindowStaysAtFullCoverageButIsNotTheDecision]' started.
+Test Case '-[PicCoreTests.FullscreenGeometryTests testFalsePositiveWindowStaysAtFullCoverageButIsNotTheDecision]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.FullscreenGeometryTests testFlipMatchesPhaseOneBaseline]' started.
+Test Case '-[PicCoreTests.FullscreenGeometryTests testFlipMatchesPhaseOneBaseline]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.FullscreenGeometryTests testInsetCompensationWidensTheRectByFourteenNine]' started.
+Test Case '-[PicCoreTests.FullscreenGeometryTests testInsetCompensationWidensTheRectByFourteenNine]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.FullscreenGeometryTests testPerWindowBestMatchesPhaseOneBaselines]' started.
+Test Case '-[PicCoreTests.FullscreenGeometryTests testPerWindowBestMatchesPhaseOneBaselines]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.FullscreenGeometryTests testSelftestBaselinesWholeChromeSplit]' started.
+Test Case '-[PicCoreTests.FullscreenGeometryTests testSelftestBaselinesWholeChromeSplit]' passed (0.000 seconds).
+Test Suite 'FullscreenGeometryTests' passed at 2026-10-04 01:41:28.721.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.001 (0.002) seconds
+Test Suite 'HoldArbiterTests' started at 2026-10-04 01:41:28.721.
+Test Case '-[PicCoreTests.HoldArbiterTests testActiveReasonsSorted]' started.
+Test Case '-[PicCoreTests.HoldArbiterTests testActiveReasonsSorted]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.HoldArbiterTests testAllCasesCountIsSixAndPowersetIsSixtyFour]' started.
+Test Case '-[PicCoreTests.HoldArbiterTests testAllCasesCountIsSixAndPowersetIsSixtyFour]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.HoldArbiterTests testAnchorNotOverwrittenAcrossAllSixReasons]' started.
+Test Case '-[PicCoreTests.HoldArbiterTests testAnchorNotOverwrittenAcrossAllSixReasons]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.HoldArbiterTests testAnchorNotOverwrittenBySecondHold]' started.
+Test Case '-[PicCoreTests.HoldArbiterTests testAnchorNotOverwrittenBySecondHold]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.HoldArbiterTests testAnchorWrittenOnlyOnEmptyToNonEmptyTransition]' started.
+Test Case '-[PicCoreTests.HoldArbiterTests testAnchorWrittenOnlyOnEmptyToNonEmptyTransition]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.HoldArbiterTests testIdempotentSetAppliesOnce]' started.
+Test Case '-[PicCoreTests.HoldArbiterTests testIdempotentSetAppliesOnce]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.HoldArbiterTests testIsManuallyPausedIsDerivedFromHolds]' started.
+Test Case '-[PicCoreTests.HoldArbiterTests testIsManuallyPausedIsDerivedFromHolds]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.HoldArbiterTests testLockedThenFullscreenExitDoesNotResume]' started.
+Test Case '-[PicCoreTests.HoldArbiterTests testLockedThenFullscreenExitDoesNotResume]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.HoldArbiterTests testManualPauseResumesFromAnchorNotFromZero]' started.
+Test Case '-[PicCoreTests.HoldArbiterTests testManualPauseResumesFromAnchorNotFromZero]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.HoldArbiterTests testOrderValuesAreDistinctAndManualPauseStaysZero]' started.
+Test Case '-[PicCoreTests.HoldArbiterTests testOrderValuesAreDistinctAndManualPauseStaysZero]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.HoldArbiterTests testResumeSeeksToAnchorThenClearsAnchor]' started.
+Test Case '-[PicCoreTests.HoldArbiterTests testResumeSeeksToAnchorThenClearsAnchor]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.HoldArbiterTests testSetWithoutTargetDoesNotCrash]' started.
+Test Case '-[PicCoreTests.HoldArbiterTests testSetWithoutTargetDoesNotCrash]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.HoldArbiterTests testShouldPlayMatchesEmptyHoldsForEverySubset]' started.
+Test Case '-[PicCoreTests.HoldArbiterTests testShouldPlayMatchesEmptyHoldsForEverySubset]' passed (0.001 seconds).
+Test Suite 'HoldArbiterTests' passed at 2026-10-04 01:41:28.727.
+	 Executed 13 tests, with 0 failures (0 unexpected) in 0.004 (0.006) seconds
+Test Suite 'HoldStatusTests' started at 2026-10-04 01:41:28.727.
+Test Case '-[PicCoreTests.HoldStatusTests testApplyCurrentDecisionForwardsCurrentDecisionWithoutTouchingAnchor]' started.
+Test Case '-[PicCoreTests.HoldStatusTests testApplyCurrentDecisionForwardsCurrentDecisionWithoutTouchingAnchor]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.HoldStatusTests testHoldStatusIsDerivedFromDecisionNotStoredSeparately]' started.
+Test Case '-[PicCoreTests.HoldStatusTests testHoldStatusIsDerivedFromDecisionNotStoredSeparately]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.HoldStatusTests testSetRateOnStartPathIsGatedByShouldPlay]' started.
+Test Case '-[PicCoreTests.HoldStatusTests testSetRateOnStartPathIsGatedByShouldPlay]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.HoldStatusTests testSixReasonsHaveDistinctChineseLabels]' started.
+Test Case '-[PicCoreTests.HoldStatusTests testSixReasonsHaveDistinctChineseLabels]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.HoldStatusTests testSummaryIsNilWhenPlaying]' started.
+Test Case '-[PicCoreTests.HoldStatusTests testSummaryIsNilWhenPlaying]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.HoldStatusTests testSummaryJoinsReasonsInOrderWithFullscreenFirstAmongSystemReasons]' started.
+Test Case '-[PicCoreTests.HoldStatusTests testSummaryJoinsReasonsInOrderWithFullscreenFirstAmongSystemReasons]' passed (0.000 seconds).
+Test Suite 'HoldStatusTests' passed at 2026-10-04 01:41:28.729.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.002 (0.002) seconds
+Test Suite 'LibraryAvailabilityTests' started at 2026-10-04 01:41:28.729.
+Test Case '-[PicCoreTests.LibraryAvailabilityTests testAllCasesHaveDistinctTokensAndExactlyThreeHideWallpaper]' started.
+Test Case '-[PicCoreTests.LibraryAvailabilityTests testAllCasesHaveDistinctTokensAndExactlyThreeHideWallpaper]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.LibraryAvailabilityTests testMissingFolderYieldsFolderMissingAndHidesWallpaper]' started.
+Test Case '-[PicCoreTests.LibraryAvailabilityTests testMissingFolderYieldsFolderMissingAndHidesWallpaper]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.LibraryAvailabilityTests testPositiveCountYieldsPlaying]' started.
+Test Case '-[PicCoreTests.LibraryAvailabilityTests testPositiveCountYieldsPlaying]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.LibraryAvailabilityTests testUnconfiguredFolderWinsOverAnyScanOutcome]' started.
+Test Case '-[PicCoreTests.LibraryAvailabilityTests testUnconfiguredFolderWinsOverAnyScanOutcome]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.LibraryAvailabilityTests testUnreadableFolderAlsoYieldsFolderMissing]' started.
+Test Case '-[PicCoreTests.LibraryAvailabilityTests testUnreadableFolderAlsoYieldsFolderMissing]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.LibraryAvailabilityTests testZeroPlayableVideosYieldsNoPlayableVideos]' started.
+Test Case '-[PicCoreTests.LibraryAvailabilityTests testZeroPlayableVideosYieldsNoPlayableVideos]' passed (0.000 seconds).
+Test Suite 'LibraryAvailabilityTests' passed at 2026-10-04 01:41:28.731.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.001 (0.002) seconds
+Test Suite 'MediaCoordinatorTests' started at 2026-10-04 01:41:28.731.
+Test Case '-[PicCoreTests.MediaCoordinatorTests testEmptyLibraryStopsAndHidesExactlyOnce]' started.
+Test Case '-[PicCoreTests.MediaCoordinatorTests testEmptyLibraryStopsAndHidesExactlyOnce]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.MediaCoordinatorTests testMissingFolderStopsAndHides]' started.
+Test Case '-[PicCoreTests.MediaCoordinatorTests testMissingFolderStopsAndHides]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.MediaCoordinatorTests testPlayingStateShowsWallpaperAndNeverStops]' started.
+Test Case '-[PicCoreTests.MediaCoordinatorTests testPlayingStateShowsWallpaperAndNeverStops]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.MediaCoordinatorTests testRecoveryFromHiddenToPlayingResumesWithoutRestart]' started.
+Test Case '-[PicCoreTests.MediaCoordinatorTests testRecoveryFromHiddenToPlayingResumesWithoutRestart]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.MediaCoordinatorTests testRepeatedIdenticalInputIsIdempotent]' started.
+Test Case '-[PicCoreTests.MediaCoordinatorTests testRepeatedIdenticalInputIsIdempotent]' passed (0.000 seconds).
+Test Suite 'MediaCoordinatorTests' passed at 2026-10-04 01:41:28.733.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'MediaLibraryTests' started at 2026-10-04 01:41:28.733.
+Test Case '-[PicCoreTests.MediaLibraryTests testConvertedDirectorySubtreeIsExcludedByExactDirectoryName]' started.
+Test Case '-[PicCoreTests.MediaLibraryTests testConvertedDirectorySubtreeIsExcludedByExactDirectoryName]' passed (0.009 seconds).
+Test Case '-[PicCoreTests.MediaLibraryTests testEntryCapTruncatesAndReportsSkippedByEntryCap]' started.
+Test Case '-[PicCoreTests.MediaLibraryTests testEntryCapTruncatesAndReportsSkippedByEntryCap]' passed (0.007 seconds).
+Test Case '-[PicCoreTests.MediaLibraryTests testFileWithAllowedExtensionButNoVideoTrackIsRejected]' started.
+Test Case '-[PicCoreTests.MediaLibraryTests testFileWithAllowedExtensionButNoVideoTrackIsRejected]' passed (0.007 seconds).
+Test Case '-[PicCoreTests.MediaLibraryTests testMissingFolderAndNonDirectoryRootThrowDistinctErrors]' started.
+Test Case '-[PicCoreTests.MediaLibraryTests testMissingFolderAndNonDirectoryRootThrowDistinctErrors]' passed (0.006 seconds).
+Test Case '-[PicCoreTests.MediaLibraryTests testRecursionAlsoFindsClipUnderDirectoryWithCjkAndSpaceName]' started.
+Test Case '-[PicCoreTests.MediaLibraryTests testRecursionAlsoFindsClipUnderDirectoryWithCjkAndSpaceName]' passed (0.006 seconds).
+Test Case '-[PicCoreTests.MediaLibraryTests testRecursionFindsClipThreeDirectoriesDeep]' started.
+Test Case '-[PicCoreTests.MediaLibraryTests testRecursionFindsClipThreeDirectoriesDeep]' passed (0.005 seconds).
+Test Case '-[PicCoreTests.MediaLibraryTests testSecondScanUsesCacheAndInvalidateForcesRescan]' started.
+Test Case '-[PicCoreTests.MediaLibraryTests testSecondScanUsesCacheAndInvalidateForcesRescan]' passed (0.006 seconds).
+Test Case '-[PicCoreTests.MediaLibraryTests testSymlinkPointingOutsideRootIsExcluded]' started.
+Test Case '-[PicCoreTests.MediaLibraryTests testSymlinkPointingOutsideRootIsExcluded]' passed (0.004 seconds).
+Test Case '-[PicCoreTests.MediaLibraryTests testWhitelistAcceptsOnlyMp4MovM4vCaseInsensitively]' started.
+Test Case '-[PicCoreTests.MediaLibraryTests testWhitelistAcceptsOnlyMp4MovM4vCaseInsensitively]' passed (0.004 seconds).
+Test Suite 'MediaLibraryTests' passed at 2026-10-04 01:41:28.788.
+	 Executed 9 tests, with 0 failures (0 unexpected) in 0.055 (0.055) seconds
+Test Suite 'MenuBarModelTests' started at 2026-10-04 01:41:28.788.
+Test Case '-[PicCoreTests.MenuBarModelTests testLabelsHaveExactlyFiveEntriesInEveryState]' started.
+Test Case '-[PicCoreTests.MenuBarModelTests testLabelsHaveExactlyFiveEntriesInEveryState]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.MenuBarModelTests testLabelsNeverContainAnyMediaFileName]' started.
+Test Case '-[PicCoreTests.MenuBarModelTests testLabelsNeverContainAnyMediaFileName]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.MenuBarModelTests testMenuItemIDsAreExactlyTheFiveFixedItems]' started.
+Test Case '-[PicCoreTests.MenuBarModelTests testMenuItemIDsAreExactlyTheFiveFixedItems]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.MenuBarModelTests testNextVideoAndRescanLabelsAreDistinctAndPathless]' started.
+Test Case '-[PicCoreTests.MenuBarModelTests testNextVideoAndRescanLabelsAreDistinctAndPathless]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.MenuBarModelTests testPauseResumeLabelIsExactlyTwoStringsWithoutFileNameParts]' started.
+Test Case '-[PicCoreTests.MenuBarModelTests testPauseResumeLabelIsExactlyTwoStringsWithoutFileNameParts]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.MenuBarModelTests testPerformNextVideoCallsOnlyItsInjectedClosure]' started.
+Test Case '-[PicCoreTests.MenuBarModelTests testPerformNextVideoCallsOnlyItsInjectedClosure]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.MenuBarModelTests testPerformOpenSettingsTouchesNeitherQuitNorPlayback]' started.
+Test Case '-[PicCoreTests.MenuBarModelTests testPerformOpenSettingsTouchesNeitherQuitNorPlayback]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.MenuBarModelTests testPerformPauseResumeGoesThroughArbiterNotDirectly]' started.
+Test Case '-[PicCoreTests.MenuBarModelTests testPerformPauseResumeGoesThroughArbiterNotDirectly]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.MenuBarModelTests testPerformQuitCallsInjectedClosureOnlyOnce]' started.
+Test Case '-[PicCoreTests.MenuBarModelTests testPerformQuitCallsInjectedClosureOnlyOnce]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.MenuBarModelTests testPerformRescanFolderCallsOnlyItsInjectedClosure]' started.
+Test Case '-[PicCoreTests.MenuBarModelTests testPerformRescanFolderCallsOnlyItsInjectedClosure]' passed (0.000 seconds).
+Test Suite 'MenuBarModelTests' passed at 2026-10-04 01:41:28.791.
+	 Executed 10 tests, with 0 failures (0 unexpected) in 0.003 (0.003) seconds
+Test Suite 'PlayModeTests' started at 2026-10-04 01:41:28.791.
+Test Case '-[PicCoreTests.PlayModeTests testAllCasesAreExactlyThreeInDeclarationOrder]' started.
+Test Case '-[PicCoreTests.PlayModeTests testAllCasesAreExactlyThreeInDeclarationOrder]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.PlayModeTests testLoopSingleRawValueIsUnchangedAndStaysFirstCase]' started.
+Test Case '-[PicCoreTests.PlayModeTests testLoopSingleRawValueIsUnchangedAndStaysFirstCase]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.PlayModeTests testPersistedLoopSingleStringStillResolvesFromUserDefaults]' started.
+Test Case '-[PicCoreTests.PlayModeTests testPersistedLoopSingleStringStillResolvesFromUserDefaults]' passed (0.001 seconds).
+Test Case '-[PicCoreTests.PlayModeTests testPersistWritesExactlyTheSevenKnownKeys]' started.
+Test Case '-[PicCoreTests.PlayModeTests testPersistWritesExactlyTheSevenKnownKeys]' passed (0.001 seconds).
+Test Case '-[PicCoreTests.PlayModeTests testUnknownPersistedRawValueFallsBackToSeed]' started.
+Test Case '-[PicCoreTests.PlayModeTests testUnknownPersistedRawValueFallsBackToSeed]' passed (0.001 seconds).
+Test Suite 'PlayModeTests' passed at 2026-10-04 01:41:28.795.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.003 (0.004) seconds
+Test Suite 'PlaybackRouterTests' started at 2026-10-04 01:41:28.795.
+Test Case '-[PicCoreTests.PlaybackRouterTests testAdvanceNowLoadsNextInLoopList]' started.
+Test Case '-[PicCoreTests.PlaybackRouterTests testAdvanceNowLoadsNextInLoopList]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.PlaybackRouterTests testEmptyItemsLoadsNothing]' started.
+Test Case '-[PicCoreTests.PlaybackRouterTests testEmptyItemsLoadsNothing]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.PlaybackRouterTests testShuffleRoundVisitsEveryItemExactlyOnce]' started.
+Test Case '-[PicCoreTests.PlaybackRouterTests testShuffleRoundVisitsEveryItemExactlyOnce]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.PlaybackRouterTests testStartLoadsFirstItemForLoopSingle]' started.
+Test Case '-[PicCoreTests.PlaybackRouterTests testStartLoadsFirstItemForLoopSingle]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.PlaybackRouterTests testStartRebindingDoesNotDoubleLoadPerAdvance]' started.
+Test Case '-[PicCoreTests.PlaybackRouterTests testStartRebindingDoesNotDoubleLoadPerAdvance]' passed (0.000 seconds).
+Test Suite 'PlaybackRouterTests' passed at 2026-10-04 01:41:28.795.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.001 (0.001) seconds
+Test Suite 'PlayerControllerFreezeTests' started at 2026-10-04 01:41:28.795.
+Test Case '-[PicCoreTests.PlayerControllerFreezeTests testStopEmptiesQueueAndIsIdempotent]' started.
+/Users/coderstory/dev/pic/.claude/worktrees/agent-ae239f98362fec089/Tests/PicCoreTests/PlayerControllerFreezeTests.swift:44: -[PicCoreTests.PlayerControllerFreezeTests testStopEmptiesQueueAndIsIdempotent] : Test skipped - 干净 clone 上 fixtures/ 不存在，本条跳过，不影响其余用例
+Test Case '-[PicCoreTests.PlayerControllerFreezeTests testStopEmptiesQueueAndIsIdempotent]' skipped (0.000 seconds).
+Test Suite 'PlayerControllerFreezeTests' passed at 2026-10-04 01:41:28.796.
+	 Executed 1 test, with 1 test skipped and 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'PlayerControllerSwapTests' started at 2026-10-04 01:41:28.796.
+Test Case '-[PicCoreTests.PlayerControllerSwapTests testLoadLeavesQueueNonEmptyImmediately]' started.
+/Users/coderstory/dev/pic/.claude/worktrees/agent-ae239f98362fec089/Tests/PicCoreTests/PlayerControllerSwapTests.swift:19: -[PicCoreTests.PlayerControllerSwapTests testLoadLeavesQueueNonEmptyImmediately] : Test skipped - 干净 clone 上 fixtures/ 不存在，本条跳过，不影响其余用例
+Test Case '-[PicCoreTests.PlayerControllerSwapTests testLoadLeavesQueueNonEmptyImmediately]' skipped (0.000 seconds).
+Test Suite 'PlayerControllerSwapTests' passed at 2026-10-04 01:41:28.796.
+	 Executed 1 test, with 1 test skipped and 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'PowerWatcherTests' started at 2026-10-04 01:41:28.796.
+Test Case '-[PicCoreTests.PowerWatcherTests testBatteryReasonEntersAndLeavesVetoSetIndependently]' started.
+Test Case '-[PicCoreTests.PowerWatcherTests testBatteryReasonEntersAndLeavesVetoSetIndependently]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.PowerWatcherTests testDefaultSettingMeansBatteryNeverHolds]' started.
+Test Case '-[PicCoreTests.PowerWatcherTests testDefaultSettingMeansBatteryNeverHolds]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.PowerWatcherTests testPolicyHoldsOnlyWhenEnabledAndOnBattery]' started.
+Test Case '-[PicCoreTests.PowerWatcherTests testPolicyHoldsOnlyWhenEnabledAndOnBattery]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.PowerWatcherTests testPowerCallbackCountIsObservableAndStopsAfterStop]' started.
+Test Case '-[PicCoreTests.PowerWatcherTests testPowerCallbackCountIsObservableAndStopsAfterStop]' passed (1.522 seconds).
+Test Case '-[PicCoreTests.PowerWatcherTests testPowerSourceStateKeyIsTheRealSDKKeyAndValuesAreStrings]' started.
+Test Case '-[PicCoreTests.PowerWatcherTests testPowerSourceStateKeyIsTheRealSDKKeyAndValuesAreStrings]' passed (0.002 seconds).
+Test Case '-[PicCoreTests.PowerWatcherTests testStartDeliversCurrentPowerStateSynchronously]' started.
+Test Case '-[PicCoreTests.PowerWatcherTests testStartDeliversCurrentPowerStateSynchronously]' passed (0.002 seconds).
+Test Suite 'PowerWatcherTests' passed at 2026-10-04 01:41:30.323.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 1.526 (1.527) seconds
+Test Suite 'ProcessTranscodeRunnerTests' started at 2026-10-04 01:41:30.323.
+Test Case '-[PicCoreTests.ProcessTranscodeRunnerTests testRunnerReportsProgressLinesAndExitStatusViaShellStub]' started.
+Test Case '-[PicCoreTests.ProcessTranscodeRunnerTests testRunnerReportsProgressLinesAndExitStatusViaShellStub]' passed (0.067 seconds).
+Test Suite 'ProcessTranscodeRunnerTests' passed at 2026-10-04 01:41:30.391.
+	 Executed 1 test, with 0 failures (0 unexpected) in 0.067 (0.068) seconds
+Test Suite 'ProgressParserTests' started at 2026-10-04 01:41:30.391.
+Test Case '-[PicCoreTests.ProgressParserTests testParsesSampleChunkIntoSnapshot]' started.
+Test Case '-[PicCoreTests.ProgressParserTests testParsesSampleChunkIntoSnapshot]' passed (0.001 seconds).
+Test Case '-[PicCoreTests.ProgressParserTests testPercentComputesRatioWithMicrosecondSemantics]' started.
+Test Case '-[PicCoreTests.ProgressParserTests testPercentComputesRatioWithMicrosecondSemantics]' passed (0.001 seconds).
+Test Case '-[PicCoreTests.ProgressParserTests testPercentNilWhenDurationMissingOrZeroOrNoTimeYet]' started.
+Test Case '-[PicCoreTests.ProgressParserTests testPercentNilWhenDurationMissingOrZeroOrNoTimeYet]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.ProgressParserTests testProgressEndFlagDetected]' started.
+Test Case '-[PicCoreTests.ProgressParserTests testProgressEndFlagDetected]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.ProgressParserTests testUnknownKeysAndGarbageLinesTolerated]' started.
+Test Case '-[PicCoreTests.ProgressParserTests testUnknownKeysAndGarbageLinesTolerated]' passed (0.000 seconds).
+Test Suite 'ProgressParserTests' passed at 2026-10-04 01:41:30.395.
+	 Executed 5 tests, with 0 failures (0 unexpected) in 0.003 (0.004) seconds
+Test Suite 'RotationControllerTests' started at 2026-10-04 01:41:30.395.
+Test Case '-[PicCoreTests.RotationControllerTests testEmptyListAdvancesNothingAndCallsOnAdvanceZeroTimes]' started.
+Test Case '-[PicCoreTests.RotationControllerTests testEmptyListAdvancesNothingAndCallsOnAdvanceZeroTimes]' passed (0.001 seconds).
+Test Case '-[PicCoreTests.RotationControllerTests testLoopListWalksEveryItemThenWrapsToFirst]' started.
+Test Case '-[PicCoreTests.RotationControllerTests testLoopListWalksEveryItemThenWrapsToFirst]' passed (0.001 seconds).
+Test Case '-[PicCoreTests.RotationControllerTests testLoopSingleAlwaysReturnsTheSameItem]' started.
+Test Case '-[PicCoreTests.RotationControllerTests testLoopSingleAlwaysReturnsTheSameItem]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.RotationControllerTests testModeAndIntervalChangesTakeEffectOnNextAdvance]' started.
+Test Case '-[PicCoreTests.RotationControllerTests testModeAndIntervalChangesTakeEffectOnNextAdvance]' passed (0.001 seconds).
+Test Case '-[PicCoreTests.RotationControllerTests testRotationElapsedAdvancesWithoutWaitingForPlayback]' started.
+Test Case '-[PicCoreTests.RotationControllerTests testRotationElapsedAdvancesWithoutWaitingForPlayback]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.RotationControllerTests testRotationElapsedHoldsLoopSingleLocked]' started.
+Test Case '-[PicCoreTests.RotationControllerTests testRotationElapsedHoldsLoopSingleLocked]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.RotationControllerTests testShuffleOrderIsIdenticalForSameSeedAndDiffersForAnotherSeed]' started.
+Test Case '-[PicCoreTests.RotationControllerTests testShuffleOrderIsIdenticalForSameSeedAndDiffersForAnotherSeed]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.RotationControllerTests testShuffleVisitsEveryItemExactlyOncePerRound]' started.
+Test Case '-[PicCoreTests.RotationControllerTests testShuffleVisitsEveryItemExactlyOncePerRound]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.RotationControllerTests testUserRequestedAdvancesInLoopSingle]' started.
+Test Case '-[PicCoreTests.RotationControllerTests testUserRequestedAdvancesInLoopSingle]' passed (0.000 seconds).
+Test Suite 'RotationControllerTests' passed at 2026-10-04 01:41:30.400.
+	 Executed 9 tests, with 0 failures (0 unexpected) in 0.004 (0.005) seconds
+Test Suite 'SettingsApplierTests' started at 2026-10-04 01:41:30.400.
+Test Case '-[PicCoreTests.SettingsApplierTests testApplyIntervalReschedulesImmediately]' started.
+PIC_SETTINGS_APPLY key=rotationInterval value=600 applied=1
+Test Case '-[PicCoreTests.SettingsApplierTests testApplyIntervalReschedulesImmediately]' passed (0.005 seconds).
+Test Case '-[PicCoreTests.SettingsApplierTests testApplyModeTakesEffectImmediately]' started.
+PIC_SETTINGS_APPLY key=playMode value=shuffle applied=1
+Test Case '-[PicCoreTests.SettingsApplierTests testApplyModeTakesEffectImmediately]' passed (0.002 seconds).
+Test Case '-[PicCoreTests.SettingsApplierTests testBatteryPolicyClearsHoldIdempotently]' started.
+PIC_SETTINGS_APPLY key=pauseOnBattery value=1 applied=1 onBattery=1
+PIC_SETTINGS_APPLY key=pauseOnBattery value=0 applied=1 onBattery=1
+PIC_SETTINGS_APPLY key=pauseOnBattery value=0 applied=1 onBattery=1
+Test Case '-[PicCoreTests.SettingsApplierTests testBatteryPolicyClearsHoldIdempotently]' passed (0.001 seconds).
+Test Case '-[PicCoreTests.SettingsApplierTests testBatteryPolicyReappliesWithSameMapping]' started.
+PIC_SETTINGS_APPLY key=pauseOnBattery value=0 applied=1 onBattery=1
+PIC_SETTINGS_APPLY key=pauseOnBattery value=1 applied=1 onBattery=1
+Test Case '-[PicCoreTests.SettingsApplierTests testBatteryPolicyReappliesWithSameMapping]' passed (0.001 seconds).
+Test Case '-[PicCoreTests.SettingsApplierTests testHeldPlayerDoesNotGetRateApplied]' started.
+PIC_SETTINGS_APPLY key=rate value=1.5 applied=0 hold=(manualPause)
+Test Case '-[PicCoreTests.SettingsApplierTests testHeldPlayerDoesNotGetRateApplied]' passed (0.001 seconds).
+Test Case '-[PicCoreTests.SettingsApplierTests testPlayingRateAppliesImmediately]' started.
+PIC_SETTINGS_APPLY key=rate value=1.5 applied=1
+Test Case '-[PicCoreTests.SettingsApplierTests testPlayingRateAppliesImmediately]' passed (0.001 seconds).
+Test Case '-[PicCoreTests.SettingsApplierTests testRateReappliesAfterHoldReleased]' started.
+PIC_SETTINGS_APPLY key=rate value=1.5 applied=1
+Test Case '-[PicCoreTests.SettingsApplierTests testRateReappliesAfterHoldReleased]' passed (0.001 seconds).
+Test Case '-[PicCoreTests.SettingsApplierTests testVolumeAndMutedApplyWithoutGate]' started.
+PIC_SETTINGS_APPLY key=volume value=0.25 applied=1
+PIC_SETTINGS_APPLY key=muted value=1 applied=1
+Test Case '-[PicCoreTests.SettingsApplierTests testVolumeAndMutedApplyWithoutGate]' passed (0.001 seconds).
+Test Suite 'SettingsApplierTests' passed at 2026-10-04 01:41:30.415.
+	 Executed 8 tests, with 0 failures (0 unexpected) in 0.013 (0.014) seconds
+Test Suite 'SettingsPresentationTests' started at 2026-10-04 01:41:30.415.
+Test Case '-[PicCoreTests.SettingsPresentationTests testEmptyStateBodyIsSingleSourced]' started.
+Test Case '-[PicCoreTests.SettingsPresentationTests testEmptyStateBodyIsSingleSourced]' passed (0.003 seconds).
+Test Case '-[PicCoreTests.SettingsPresentationTests testEmptyStateBodyMatchesSpecVerbatim]' started.
+Test Case '-[PicCoreTests.SettingsPresentationTests testEmptyStateBodyMatchesSpecVerbatim]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.SettingsPresentationTests testHoldReasonLabelsCoverAllSixCasesVerbatim]' started.
+Test Case '-[PicCoreTests.SettingsPresentationTests testHoldReasonLabelsCoverAllSixCasesVerbatim]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.SettingsPresentationTests testJoinedReasonsEmptyReturnsEmptyString]' started.
+Test Case '-[PicCoreTests.SettingsPresentationTests testJoinedReasonsEmptyReturnsEmptyString]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.SettingsPresentationTests testJoinedReasonsSingleReasonHasNoSeparator]' started.
+Test Case '-[PicCoreTests.SettingsPresentationTests testJoinedReasonsSingleReasonHasNoSeparator]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.SettingsPresentationTests testJoinedReasonsSortsByOrderBeforeJoining]' started.
+Test Case '-[PicCoreTests.SettingsPresentationTests testJoinedReasonsSortsByOrderBeforeJoining]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.SettingsPresentationTests testPlaybackTitlesAreDistinctConstants]' started.
+Test Case '-[PicCoreTests.SettingsPresentationTests testPlaybackTitlesAreDistinctConstants]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.SettingsPresentationTests testPlayModeLabelCoversAllCasesInOrder]' started.
+Test Case '-[PicCoreTests.SettingsPresentationTests testPlayModeLabelCoversAllCasesInOrder]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.SettingsPresentationTests testRateBoundsAreHalfToDouble]' started.
+Test Case '-[PicCoreTests.SettingsPresentationTests testRateBoundsAreHalfToDouble]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.SettingsPresentationTests testRateLabelClampsOutOfRangeValues]' started.
+Test Case '-[PicCoreTests.SettingsPresentationTests testRateLabelClampsOutOfRangeValues]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.SettingsPresentationTests testRateLabelFormatsBounds]' started.
+Test Case '-[PicCoreTests.SettingsPresentationTests testRateLabelFormatsBounds]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.SettingsPresentationTests testRotationControlsDisabledOnlyForLoopSingle]' started.
+Test Case '-[PicCoreTests.SettingsPresentationTests testRotationControlsDisabledOnlyForLoopSingle]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.SettingsPresentationTests testRotationLabelSwitchesToHoursAtSixty]' started.
+Test Case '-[PicCoreTests.SettingsPresentationTests testRotationLabelSwitchesToHoursAtSixty]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.SettingsPresentationTests testRotationMinutesSnapsToNearestChoice]' started.
+Test Case '-[PicCoreTests.SettingsPresentationTests testRotationMinutesSnapsToNearestChoice]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.SettingsPresentationTests testRotationSecondsAndMinutesRoundTrip]' started.
+Test Case '-[PicCoreTests.SettingsPresentationTests testRotationSecondsAndMinutesRoundTrip]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.SettingsPresentationTests testThreeHideStatesShareOneEmptySkin]' started.
+Test Case '-[PicCoreTests.SettingsPresentationTests testThreeHideStatesShareOneEmptySkin]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.SettingsPresentationTests testVolumeControlsDisabledOnlyWhenMuted]' started.
+Test Case '-[PicCoreTests.SettingsPresentationTests testVolumeControlsDisabledOnlyWhenMuted]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.SettingsPresentationTests testVolumeFromPercentRoundTrips]' started.
+Test Case '-[PicCoreTests.SettingsPresentationTests testVolumeFromPercentRoundTrips]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.SettingsPresentationTests testVolumePercentMapsAndClamps]' started.
+Test Case '-[PicCoreTests.SettingsPresentationTests testVolumePercentMapsAndClamps]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.SettingsPresentationTests testWindowConstantsMatchContract]' started.
+Test Case '-[PicCoreTests.SettingsPresentationTests testWindowConstantsMatchContract]' passed (0.000 seconds).
+Test Suite 'SettingsPresentationTests' passed at 2026-10-04 01:41:30.423.
+	 Executed 20 tests, with 0 failures (0 unexpected) in 0.007 (0.008) seconds
+Test Suite 'SettingsStoreTests' started at 2026-10-04 01:41:30.423.
+Test Case '-[PicCoreTests.SettingsStoreTests testEnvVarWinsOverUserDefaults]' started.
+Test Case '-[PicCoreTests.SettingsStoreTests testEnvVarWinsOverUserDefaults]' passed (0.002 seconds).
+Test Case '-[PicCoreTests.SettingsStoreTests testExistingSeedCallSitesStillCompile]' started.
+Test Case '-[PicCoreTests.SettingsStoreTests testExistingSeedCallSitesStillCompile]' passed (0.001 seconds).
+Test Case '-[PicCoreTests.SettingsStoreTests testFileExistsFalseForMissingPath]' started.
+Test Case '-[PicCoreTests.SettingsStoreTests testFileExistsFalseForMissingPath]' passed (0.001 seconds).
+Test Case '-[PicCoreTests.SettingsStoreTests testFileExistsUsesPathAndSeesTempFile]' started.
+Test Case '-[PicCoreTests.SettingsStoreTests testFileExistsUsesPathAndSeesTempFile]' passed (0.001 seconds).
+Test Case '-[PicCoreTests.SettingsStoreTests testPauseOnBatteryDefaultsToFalseWithEmptyDefaults]' started.
+Test Case '-[PicCoreTests.SettingsStoreTests testPauseOnBatteryDefaultsToFalseWithEmptyDefaults]' passed (0.001 seconds).
+Test Case '-[PicCoreTests.SettingsStoreTests testPersistWritesBackToDefaults]' started.
+Test Case '-[PicCoreTests.SettingsStoreTests testPersistWritesBackToDefaults]' passed (0.002 seconds).
+Test Case '-[PicCoreTests.SettingsStoreTests testPersistWritesPauseOnBattery]' started.
+Test Case '-[PicCoreTests.SettingsStoreTests testPersistWritesPauseOnBattery]' passed (0.002 seconds).
+Test Case '-[PicCoreTests.SettingsStoreTests testPlayModeDefaultIsLoopSingle]' started.
+Test Case '-[PicCoreTests.SettingsStoreTests testPlayModeDefaultIsLoopSingle]' passed (0.001 seconds).
+Test Case '-[PicCoreTests.SettingsStoreTests testResolvedFolderURLHasNoSchemeSeparator]' started.
+Test Case '-[PicCoreTests.SettingsStoreTests testResolvedFolderURLHasNoSchemeSeparator]' passed (0.001 seconds).
+Test Case '-[PicCoreTests.SettingsStoreTests testSeedCanTurnPauseOnBatteryOn]' started.
+Test Case '-[PicCoreTests.SettingsStoreTests testSeedCanTurnPauseOnBatteryOn]' passed (0.001 seconds).
+Test Case '-[PicCoreTests.SettingsStoreTests testSeedUsedWhenNothingElseSet]' started.
+Test Case '-[PicCoreTests.SettingsStoreTests testSeedUsedWhenNothingElseSet]' passed (0.001 seconds).
+Test Case '-[PicCoreTests.SettingsStoreTests testUserDefaultsWinsOverSeed]' started.
+Test Case '-[PicCoreTests.SettingsStoreTests testUserDefaultsWinsOverSeed]' passed (0.002 seconds).
+Test Case '-[PicCoreTests.SettingsStoreTests testUserDefaultsWinsOverSeedForPauseOnBattery]' started.
+Test Case '-[PicCoreTests.SettingsStoreTests testUserDefaultsWinsOverSeedForPauseOnBattery]' passed (0.001 seconds).
+Test Suite 'SettingsStoreTests' passed at 2026-10-04 01:41:30.441.
+	 Executed 13 tests, with 0 failures (0 unexpected) in 0.017 (0.018) seconds
+Test Suite 'SystemEventPipelineTests' started at 2026-10-04 01:41:30.441.
+Test Case '-[PicCoreTests.SystemEventPipelineTests testCurrentLockStateReadsRealSessionDictionary]' started.
+Test Case '-[PicCoreTests.SystemEventPipelineTests testCurrentLockStateReadsRealSessionDictionary]' passed (0.003 seconds).
+Test Case '-[PicCoreTests.SystemEventPipelineTests testHoldReasonPowerSetIsExactlySixtyFour]' started.
+Test Case '-[PicCoreTests.SystemEventPipelineTests testHoldReasonPowerSetIsExactlySixtyFour]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.SystemEventPipelineTests testInjectedLockSignalAppliesHoldThroughToPlaybackTarget]' started.
+Test Case '-[PicCoreTests.SystemEventPipelineTests testInjectedLockSignalAppliesHoldThroughToPlaybackTarget]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.SystemEventPipelineTests testLockStatePureFunctionHandlesMissingKeyZeroAndOne]' started.
+Test Case '-[PicCoreTests.SystemEventPipelineTests testLockStatePureFunctionHandlesMissingKeyZeroAndOne]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.SystemEventPipelineTests testRepeatedStartDoesNotRegisterDuplicateObservers]' started.
+Test Case '-[PicCoreTests.SystemEventPipelineTests testRepeatedStartDoesNotRegisterDuplicateObservers]' passed (0.410 seconds).
+Test Case '-[PicCoreTests.SystemEventPipelineTests testStartDeliversCurrentStateSynchronouslyEvenWithoutAnyTransition]' started.
+Test Case '-[PicCoreTests.SystemEventPipelineTests testStartDeliversCurrentStateSynchronouslyEvenWithoutAnyTransition]' passed (0.001 seconds).
+Test Case '-[PicCoreTests.SystemEventPipelineTests testStartDeliversUnlockedStateSynchronously]' started.
+Test Case '-[PicCoreTests.SystemEventPipelineTests testStartDeliversUnlockedStateSynchronously]' passed (0.001 seconds).
+Test Case '-[PicCoreTests.SystemEventPipelineTests testStopRemovesObserversSoLaterSignalsAreIgnored]' started.
+Test Case '-[PicCoreTests.SystemEventPipelineTests testStopRemovesObserversSoLaterSignalsAreIgnored]' passed (0.410 seconds).
+Test Suite 'SystemEventPipelineTests' passed at 2026-10-04 01:41:31.269.
+	 Executed 8 tests, with 0 failures (0 unexpected) in 0.827 (0.828) seconds
+Test Suite 'TranscodeCandidateFilterTests' started at 2026-10-04 01:41:31.269.
+Test Case '-[PicCoreTests.TranscodeCandidateFilterTests testFilesInsideConvertedAreNeverCandidates]' started.
+Test Case '-[PicCoreTests.TranscodeCandidateFilterTests testFilesInsideConvertedAreNeverCandidates]' passed (0.009 seconds).
+Test Case '-[PicCoreTests.TranscodeCandidateFilterTests testLowercaseConvertedDirIsAlsoExcludedNotSubstring]' started.
+Test Case '-[PicCoreTests.TranscodeCandidateFilterTests testLowercaseConvertedDirIsAlsoExcludedNotSubstring]' passed (0.004 seconds).
+Test Case '-[PicCoreTests.TranscodeCandidateFilterTests testMissingRootReturnsEmptyWithoutThrowing]' started.
+Test Case '-[PicCoreTests.TranscodeCandidateFilterTests testMissingRootReturnsEmptyWithoutThrowing]' passed (0.001 seconds).
+Test Case '-[PicCoreTests.TranscodeCandidateFilterTests testNativeFormatsAndTmpAreNotCandidates]' started.
+Test Case '-[PicCoreTests.TranscodeCandidateFilterTests testNativeFormatsAndTmpAreNotCandidates]' passed (0.003 seconds).
+Test Case '-[PicCoreTests.TranscodeCandidateFilterTests testNonNativeFilesOutsideConvertedAreCandidates]' started.
+Test Case '-[PicCoreTests.TranscodeCandidateFilterTests testNonNativeFilesOutsideConvertedAreCandidates]' passed (0.004 seconds).
+Test Case '-[PicCoreTests.TranscodeCandidateFilterTests testSymlinkedCandidatesAreSkipped]' started.
+Test Case '-[PicCoreTests.TranscodeCandidateFilterTests testSymlinkedCandidatesAreSkipped]' passed (0.002 seconds).
+Test Suite 'TranscodeCandidateFilterTests' passed at 2026-10-04 01:41:31.293.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.023 (0.025) seconds
+Test Suite 'TranscodeCommandTests' started at 2026-10-04 01:41:31.294.
+Test Case '-[PicCoreTests.TranscodeCommandTests testArgumentsMatchExpectedTokenSequenceExactly]' started.
+Test Case '-[PicCoreTests.TranscodeCommandTests testArgumentsMatchExpectedTokenSequenceExactly]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.TranscodeCommandTests testAudioMapIsOptionalAndSubtitleDataStreamsDropped]' started.
+Test Case '-[PicCoreTests.TranscodeCommandTests testAudioMapIsOptionalAndSubtitleDataStreamsDropped]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.TranscodeCommandTests testBaselineConstantsAreCrfEighteenPresetMedium]' started.
+Test Case '-[PicCoreTests.TranscodeCommandTests testBaselineConstantsAreCrfEighteenPresetMedium]' passed (0.000 seconds).
+Test Case '-[PicCoreTests.TranscodeCommandTests testDisplayStringStartsWithNiceAndJoinsSameTokens]' started.
+Test Case '-[PicCoreTests.TranscodeCommandTests testDisplayStringStartsWithNiceAndJoinsSameTokens]' passed (0.000 seconds).
+Test Suite 'TranscodeCommandTests' passed at 2026-10-04 01:41:31.295.
+	 Executed 4 tests, with 0 failures (0 unexpected) in 0.001 (0.002) seconds
+Test Suite 'TranscodeOutputNamingTests' started at 2026-10-04 01:41:31.295.
+Test Case '-[PicCoreTests.TranscodeOutputNamingTests testNoSkipWhenProductMissing]' started.
+Test Case '-[PicCoreTests.TranscodeOutputNamingTests testNoSkipWhenProductMissing]' passed (0.001 seconds).
+Test Case '-[PicCoreTests.TranscodeOutputNamingTests testNoSkipWhenSourceNewer]' started.
+Test Case '-[PicCoreTests.TranscodeOutputNamingTests testNoSkipWhenSourceNewer]' passed (0.003 seconds).
+Test Case '-[PicCoreTests.TranscodeOutputNamingTests testOutputURLIsConvertedDirWithMp4Extension]' started.
+Test Case '-[PicCoreTests.TranscodeOutputNamingTests testOutputURLIsConvertedDirWithMp4Extension]' passed (0.001 seconds).
+Test Case '-[PicCoreTests.TranscodeOutputNamingTests testSkipWhenProductNewerThanOrEqualToSource]' started.
+Test Case '-[PicCoreTests.TranscodeOutputNamingTests testSkipWhenProductNewerThanOrEqualToSource]' passed (0.002 seconds).
+Test Case '-[PicCoreTests.TranscodeOutputNamingTests testTemporaryURLAppendsTmpSuffix]' started.
+Test Case '-[PicCoreTests.TranscodeOutputNamingTests testTemporaryURLAppendsTmpSuffix]' passed (0.001 seconds).
+Test Case '-[PicCoreTests.TranscodeOutputNamingTests testWeirdNamesSurvive]' started.
+Test Case '-[PicCoreTests.TranscodeOutputNamingTests testWeirdNamesSurvive]' passed (0.001 seconds).
+Test Suite 'TranscodeOutputNamingTests' passed at 2026-10-04 01:41:31.304.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.008 (0.009) seconds
+Test Suite 'TranscodeQueueTests' started at 2026-10-04 01:41:31.304.
+Test Case '-[PicCoreTests.TranscodeQueueTests testFailedJobCleansTmpAndMarksFailed]' started.
+Test Case '-[PicCoreTests.TranscodeQueueTests testFailedJobCleansTmpAndMarksFailed]' passed (0.003 seconds).
+Test Case '-[PicCoreTests.TranscodeQueueTests testInsufficientDiskSpaceFailsBeforeRunner]' started.
+Test Case '-[PicCoreTests.TranscodeQueueTests testInsufficientDiskSpaceFailsBeforeRunner]' passed (0.001 seconds).
+Test Case '-[PicCoreTests.TranscodeQueueTests testJobsRunSeriallyInEnqueueOrder]' started.
+Test Case '-[PicCoreTests.TranscodeQueueTests testJobsRunSeriallyInEnqueueOrder]' passed (0.004 seconds).
+Test Case '-[PicCoreTests.TranscodeQueueTests testSuccessfulJobRenamesTmpToMp4AndKeepsSource]' started.
+Test Case '-[PicCoreTests.TranscodeQueueTests testSuccessfulJobRenamesTmpToMp4AndKeepsSource]' passed (0.002 seconds).
+Test Case '-[PicCoreTests.TranscodeQueueTests testUnavailableFFmpegFailsWithoutSpawn]' started.
+Test Case '-[PicCoreTests.TranscodeQueueTests testUnavailableFFmpegFailsWithoutSpawn]' passed (0.001 seconds).
+Test Case '-[PicCoreTests.TranscodeQueueTests testUpToDateProductIsSkippedWithoutRunner]' started.
+Test Case '-[PicCoreTests.TranscodeQueueTests testUpToDateProductIsSkippedWithoutRunner]' passed (0.002 seconds).
+Test Suite 'TranscodeQueueTests' passed at 2026-10-04 01:41:31.317.
+	 Executed 6 tests, with 0 failures (0 unexpected) in 0.013 (0.013) seconds
+Test Suite 'PicCoreTests.xctest' passed at 2026-10-04 01:41:31.317.
+	 Executed 190 tests, with 2 tests skipped and 0 failures (0 unexpected) in 3.521 (3.544) seconds
+Test Suite 'All tests' passed at 2026-10-04 01:41:31.317.
+	 Executed 190 tests, with 2 tests skipped and 0 failures (0 unexpected) in 3.521 (3.545) seconds
+◇ Test run started.
+↳ Testing Library Version: 2084
+↳ Target Platform: arm64e-apple-macos14.0
+✔ Test run with 0 tests in 0 suites passed after 0.001 seconds.
+── 工具链 ─────────────────────────────
+  ✅ Xcode 已选中
+  ✅ create-dmg 可用 (create-dmg 1.3.0)
+  ✅ ffmpeg 可用 (ffmpeg version 9.0.2-tessus)
+
+── 编译 ───────────────────────────────
+  ✅ spike 编译通过
+
+── 关键 API 可用性（编译期验证）─────────
+  ✅ CGWindowLevelForKey(.desktopWindow) 可编译
+  ✅ NSWindow.level 可赋值
+  ✅ AVQueuePlayer + AVPlayerLooper 可用
+  ✅ SMAppService 可用（开机自启）
+  ✅ 自定义 ToggleStyle 可用
+
+── 运行时值 ───────────────────────────
+  ✅ desktopWindow = -2147483623
+  ✅ 与图标层差 20 级
+  ✅ screenSaverWindow = 1000
+
+── spike 门禁探针 ─────────────────────
+  ✅ NSStatusItem 退路可编译
+  ✅ isOpaque=true 的 borderless NSWindow 可挂 AVPlayerLayer
+
+── 产品代码 ───────────────────────────
+  ✅ 产品代码 swift build 通过
+  ✅ 产品单测全绿（6 项）
+  ✅ Sources/ 无硬编码桌面层级字面量（D-04）
+  ✅ Sources/ 不出现被禁用的图标层级标识符（D-04）
+  ✅ State/ 零 AVFoundation 依赖（ARCHITECTURE §9）
+  ✅ Sources/ 不用 URL 的字符串形式做存在性检查（D-14 / Pitfall 5）
+  ✅ 壁纸窗口仍走系统默认 Space 行为（collectionBehavior 未被加塞）
+  ✅ 产品代码零 Space 身份读取（不做差异化处理）
+  ✅ Sources/ 不读窗口标题（T-02-03 隐私）
+  ✅ System/ 四个 Watcher 零 AVFoundation（D-09 单向流）
+  ✅ AppDelegate 零 0.5 秒 hold 轮询（D-05）
+  ✅ AppDelegate 用 withObservationTracking 驱动 PIC_HOLD（D-05）
+  ✅ PIC_HOLD active= 恰好一处，active/reason 同源于一个格式串（D-12）
+  ✅ PIC_HOLD 的 reason= 不再写死成手动暂停（D-12）
+  ✅ PIC_HOLD_OBSERVER_TICKS 恰好一处（D-05 的机器判据）
+  ✅ 菜单只由 MenuItemID.allCases 遍历渲染（Button 行数 1 = ForEach 行数 1）
+  ✅ 菜单结构体内零取文件名 API（MENUBAR-08）
+  ✅ 菜单侧零 AVPlayer 直连（D-11 单向流 / T-02-08）
+  ✅ 结束进程的全局调用全仓唯一落点（AppDelegate）
+  ✅ 仲裁器用例全绿（幂集 64 组 + 锁屏中退出全屏不恢复，13 项）
+  ✅ State/ 零 SwiftUI 依赖（D-12 只产数据不渲染）
+  ✅ State/ 零 AppKit 依赖（D-12 只产数据不渲染）
+  ✅ 起播路径零播放器直连（D-06 / W-2026-10-03-10 已收口）
+  ✅ 起播路径的 setRate 门在 shouldPlay 之后（W-2026-10-03-21 / B1）
+  ✅ PIC_HOLD_SUMMARY 恰好一处（D-12 数据落点的可观测出口）
+  ✅ HoldStatus 用例全绿（D-12 派生量 + B1 门控，6 项）
+  ✅ 锁屏跃迁观测已采集（03-01 探针，关键行存在）
+     ⚠️ 该 evidence 的读数与入库版本不同（多半是会话锁定态变了）；旧值留在 git 里
+  ✅ 全屏判定读数已采集（03-02 探针，verdict 行存在）
+     ⚠️ 该 evidence 的读数与入库版本不同（多半是会话锁定态变了）；旧值留在 git 里
+  ✅ 熄屏/睡眠跃迁观测已采集（03-03 探针，关键行存在）
+     ⚠️ 该 evidence 的读数与入库版本不同（多半是会话锁定态变了）；旧值留在 git 里
+  ✅ 电池跃迁观测已采集（03-04 探针，关键行存在）
+     ⚠️ 该 evidence 的读数与入库版本不同（多半是会话锁定态变了）；旧值留在 git 里
+
+── Phase 4：媒体库与轮换（源码层）────
+  ✅ Media/ 零 AppKit 依赖（只做文件系统与探针）
+  ✅ Media/ 零 SwiftUI 依赖（只做文件系统与探针）
+  ✅ 文件夹选择面板全仓唯一落点（FolderPicker）
+  ✅ 轮换器零播放进度读取（AVPlayer）
+  ✅ 轮换器零播放进度读取（arbiterCurrentPosition）
+  ✅ 轮换器零播放进度读取（currentTime）
+  ✅ 轮换器零播放进度读取（AVPlayerItemDidPlayToEndTime）
+
+── Phase 4：探针 evidence ────────────
+  ✅ 媒体库 tracer 判定行存在（MEDIA_TRACER_PLAN=playing）
+  ✅ 媒体库 tracer 播放队列已入队（MEDIA_TRACER_PLAYER_ITEMS ≥ 1）
+  ✅ 媒体库 tracer 窗口 attach 后可见（MEDIA_TRACER_WINDOW_VISIBLE_AFTER_ATTACH=1）
+  ✅ 媒体库 tracer 窗口 teardown 后不可见（MEDIA_TRACER_WINDOW_VISIBLE_AFTER_TEARDOWN=0）
+  ✅ 媒体库 tracer 缓存生效（MEDIA_TRACER_SCAN_COUNT=1）
+  ✅ 轮换装配装载顺序正确（PIC_ROT_LOOPLIST_ORDER=ok）
+  ✅ 轮换装配一轮内无重复（PIC_ROT_SHUFFLE_ROUND_UNIQUE=3）
+  ✅ 轮换装配空列表零装载（PIC_ROT_EMPTY_LOADS=0）
+  ✅ 轮换装配模式 token 已打（PIC_ROT_MODE）
+  ✅ 轮换装配范围声明已打（PIC_ROT_APP_LAUNCH informational=1）
+  ✅ 媒体库 evidence 零媒体文件名（T-03-02）
+  ✅ 轮换 evidence 零媒体文件名（T-03-02）
+
+── Phase 5：设置窗与运行层（源码层）──
+  ✅ 设置窗视图零 AVFoundation 依赖（05-01 分层）
+  ✅ PicCore 展示层零 UI 框架依赖（05-01 分层）
+  ✅ NSOpenPanel 只存在于 FolderPicker
+  ✅ 电池 hold 单一落点（05-02 / T-05-06）
+  ✅ ffmpeg 探测零执行（05-03）
+  ✅ 变异插桩零残留
+  ✅ W 编号全库唯一
+
+── 渲染 ───────────────────────────────
+  ✅ 设置窗渲染成功 (459633 bytes)
+
+── 打包产物 ───────────────────────────
+  ⏭️ .app 二进制非空（build/ 不存在）
+     跑 bash build.sh 后再验
+  ⏭️ .dmg 非空（dist/ 不存在）
+     跑 bash build.sh 后再验
+  ⏭️ Info.plist 的 LSUIElement 为 true
+     build/Pic.app 不存在
+  ⏭️ Info.plist 无任何 UsageDescription
+     build/Pic.app 不存在
+  ⏭️ ad-hoc 签名且非 Developer ID
+     build/Pic.app 不存在
+
+───────────────────────────────────────
+  通过 71  失败 0  跳过 5
+  ✅ 全绿
+UITEST_STATUS=blocked reason=screen_locked（解开条件：解锁后重跑 bash scripts/run-uitests.sh）
+PHASE5_FINAL build=0 swifttest=0 testsh=0 uitest=blocked uitest_runner_rc=0

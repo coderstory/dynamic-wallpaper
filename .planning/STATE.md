@@ -160,6 +160,7 @@ Items acknowledged and deferred at milestone close, most recent first:
 |-------|-------|--------|
 | 01 | verification_deferred_human | 见下 —— 四项需真人在场，共约 22 分钟 |
 | 04 | verification_deferred_human | 5 项需解锁会话 —— 见 `04-UAT.md`（SC1 首启即播 / SC2 真探针拒坏文件 / SC3 立即下一个 / SC4 重启自动播 / SC5 删目录降级恢复） |
+| 05 | verification_deferred_human | 见下 —— 一项**永远无法自动化**的听音 + 一批解锁会话重跑项 |
 
 **Phase 1 待人工补跑清单（自动化无法覆盖，已核实为硬约束非疏漏）：**
 
@@ -178,6 +179,18 @@ Items acknowledged and deferred at milestone close, most recent first:
 | 6 | 交付物剥离测量脚手架的实现 | 编码任务 | 已拍板，落在 Phase 4 或 7 的 `build.sh`；判据 = 打进 `.app` 的二进制不得含探针符号 |
 
 **恢复命令：** `/gsd-verify-work 1`
+
+**Phase 5 待人工补跑清单（05-04 登记，与 `.planning/WINDOWS.md` 的 W 登记簿双记账）：**
+
+| # | 事项 | 对应 W | 解锁条件 | 为什么自动化不了 |
+|---|------|--------|---------|-----------------|
+| 7 | **听 0.5× 与 2× 的人声，确认不变调** | W-33 | 真人在场，任意解锁会话 | **这一项原理上没有断言能表达。** 自动化只证明了两件事：音轨的 `.spectral` 在 item 创建时已落位（Phase 2 冻结面，单测锁）、`rate` 改动当场落到播放器（`PIC_SETTINGS_APPLY key=rate … applied=1`）。**参数设对了 ≠ 听过了** —— 用无人声或纯音乐素材不算 |
+| 8 | 解锁会话重跑 `bash scripts/run-uitests.sh`（TEST-07/08/09/10 + G-04-3 + 拖速度共 11 条） | W-34（整体未跑）/ W-31（菜单实点）/ W-32（拖动漂移） | 解锁 | 本会话 `SCREEN_LOCKED=1`，XCUITest 跑前就被守卫挡成 `blocked`。**测试目标编译已通过（`XCODEBUILD_BUILD_RC=0`），但一条用例都没执行过** |
+| 9 | 锁屏态打开设置窗目视「屏幕已锁定」副标签 | W-29 | 锁屏 + 能看见屏幕 | 活体目视；原因→文案的映射已由穷举单测逐字锁死，缺的只是「屏上真的出现这行字」 |
+
+⚠️ 第 8 项的重跑**不需要改任何判据**：`run-uitests.sh` 会数出 `UITEST_SKIPPED=`，
+逐条核对 skip 串里的 W 号在登记簿里找得到，找不到就 `W_FOR_SKIP_MISSING` 非 0 退出 ——
+「没跑过」不允许静默冒充通过。
 
 ---
 
