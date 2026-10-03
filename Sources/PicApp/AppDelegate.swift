@@ -55,8 +55,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 最近一次的判定结论。`refreshFFmpegAvailability()` 的唯一写入口。
     private(set) var ffmpegAvailability: FFmpegToolStatus = .unavailable
     /// 转码队列的持有者 —— 窗口与 06-05 的 `onBatchFinished` 接的是同一个实例。
+    /// 排空钩子挂在这里（不是别的 lazy 属性里）：漏挂的表象是「转完了但清单里没有新片」，
+    /// 而清单那条路本身不报错，只有这个闭包在。
     lazy var transcodeQueue: TranscodeQueue = {
-        TranscodeQueue(
+        let queue = TranscodeQueue(
             runner: ProcessTranscodeRunner(),
             naming: TranscodeOutputNaming(
                 root: store.resolvedFolderURL() ?? URL(fileURLWithPath: NSTemporaryDirectory())),
@@ -65,6 +67,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 (try? url.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]))?
                     .volumeAvailableCapacityForImportantUsage
             })
+        queue.onBatchFinished = { [weak self] in
+            MainActor.assumeIsolated { self?.handleTranscodeBatchFinished() }
+        }
+        return queue
     }()
     /// 04-05 T2：轮换 → 装载的路由器。强持有（它持 `rotation.onAdvance` 闭包）；
     /// lazy：init 引用 self 的其它属性。
@@ -307,6 +313,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return false
     }
 
+    /// `Converted/` 的独立扫描器（D-23 的播放第二入口）。与 `library` 同隔离域。
+    /// 刻意不复用 `MediaLibrary` 的缓存 —— 它的扫描结果被 `excludedByConverted` 全排除。
+    private lazy var convertedLibrary = ConvertedLibrary()
+
+    /// 播放清单合并的**唯一**入口（D-23）：根扫描 items 在前、`Converted/` 产物按序追加、
+    /// 按 path 去重。转码产物因此当轮就能进轮换，不必回根目录再生成一份。
+    /// 转换侧扫不出来一律吞成空数组 —— 播不了新片不该打断正在播的旧片。
+    private func mergedPlaybackItems(_ report: MediaLibraryReport?) async -> [VideoItem] {
+        let root = report?.items ?? []
+        guard let folder = store.resolvedFolderURL() else { return root }
+        let converted = (try? await convertedLibrary.scan(folder: folder)) ?? []
+        return ConvertedLibrary.playbackItems(root: root, converted: converted)
+    }
+
+    /// 转码队列排空 → 新产物当轮进播放清单。
+    /// ⚠️ 失效缓存必须**同步**排在重扫之前：`MediaLibrary.scan` 默认吃内存缓存，
+    /// 不失效的话重扫拿回的是上一轮的 report，新 MP4 永远看不见（静默失效，不报错）。
+    private func handleTranscodeBatchFinished() {
+        library.invalidateCache()
+        emit("PIC_TRC_RESCAN=1")
+        Task { await rescanAndApply() }
+    }
+
     /// `PIC_LOCK_SIGNAL_PREFIX` —— **测试脚手架，不是产品能力**（`W-2026-10-03-15`）。
     ///
     /// 非空时把 `LockSignalNames` 的两个名字换成 `"<prefix>locked"` / `"<prefix>unlocked"`，
@@ -399,7 +428,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // D-13：传的是 AVQueuePlayer 实例本身，不是 AVPlayerItem ——
         // looper 的模板 item 属性在 init 时就冻结，挂在 item 上「改设置立即生效」是假的。
         wallpaper.attach(player: player.player)
-        router.start(with: report.items)
+        // D-23：`Converted/` 产物与根扫描清单合并后才进轮换（转码产物首启即可播）。
+        router.start(with: await mergedPlaybackItems(report))
         emit("PIC_ROT_START=1")
         // D-06 / W-2026-10-03-10：起播决策**只**从仲裁器出，零播放器直连。
         // 四个 Watcher 的 start() 已在 wiring() 里同步置位，所以此刻 decision 已含
@@ -561,8 +591,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         sessionState.isScanning = true
         defer { sessionState.isScanning = false }
         guard let folder = store.resolvedFolderURL() else {
-            dispatchPlayback(for: coordinator.apply(scanOutcome: .success(0),
-                                                    folderConfigured: false), items: [])
+            await dispatchPlayback(for: coordinator.apply(scanOutcome: .success(0),
+                                                          folderConfigured: false), report: nil)
             return
         }
         // 模式与间隔从设置带过来（当场生效，不存第二份真相）。04-05：同步后打
@@ -573,27 +603,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         do {
             let report = try await library.scan(folder: folder)
             sessionState.playableCount = report.playableCount
-            dispatchPlayback(for: coordinator.apply(scanOutcome: .success(report.playableCount),
-                                                    folderConfigured: true),
-                             items: report.items)
+            await dispatchPlayback(for: coordinator.apply(scanOutcome: .success(report.playableCount),
+                                                           folderConfigured: true),
+                                   report: report)
         } catch let error as MediaLibrary.MediaLibraryError {
-            dispatchPlayback(for: coordinator.apply(scanOutcome: .failure(error),
-                                                    folderConfigured: true), items: [])
+            await dispatchPlayback(for: coordinator.apply(scanOutcome: .failure(error),
+                                                           folderConfigured: true), report: nil)
         } catch {
             // scan 只抛 MediaLibraryError，这里是编译器要的兜底；真到了这一步
             // 说明出了没料到的错误，按「目录读不了」处理（隐藏 + 让出桌面）。
-            dispatchPlayback(for: coordinator.apply(scanOutcome: .failure(.folderUnreadable),
-                                                    folderConfigured: true), items: [])
+            await dispatchPlayback(for: coordinator.apply(scanOutcome: .failure(.folderUnreadable),
+                                                           folderConfigured: true), report: nil)
         }
     }
 
     /// 04-05 T2 ③：`LibraryState` → 装载分派。只看 `coordinator.apply` 的返回值，
     /// 不在 AppDelegate 再判一次「有没有视频」（那会与 `LibraryAvailability` 的
     /// 纯函数决策漂成两处）。
-    private func dispatchPlayback(for state: LibraryState, items: [VideoItem]) {
+    ///
+    /// ⚠️ 入参是 `report` 不是 `items`：`Converted/` 产物不在 `report.items` 里
+    /// （04-01 把那棵目录整棵排除），合并只在装载这一处发生（D-23）。
+    /// 分派结构一个分支都没动 —— 只换了 `.playing` 分支的数据来源。
+    private func dispatchPlayback(for state: LibraryState, report: MediaLibraryReport?) async {
         switch state {
         case .playing:
-            router.start(with: items)
+            router.start(with: await mergedPlaybackItems(report))
         case .folderUnconfigured, .folderMissing, .noPlayableVideos:
             emit("PIC_ROT_STOP=1")
             router.stop()

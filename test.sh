@@ -23,7 +23,7 @@ TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 echo "── 工具链 ─────────────────────────────"
 xcode-select -p | grep -q Xcode.app && ok "Xcode 已选中" || no "Xcode 未选中" "跑 sudo xcode-select -s /Applications/Xcode.app/Contents/Developer"
 command -v create-dmg >/dev/null && ok "create-dmg 可用 ($(create-dmg --version 2>&1|head -1))" || no "create-dmg 缺失" "brew install create-dmg"
-command -v ffmpeg >/dev/null && ok "ffmpeg 可用 ($(ffmpeg -version 2>&1|head -1|cut -d' ' -f1-3))" || no "ffmpeg 缺失" "转码功能会降级；brew install ffmpeg 在 macOS 27 上会失败，用静态二进制"
+command -v ffmpeg >/dev/null && ok "ffmpeg 可用（command -v 探测；版本查询已按 ffmpeg 红线移除）" || no "ffmpeg 可用" "ffmpeg 缺失；转码功能会降级；brew install ffmpeg 在 macOS 27 上会失败，用静态二进制"
 
 echo ""
 echo "── 编译 ───────────────────────────────"
@@ -475,6 +475,137 @@ N=$(src_count 'MUT-P5-')
 WD=$(grep -E '^### W-' .planning/WINDOWS.md | sort | uniq -d | wc -l | tr -d ' ')
 [ "$WD" = "0" ] && ok "W 编号全库唯一" \
   || no "W 编号全库唯一" "重复的条目标题：$(grep -E '^### W-' .planning/WINDOWS.md | sort | uniq -d | tr '\n' ' ')"
+
+echo "── Phase 6：转码（纯逻辑 + 红线门）──────"
+# ⚠️ 措辞纪律（照 test.sh:144-147 与 :265-268 的原话）：本段 `no()` 文案必须带上
+#   `ok()` 的同一句判据名（逐字相同），红绿靠 ✅ / ❌ 前缀区分。
+# ⚠️ 本段**零 ffmpeg 进程调用**：只跑 swift 单测（转码侧全部是替身）+ 读源码计数 +
+#   读已入库 evidence。转码执行只存在于手动 bench 脚本里（红线，见下）。
+# ⚠️ 编译与全量单测由本脚本既有的「产品代码」段承担，本段不重跑。
+# ⚠️ 本段**不重跑** transcode 探针（照 Phase 4 的 p4_line 纪律：探针重跑会覆盖
+#   已入库 evidence；06-03 的 tracer 用例同在下面那条单测里）。
+
+# ① Transcode/ 分层：只有文件系统与子进程执行，不引渲染/UI/响应式框架。
+#    目录不存在时 src_count 返回 -1 → 报红（Phase 6 的产物必须在，这是有意的）。
+N=$(src_count 'import AppKit' 'Sources/PicCore/Transcode')
+[ "$N" = "0" ] && ok "Transcode/ 零 AppKit 依赖（只做文件系统与子进程）" \
+  || no "Transcode/ 零 AppKit 依赖（只做文件系统与子进程）" "剥注释后计数 = $N，期望 0（目录不存在时为 -1）"
+
+N=$(src_count 'import SwiftUI' 'Sources/PicCore/Transcode')
+[ "$N" = "0" ] && ok "Transcode/ 零 SwiftUI 依赖（执行侧不渲染）" \
+  || no "Transcode/ 零 SwiftUI 依赖（执行侧不渲染）" "剥注释后计数 = $N，期望 0"
+
+N=$(src_count 'import Combine' 'Sources/PicCore/Transcode')
+[ "$N" = "0" ] && ok "Transcode/ 零 Combine 依赖（UI 观察走回调）" \
+  || no "Transcode/ 零 Combine 依赖（UI 观察走回调）" "剥注释后计数 = $N，期望 0"
+
+# 执行侧的路径纪律：不自己 contentsOfDirectory 绕开扫描器。
+# ⚠️ 同族里的 `absoluteString` == 0 已在「产品代码」段对全 Sources/ 判过一次，
+#    这里不重复 —— 判据一个数读两个真相源，只会让它不再变红。
+N=$(src_count 'contentsOfDirectory' 'Sources/PicCore/Transcode')
+[ "$N" = "0" ] && ok "Transcode/ 不自己列目录（枚举统一走 MediaLibrary / ConvertedLibrary）" \
+  || no "Transcode/ 不自己列目录（枚举统一走 MediaLibrary / ConvertedLibrary）" "剥注释后计数 = $N，期望 0"
+
+# ② 子进程执行侧的两个承重形状：降载前缀（不得裸 spawn 抢 CPU）与
+#    只认退出码判成败（管道退出码不作数，C10）。
+TR="$TMP/trc-src"; mkdir -p "$TR"
+cp Sources/PicCore/Transcode/ProcessTranscodeRunner.swift "$TR/" 2>/dev/null
+if [ -f "$TR/ProcessTranscodeRunner.swift" ]; then
+  N=$(src_count '/usr/bin/nice' "$TR")
+  [ "$N" -ge 1 ] 2>/dev/null && ok "转码子进程降载执行（nice 前缀在 argv 里）" \
+    || no "转码子进程降载执行（nice 前缀在 argv 里）" "剥注释后 ProcessTranscodeRunner.swift 内计数 = $N，期望 ≥ 1"
+  N=$(src_count 'terminationStatus' "$TR")
+  [ "$N" -ge 1 ] 2>/dev/null && ok "转码成败只认进程退出码" \
+    || no "转码成败只认进程退出码" "剥注释后 ProcessTranscodeRunner.swift 内计数 = $N，期望 ≥ 1"
+else
+  no "转码子进程降载执行（nice 前缀在 argv 里）" "文件缺失：Sources/PicCore/Transcode/ProcessTranscodeRunner.swift 不在（06-03 未执行）"
+  no "转码成败只认进程退出码" "文件缺失：Sources/PicCore/Transcode/ProcessTranscodeRunner.swift 不在（06-03 未执行）"
+fi
+
+# ③ 三途径安装说明的外显两条。`pathway:` 标识符的完整性由 06-04 的 FFmpeg 单测锁。
+N=$(src_count 'xattr -dr com.apple.quarantine' 'Sources/PicApp/Transcode')
+[ "$N" -ge 1 ] 2>/dev/null && ok "安装说明含静态二进制的去隔离命令" \
+  || no "安装说明含静态二进制的去隔离命令" "剥注释后 Sources/PicApp/Transcode 内计数 = $N，期望 ≥ 1"
+
+N=$(src_count 'brew install ffmpeg' 'Sources/PicApp/Transcode')
+[ "$N" -ge 1 ] 2>/dev/null && ok "安装说明含 Homebrew 途径" \
+  || no "安装说明含 Homebrew 途径" "剥注释后 Sources/PicApp/Transcode 内计数 = $N，期望 ≥ 1"
+
+# ④ 装配侧（SC#5 的 app 级）：`router.start` 的每个调用点都必须吃合并清单，
+#    且转码排空后要失效缓存再重扫 —— 少了 invalidateCache，MediaLibrary 的缓存
+#    会让新产物永远看不见（静默失效）。
+N=$(src_count 'mergedPlaybackItems' 'Sources/PicApp')
+[ "$N" -ge 2 ] 2>/dev/null && ok "播放清单走 Converted 合并入口（SC#5）" \
+  || no "播放清单走 Converted 合并入口（SC#5）" "剥注释后 Sources/PicApp 内计数 = $N，期望 ≥ 2（定义 + 至少一个调用点）"
+
+N=$(src_count 'onBatchFinished' 'Sources/PicApp')
+[ "$N" -ge 1 ] 2>/dev/null && ok "转码排空钩子已装配" \
+  || no "转码排空钩子已装配" "剥注释后 Sources/PicApp 内计数 = $N，期望 ≥ 1"
+
+N=$(src_count 'invalidateCache' 'Sources/PicApp')
+[ "$N" -ge 1 ] 2>/dev/null && ok "排空后显式失效扫描缓存" \
+  || no "排空后显式失效扫描缓存" "剥注释后 Sources/PicApp 内计数 = $N，期望 ≥ 1"
+
+# ⑤ 转码侧纯逻辑单测。转码执行侧全部是替身（FakeRunner 进程外零调用），
+#    所以这条是**零 ffmpeg** 的。队列单列一条 —— 它是执行路径的行为中枢。
+TRC_N=40
+if swift test --package-path . --filter 'Transcode|ConvertedLibrary|ExternalToolLocator|ProgressParser' > "$TMP/trc.log" 2>&1 \
+   && grep -qE "Executed ${TRC_N} tests, with 0 failures" "$TMP/trc.log"; then
+  ok "Phase6 转码纯逻辑单测全绿"
+else
+  no "Phase6 转码纯逻辑单测全绿" "$(grep -E 'error:|XCTAssert.*failed' "$TMP/trc.log" | head -2)"
+fi
+
+TQ_N=6
+if swift test --package-path . --filter TranscodeQueueTests > "$TMP/trcqueue.log" 2>&1 \
+   && grep -qE "Executed ${TQ_N} tests, with 0 failures" "$TMP/trcqueue.log"; then
+  ok "Phase6 转码队列单测全绿"
+else
+  no "Phase6 转码队列单测全绿" "$(grep -E 'error:|XCTAssert.*failed' "$TMP/trcqueue.log" | head -2)"
+fi
+
+# ⑥ 06-03 tracer 的活体 evidence（**只读**，不重跑探针）。
+#    四行分别锁：不回流（候选集零 Converted 条目）、产物可播、重复批次幂等跳过、
+#    全程 runner 只被调用一次（防重复烤机）。
+p6_log=".planning/phases/06-transcode/evidence/transcode-tracer.log"
+P6_TOKENS='PIC_TRC_REFILTER_CANDIDATES=0
+PIC_TRC_CONVERTED_PLAYABLE=1
+PIC_TRC_SECOND_PASS_SKIPPED=1
+PIC_TRC_RUNNER_CALLS_TOTAL=1'
+P6_MISSING=""
+if [ ! -f "$p6_log" ]; then
+  P6_MISSING="$p6_log 不存在（06-03 探针未执行或 evidence 未入库）"
+else
+  while IFS= read -r tok; do
+    grep -qxF "$tok" "$p6_log" || P6_MISSING="$P6_MISSING $tok"
+  done <<< "$P6_TOKENS"
+fi
+if [ -z "$P6_MISSING" ]; then
+  ok "Phase6 探针四行闭环（不回流可播幂等零重复spawn）"
+  grep -xE "$P6_TOKENS" "$p6_log" | sed 's/^/     /'
+else
+  no "Phase6 探针四行闭环（不回流可播幂等零重复spawn）" "缺：$P6_MISSING"
+fi
+
+# ⑦ 🔴 ffmpeg 红线（STATE.md 2026-10-03 拍板）：本脚本全程零 ffmpeg 进程调用，
+#    转码 bench 只能人工手动跑（scripts 下的手动脚本）。一次 libvmaf 实测跑出过
+#    779.9% CPU，挂进常规校验等于每次校验烤一次机。
+#
+#    ⚠️ 判据**自身**用拆串构造：模式在文件里以 `"a""b"` 两段字面存在，bash 拼接
+#    后才成为目标串。写成 joined 字面会让这条判据 grep 到自己、恒红（D-13 教训）。
+#    剥 bash 注释行后再计数 —— 注释里的提醒字样不算调用。
+BB="transcode""-bench"
+EP1="ffmpeg"" -i"
+EP2="libx""264"
+EP3="ffmpeg"" -version"
+RB=$(grep -v -E '^[[:space:]]*#' test.sh | grep -c "$BB")
+RE=$(grep -v -E '^[[:space:]]*#' test.sh | grep -cE "$EP1|$EP2|$EP3")
+if [ "$RB" -eq 0 ] && [ "$RE" -eq 0 ]; then
+  ok "Phase6 红线 test.sh 零 ffmpeg 调用与零 bench 引用"
+else
+  no "Phase6 红线 test.sh 零 ffmpeg 调用与零 bench 引用" \
+     "剥注释后 bench 引用计数=$RB 编码形态调用计数=$RE，期望全 0"
+fi
 
 echo ""
 echo "── 渲染 ───────────────────────────────"
