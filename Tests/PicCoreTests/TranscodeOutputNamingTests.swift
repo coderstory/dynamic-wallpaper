@@ -2,7 +2,7 @@ import XCTest
 @testable import PicCore
 
 /// TRANS-04 —— 产物路径推导、`.tmp` 中间态、mtime 幂等跳过三态。
-/// 临时目录 + UUID 自造（干净 clone 上 `swift test` 也必须绿，不读 fixtures/）。
+/// 临时目录 + UUID 自造，干净 clone 上 `swift test` 也必须绿。
 final class TranscodeOutputNamingTests: XCTestCase {
 
     private var root: URL!
