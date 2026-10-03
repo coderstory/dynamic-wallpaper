@@ -159,7 +159,7 @@ create-dmg --volname "Pic" --app-drop-link 480 180 \
 - `tools/make-icons.swift`（约 200 行 Swift + CoreGraphics）**已经实现**：app 图标（暖白渐变底 + 橙色前窗 + 播放三角 + 基线）与菜单栏模板图（纯黑 + alpha，v1 单窗 / v2 双窗两版） [VERIFIED: tools/make-icons.swift（本次 Read）]
 - `.planning/design/assets/` 里**全套产物已在**：`icon_16x16` 到 `icon_512x512@2x` 共 10 个 PNG + 合规的 `Contents.json`（idiom=mac，1x/2x 齐全，与 REQUIREMENTS ASSET-01 的尺寸清单逐项吻合）+ `menubar-v1/v2` 各 1x/2x/3x [VERIFIED: 本机 ls + Contents.json Read]
 
-→ **Phase 7 的 ASSET 工作量只剩「集成进 .app」**，不含设计/生成。ASSET-03（同源性）由 make-icons.swift 同一函数 `drawAppIcon(menuBar:)` 出两版天然满足 [VERIFIED: 源码结构]。
+→ **Phase 7 的 ASSET 工作量只剩「集成进 .app」**，不含设计/生成。⚠️ **同源性的准确口径（本轮逐行核对 `tools/make-icons.swift` 后修正）**：app 图标走 `drawAppIcon(ctx:px:menuBar:)`、菜单栏模板图走 `drawMenuBar(_:_:twoLayer:)` —— **两个不同函数**，`drawAppIcon` 的 `menuBar: true` 分支是**死代码**（唯一调用点写死 `menuBar: false`）。可断言的只有「同一生成器文件 + 同一套手绘语言（纯黑 + alpha 的 template 画法、圆角矩形 + 实心播放三角的母题）」，以及 v1 两版的构图一致（都 = 一个圆角矩形 + 一个实心播放三角）[VERIFIED: tools/make-icons.swift 逐行 Read]。⚠️ REQUIREMENTS ASSET-03 是**视觉**判据（「一眼看出是同一个 app」），源码结构证不了 —— 真判据是 07-03 UAT-SOAK 的人工并排比对，07-01 不设自动门。
 
 ### 4.2 集成路径（关键决策点）
 
