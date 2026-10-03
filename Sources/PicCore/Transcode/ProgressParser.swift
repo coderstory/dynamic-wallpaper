@@ -36,26 +36,54 @@ public enum ProgressParser {
         return (key, value)
     }
 
+    /// 增量解析器 —— 只吃**新到的**那一段，状态留在自己身上。
+    ///
+    /// 为什么存在（perf）：`parseChunk` 每次都要重扫传入的**整个**累积 buffer。
+    /// 转码 1 小时 = 数万行 `-progress` 输出，逐行全量重扫是 O(n²) —— 第 n 行
+    /// 要重读前 n−1 行的字符。累加器每段只 parse 一次，n 段总共 O(n)。
+    ///
+    /// 语义与 `parseChunk` 逐字一致（它是 parseChunk 的唯一实现）：
+    ///   · 后值覆盖前值；
+    ///   · 未知键 / 无 `=` / 空键 → 静默忽略；
+    ///   · `frame=` / `out_time_ms=` 的**值解析失败 → 该键置 nil**（不是保持旧值），
+    ///     这条是照抄原实现：`frame = Int64(value)` 对非法值给 nil 并覆盖。
+    ///   · `progress=` 每次都重写 isEnd（`continue` 会把先前的 `end` 打回 false），
+    ///     也是照抄原实现 —— 不是「只在 end 时置位」。
+    public struct Accumulator {
+        private var frame: Int64?
+        private var outTimeUs: Int64?
+        private var isEnd = false
+
+        public init() {}
+
+        /// 吸收一段 ffmpeg 输出（可含多行，内部按 `\n` 切），返回**当前**快照。
+        /// 调用方直接把这个返回值喂给 `percent(...)`。
+        public mutating func consume(_ text: String) -> Snapshot {
+            for line in text.split(separator: "\n", omittingEmptySubsequences: true) {
+                guard let (key, value) = parseLine(String(line)) else { continue }
+                switch key {
+                case "frame":
+                    frame = Int64(value)
+                case progressKeyOutTime:
+                    outTimeUs = Int64(value)
+                case "progress":
+                    isEnd = (value == "end")
+                default:
+                    break
+                }
+            }
+            return Snapshot(frame: frame, outTimeUs: outTimeUs, isEnd: isEnd)
+        }
+    }
+
     /// 多行块解析：逐行 parseLine，已知键（frame / out_time_ms / progress）
     /// 后值覆盖前值；未知键与解析失败的行**静默忽略**（格式漂移不崩）。
+    ///
+    /// ⚠️ 这是 `Accumulator` 的批量入口，实现只有一份（转调 consume）——
+    /// 「批量 = 逐行折叠」必须由构造保证，不靠两份代码碰巧一致。
     public static func parseChunk(_ text: String) -> Snapshot {
-        var frame: Int64?
-        var outTimeUs: Int64?
-        var isEnd = false
-        for line in text.split(separator: "\n", omittingEmptySubsequences: true) {
-            guard let (key, value) = parseLine(String(line)) else { continue }
-            switch key {
-            case "frame":
-                frame = Int64(value)
-            case progressKeyOutTime:
-                outTimeUs = Int64(value)
-            case "progress":
-                isEnd = (value == "end")
-            default:
-                break
-            }
-        }
-        return Snapshot(frame: frame, outTimeUs: outTimeUs, isEnd: isEnd)
+        var accumulator = Accumulator()
+        return accumulator.consume(text)
     }
 
     /// 百分比换算：微秒 → 秒 → 除以时长，clamp 到 0...1（ffmpeg 起步瞬间

@@ -144,15 +144,16 @@ public final class TranscodeQueue {
         let arguments = TranscodeCommand.arguments(input: source, output: temporaryURL)
         // duration 在 job 开始时取一次缓存，不逐行取（拿不到 → percent 走 nil 路径）。
         let durationSeconds = await durationProvider(source)
-        var progressText = ""
+        var progress = ProgressParser.Accumulator()
         let status = runner.run(
             ffmpegPath: toolPath,
             arguments: arguments,
             outputTemporaryPath: temporaryURL.path
         ) { line in
             Task { @MainActor in
-                progressText += line + "\n"
-                let snapshot = ProgressParser.parseChunk(progressText)
+                // 增量解析：只吃新到的这一行，状态留在累加器里 ——
+                // 旧写法把整段历史 `+=` 进来再全量重解析，1 小时转码 = 数万行 → O(n²)。
+                let snapshot = progress.consume(line)
                 self.jobs[index].percent = ProgressParser.percent(
                     snapshot: snapshot, durationSeconds: durationSeconds)
                 self.onJobsChanged?()
