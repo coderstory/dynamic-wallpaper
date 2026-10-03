@@ -20,8 +20,10 @@
 
 ### 播放 (PLAY)
 
-- [ ] **PLAY-01**: 视频作为桌面壁纸播放，**位于桌面图标之后**（`CGWindowLevelForKey(.desktopWindow)`）
+- [x] **PLAY-01**: 视频作为桌面壁纸播放，**位于桌面图标之后**（`CGWindowLevelForKey(.desktopWindow)`）
+  - 证据：02-VERDICT SC1（PASS-with-gap；缺口是人工「桌面图标可点可拖」，非本条）；`02-playback-core/evidence/order.log:SELF_LEVEL=-2147483623` < `ICON_LEVEL=-2147483603`；打包产物 `app-bundle.log:ORDER=ok`、`ALIVE_AFTER_FINDER_RESTART=1`
 - [ ] **PLAY-02**: 视频按**裁剪填满**方式适配主屏（保持比例，裁掉超出部分）
+  - 部分：已实现 `videoGravity = .resizeAspectFill` + 内缩几何实测（`inset.log:INSET=14/9/14/9`）；缺——02-VERDICT SC2 缺口：窗口每边比屏幕内缩 14pt/9pt 且不透明黑底，「铺满 / 无黑边」从未被目视确认
 - [ ] **PLAY-03**: 支持**单循环**模式
 - [ ] **PLAY-04**: 支持**列表循环**模式
 - [ ] **PLAY-05**: 支持**列表随机**模式
@@ -34,29 +36,42 @@
 ### 暂停策略 (PAUSE)
 
 - [ ] **PAUSE-01**: 任意应用进入全屏时暂停
-- [ ] **PAUSE-02**: 锁屏时暂停
-- [ ] **PAUSE-03**: 显示器熄屏时暂停
+  - 部分：`FullscreenDetector` 合取判定（`verdict = nonGeometricActive && covering`）已实现且有单测（`FullscreenDetectorTests` 4 条 + `FullscreenGeometryTests` 5 条）；缺——03-VERDICT SC1 PARTIAL：真实全屏跃迁未观测（`FULLSCREEN_TRANSITION=unobservable`），且实测到间歇性误暂停（W-2026-10-03-23）
+- [x] **PAUSE-02**: 锁屏时暂停
+  - 证据：03-VERDICT SC2 活体证据——`03-system-events/evidence/holds-live.log:PIC_HOLD active=1 reason=screenLocked`、`TICK_PAUSED_LINES=7/7`（采集时真实锁屏态下播放器全程 paused）；`LockWatcher` 装配在位
+- [x] **PAUSE-03**: 显示器熄屏时暂停
+  - 证据：03-VERDICT SC2 活体证据——`holds-live.log:holds=(screenLocked,displayAsleep)`、`PIC_HOLD_SUMMARY ... reasons=2`（`displayAsleep` 为真实读数）；`display-sleep-signals.log:DISPLAY_START_SYNC_DELIVERED=1 displayAsleep=1`
 - [ ] **PAUSE-04**: 系统睡眠时暂停
+  - 部分：`DisplayWatcher` 已注册 willSleep / didWake（`display-sleep-signals.log:DISPLAY_SIGNALS_REGISTERED=1 sleep=NSWorkspaceWillSleepNotification`）且有单测；缺——真实睡眠跃迁未观测（`SYSTEM_SLEEP_TRANSITION=unobservable`，被外部 caffeinate 挡住），`systemSleeping` 从未置位
 - [ ] **PAUSE-05**: 电池供电时暂停（**开关，默认关闭**）
-- [ ] **PAUSE-06**: 暂停条件解除后**从原处续播**，不从头开始
-- [ ] **PAUSE-07**: 多个暂停条件叠加时正确仲裁（**veto set，非优先级链**）—— 例如「锁屏中退出全屏」不得误恢复播放
-- [ ] **PAUSE-08**: 用户可从菜单栏手动暂停/继续
+  - 部分：开关默认关闭已实测（`power-signals.log:BATTERY_HOLD enabled=0`；`SettingsStore.pauseOnBattery` 默认 `false`；`PowerWatcherTests` 6 条）；缺——拔 / 插电源触发暂停与续播未实测（本机全程 AC，需物理动作）
+- [x] **PAUSE-06**: 暂停条件解除后**从原处续播**，不从头开始
+  - 证据：03-VERDICT SC5 PASS；`HoldArbiterTests.testResumeSeeksToAnchorThenClearsAnchor` / `.testAnchorWrittenOnlyOnEmptyToNonEmptyTransition` / `.testAnchorNotOverwrittenAcrossAllSixReasons`；合成路径 `lock-wiring.log:LOCK_RESUME seeks_to_anchor=1 seeks=42.000`（真实跃迁下的续播仍属 SC2 缺口，见 03-VERDICT）
+- [x] **PAUSE-07**: 多个暂停条件叠加时正确仲裁（**veto set，非优先级链**）—— 例如「锁屏中退出全屏」不得误恢复播放
+  - 证据：03-VERDICT SC4 PASS；`HoldArbiterTests.testShouldPlayMatchesEmptyHoldsForEverySubset`（运行时从 `allCases` 生成 64 组子集，逐组断言 `holds == subset` 与 `shouldPlay == subset.isEmpty`）+ `.testLockedThenFullscreenExitDoesNotResume`；注入式反向验证 `MUTATED_RC=1`；`swift test` 67 全绿
+- [x] **PAUSE-08**: 用户可从菜单栏手动暂停/继续
+  - 证据：02-VERDICT SC3（PASS-with-gap）；`MenuBarModelTests.testPerformPauseResumeGoesThroughArbiterNotDirectly` + `HoldArbiterTests.testManualPauseResumesFromAnchorNotFromZero`（`.manualPause` 经 veto 集合生效、从锚点续播）
 
 ### 菜单栏 (MENUBAR)
 
-- [ ] **MENUBAR-01**: 菜单栏常驻图标
+- [x] **MENUBAR-01**: 菜单栏常驻图标
+  - 证据：02-VERDICT SC1；`app-bundle.log:APP_ACTIVATION_POLICY=1`（`.accessory`）+ 打包 `LSUIElement=true`；Phase 1 `spike/out/menubar.log:MENUBAR_VERDICT=ok`（状态项路线 + 阳性对照）
 - [ ] **MENUBAR-02**: 关闭设置窗口只隐藏窗口，**进程不退出**
-- [ ] **MENUBAR-03**: 菜单项 —— 暂停/继续
+- [x] **MENUBAR-03**: 菜单项 —— 暂停/继续
+  - 证据：02-VERDICT SC3；`MenuBarModelTests.testPerformPauseResumeGoesThroughArbiterNotDirectly`（点击经仲裁器进入 `.manualPause` 并推送决策）+ `.testMenuItemIDsAreExactlyTheThreeFixedItems`
 - [ ] **MENUBAR-04**: 菜单项 —— 立即下一个
 - [ ] **MENUBAR-05**: 菜单项 —— 重新扫描文件夹
 - [ ] **MENUBAR-06**: 菜单项 —— 打开设置
-- [ ] **MENUBAR-07**: 菜单项 —— 退出
-- [ ] **MENUBAR-08**: 菜单**不显示当前播放的文件名**
+- [x] **MENUBAR-07**: 菜单项 —— 退出
+  - 证据：02-VERDICT SC3；`MenuBarModelTests.testPerformQuitCallsInjectedClosureOnlyOnce`；`quit.log:QUIT_HOOK_SEEN=1`、`QUIT_EXITED=1`（进程真实退出）
+- [x] **MENUBAR-08**: 菜单**不显示当前播放的文件名**
+  - 证据：02-VERDICT SC4 PASS；`MenuBarModelTests.testLabelsNeverContainAnyMediaFileName`（哨兵 `clip-sentinel.mp4` 计数 0）+ `.testLabelsHaveExactlyThreeEntriesInEveryState`；`test.sh` 两条源码判据（`Button(` 行数 = `ForEach(MenuItemID.allCases` 行数；菜单结构体内取文件名 API 计数 = 0）
 
 ### 系统集成 (SYS)
 
 - [ ] **SYS-01**: 支持开机自启（**需用户手动设置一次**）—— ⚠️ 未签名 app 上 `SMAppService` 行为待实测，退路是 `LaunchAgent` plist
 - [ ] **SYS-02**: 多 Space / 台前调度下**跟随系统默认行为**，不做差异化处理
+  - 部分：已证明「零 Space 级特殊处理」（`test.sh` 剥注释后 `activeSpaceDidChangeNotification` 计数 = 0；`collectionBehavior` 四项在位）；缺——02-VERDICT SC5 PARTIAL：真实切 Space / 台前调度下「壁纸不消失」未验证（本机单屏且会话锁定）
 - [ ] **SYS-03**: 首次启动直接弹出文件夹选择框
 
 ### 转码 (TRANS)
@@ -94,7 +109,8 @@
 
 #### 可自动化 —— 单元测试
 
-- [ ] **TEST-01**: 暂停仲裁状态机 **全组合覆盖** —— 6 个输入（全屏 / 锁屏 / 熄屏 / 睡眠 / 电池 / 用户手动）× 开闭 = **64 种组合**逐一断言。这是全项目最核心也最易错的逻辑（PAUSE-07）
+- [x] **TEST-01**: 暂停仲裁状态机 **全组合覆盖** —— 6 个输入（全屏 / 锁屏 / 熄屏 / 睡眠 / 电池 / 用户手动）× 开闭 = **64 种组合**逐一断言。这是全项目最核心也最易错的逻辑（PAUSE-07）
+  - 证据：03-VERDICT SC4 PASS；`Executed 67 tests, with 0 failures`；`HoldArbiterTests.testAllCasesCountIsSixAndPowersetIsSixtyFour` + `.testShouldPlayMatchesEmptyHoldsForEverySubset`（运行时从 `allCases` 生成 64 组，逐组断言 `holds == subset` 与 `shouldPlay == subset.isEmpty`）；反向注入验证 `MUTATED_RC=1`
 - [ ] **TEST-02**: 媒体库扫描 —— 递归子目录、格式白名单过滤、**转码产物排除**（TRANS-05 的防死循环）、空目录、文件夹不存在、无权限
 - [ ] **TEST-03**: 轮换逻辑 —— 单循环 / 列表循环 / 列表随机三种模式；到点就切（PLAY-06）；随机不重复直到走完一轮
 - [ ] **TEST-04**: 设置持久化 —— 存取、默认值、**改动立即生效**（PLAY-10 的断言点）
