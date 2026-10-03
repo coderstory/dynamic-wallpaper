@@ -1,0 +1,21 @@
+=== probe-settings-restart.sh · apply 层记账 ===
+ACTIVATION_POLICY_RAW=1
+PIC_SETTINGS_APPLY key=pauseOnBattery value=1 applied=1 onBattery=0
+PIC_HOLD_OBSERVER_TICKS=1
+PIC_HOLD active=0 reason=(none) holds=(none) resumeAt=0.000
+PIC_HOLD_SUMMARY summary=(none) reasons=0
+PIC_QUIT_AFTER_SCHEDULED seconds=6.0
+PIC_ROT_MODE=shuffle
+PIC_LIBRARY_STATE=no_playable_videos
+PIC_ROT_STOP=1
+PIC_NO_SOURCE reason=no_mp4_in_folder
+PIC_SETTINGS_BOOT rate=1.75 volume=0.35 muted=1 playMode=shuffle rotationInterval=600 pauseOnBattery=1
+REFRESH_DRIVER=display_link
+PIC_SETTINGS_WINDOW width=780 minWidth=680
+TICK seq=1 pos=nan status=paused items=0
+TICK seq=2 pos=nan status=paused items=0
+TICK seq=3 pos=nan status=paused items=0
+PIC_TERMINATED pid=58923 reason=application_will_terminate
+APPLY_EMIT_SITES=7
+APPLY_RUNTIME_LINES=3
+APPLY_RUNTIME_NOTE=电池行由 wiring() 同步回调产出（开窗即有，每轮恰好一行）；其余五条由设置窗控件事件驱动，无 UI 交互即不触发，值断言在 SettingsApplierTests，交互半边未自动验证（W-2026-10-03-28）

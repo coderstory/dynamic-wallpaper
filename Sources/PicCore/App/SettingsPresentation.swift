@@ -30,4 +30,49 @@ public enum SettingsPresentation {
     public static func volumeFromPercent(_ percent: Int) -> Float {
         min(max(Float(percent) / 100, 0), 1)
     }
+
+    // MARK: - Plan 05-02 T1：轮换值表与两条置灰联动
+
+    /// 轮换间隔的封闭值表（UI-SPEC §7，分钟）。UI 只在表内选，
+    /// 换算的**唯一**落点在下面两个函数（视图里不出现第二份 ×60）。
+    public static let rotationChoicesMinutes: [Int] = [5, 10, 15, 30, 60, 120]
+
+    /// 步进器读数：`>= 60` 显示「N 小时」，否则「N 分钟」。
+    public static func rotationLabel(minutes: Int) -> String {
+        minutes >= 60 ? "\(minutes / 60) 小时" : "\(minutes) 分钟"
+    }
+
+    /// UI 分钟 → store 秒（`rotationInterval` 的量纲是秒）。
+    public static func rotationSeconds(minutes: Int) -> TimeInterval {
+        TimeInterval(minutes) * 60
+    }
+
+    /// store 秒 → 表内分钟。**就近吸附**：持久化旧值（例如 299×60）对不上值表时
+    /// 回落到最近的表项，否则步进器会索引到越界位置（UI-SPEC §7 的量纲红线）。
+    public static func rotationMinutes(seconds: TimeInterval) -> Int {
+        let target = seconds / 60
+        return rotationChoicesMinutes.min {
+            abs(Double($0) - target) < abs(Double($1) - target)
+        } ?? rotationChoicesMinutes[0]
+    }
+
+    /// 置灰联动①（UI-03 / SC-3）。判据字面量只允许出现在下面这一行 return 上 ——
+    /// 写进注释会让变异的替换打在注释上、代码没坏（03-04 踩过，D-15）。
+    public static func rotationControlsEnabled(playMode: PlayMode) -> Bool {
+        return playMode != .loopSingle
+    }
+
+    /// 置灰联动②（UI-03 / SC-3）。同 D-15：判据只出现在 return 行。
+    public static func volumeControlsEnabled(isMuted: Bool) -> Bool {
+        return !isMuted
+    }
+
+    /// 分段控件文案（按 `PlayMode.allCases` 顺序渲染，04-02 T1 锁序）。
+    public static func playModeLabel(_ mode: PlayMode) -> String {
+        switch mode {
+        case .loopSingle: return "单循环"
+        case .loopList: return "列表循环"
+        case .shuffle: return "随机"
+        }
+    }
 }

@@ -2,35 +2,31 @@ import SwiftUI
 import AppKit
 import PicCore
 
-/// 设置窗主体（Phase 5 tracer，UI-SPEC §7 双列：左来源/播放，右电源与系统/维护/运行状态）。
+/// 设置窗主体（UI-SPEC §7 双列：左来源/播放，右电源与系统/维护/运行状态）。
 ///
-/// 本 plan（05-01）只把**速度行**接到真管线：onChanged → `store.rate` 写入 +
-/// `SettingsApplier.applyRate()`（shouldPlay 门内）→ `AVPlayer.rate` 当场变；
-/// onEnded → `store.persist()` 恰一次（SC-4 ③ 的节流纪律）。其余行用 @State
-/// seed 自 store 的**真值**渲染，行为接线登记在 05-02/05-03 —— 不许提前记完成。
+/// 05-02 起六个可调项**全部**是真绑定：每个控件的写入口经
+/// `store.<键> = …` → `SettingsApplier.apply*()`（当场生效）→ `store.persist()`
+/// —— 窗口内没有任何「渲染假数据」的 `@State`（速度行的拖动暂态除外，
+/// 它每次变更都直通 store）。量纲换算全部走 `SettingsPresentation`，视图里不出现第二份。
 struct SettingsView: View {
     @Environment(SettingsStore.self) private var store
     @Environment(SettingsApplier.self) private var applier
     @Environment(HoldArbiter.self) private var arbiter
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    // ── 真绑定（tracer 主体）──
-    @State private var rateDrag: Double = 1.0
+    /// 「电池时播放」toggle 的当场重估。**闭包注入**，视图不持有 AppDelegate
+    /// （与 terminate / presentSettings 同型的注入模式，D-10 装配点不动）。
+    let reapplyBatteryHold: () -> Void
 
-    // ── 渲染真值、行为接线在 05-02/05-03 的行 ──
-    @State private var modeIndex = 0
-    @State private var rotIndex = 2
-    @State private var volumeDrag: Double = 60
-    @State private var soundOn = true
-    @State private var batteryPause = false
+    // ── 唯一保留的 @State（都不是「渲染假数据」）──
+    // 速度滑杆的拖动暂态（每次 onChanged 直通 store + applier）。
+    @State private var rateDrag: Double = 1.0
     // 开机自启：本地 @State，不持久化（SettingsStore 7 键冻结，不加第 8 键）。
     // 行为接线：Phase 7 SYS-01
     @State private var launchAtLogin = false
     // 计数与空态皮的真数据源（MediaLibraryReport）在 05-03 接线。
     @State private var playableCount = 0
     @State private var breathe = false
-
-    private let rotVals = [5, 10, 15, 30, 60, 120]
 
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
@@ -91,11 +87,18 @@ struct SettingsView: View {
             SectionHead(t: "播放").padding(.top, 4)
             Card {
                 Row(symbol: "repeat", title: "模式") {
-                    GlowSegmented(items: ["单循环", "列表循环", "随机"], index: $modeIndex)
+                    GlowSegmented(items: PlayMode.allCases.map(SettingsPresentation.playModeLabel),
+                                   index: modeIndex)
+                        .accessibilityIdentifier("mode-segmented")
                 }
+                // 置灰联动①（UI-03）：单循环下整行不可交互 + 视觉变淡。
                 Row(symbol: "timer", title: "轮换") {
-                    GlowStepper(index: $rotIndex, values: rotVals)
-                }.opacity(modeIndex == 0 ? 0.34 : 1)
+                    GlowStepper(index: rotationIndex,
+                                values: SettingsPresentation.rotationChoicesMinutes)
+                }
+                .disabled(!SettingsPresentation.rotationControlsEnabled(playMode: store.playMode))
+                .opacity(SettingsPresentation.rotationControlsEnabled(playMode: store.playMode) ? 1 : 0.34)
+                .accessibilityIdentifier("rotation-stepper")
                 Row(symbol: "gauge.with.dots.needle.67percent", title: "速度", sub: "音高不变") {
                     HStack(spacing: 9) {
                         // 拖动中只对播放器生效不写盘；拖动结束 persist 恰一次。
@@ -114,12 +117,23 @@ struct SettingsView: View {
                     }
                 }
                 Row(symbol: "speaker.wave.2.fill", title: "声音", hairline: false) {
-                    // 行为接线：05-02（applyVolume/applyMuted 已就绪，等 UI 事件接上）
                     HStack(spacing: 9) {
-                        GlowSlider(value: $volumeDrag, range: 0...100).opacity(soundOn ? 1 : 0.34)
-                        Text("\(Int(volumeDrag))%").font(mono(11.5))
+                        // 置灰联动②（UI-03）：静音时滑杆不可交互 + 视觉变淡。
+                        GlowSlider(value: volumePercent, range: 0...100, onChanged: {
+                            store.volume = SettingsPresentation.volumeFromPercent(
+                                SettingsPresentation.volumePercent(store.volume))
+                            applier.applyVolume()
+                        }, onEnded: {
+                            store.persist()
+                        })
+                        .disabled(!SettingsPresentation.volumeControlsEnabled(isMuted: store.isMuted))
+                        .opacity(SettingsPresentation.volumeControlsEnabled(isMuted: store.isMuted) ? 1 : 0.34)
+                        .accessibilityIdentifier("volume-slider")
+                        Text("\(SettingsPresentation.volumePercent(store.volume))%").font(mono(11.5))
                             .foregroundStyle(Color.pFg.opacity(0.75)).frame(width: 42, alignment: .trailing)
-                        Toggle("", isOn: $soundOn).toggleStyle(GlowToggle()).labelsHidden()
+                            .accessibilityIdentifier("volume-value")
+                        Toggle("", isOn: isMuted).toggleStyle(GlowToggle()).labelsHidden()
+                            .accessibilityIdentifier("sound-toggle")
                     }
                 }
             }
@@ -132,12 +146,14 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 12) {
             SectionHead(t: "电源与系统")
             Card {
-                // 行为接线：05-02（电池开关当场生效 + persist）
                 Row(symbol: "battery.75", title: "电池时播放", sub: "默认关") {
-                    Toggle("", isOn: $batteryPause).toggleStyle(GlowToggle()).labelsHidden()
+                    Toggle("", isOn: pauseOnBattery).toggleStyle(GlowToggle()).labelsHidden()
+                        .accessibilityIdentifier("battery-toggle")
                 }
                 Row(symbol: "power", title: "开机自启", hairline: false) {
+                    // 行为接线：Phase 7 SYS-01（本地 @State，不持久化 —— SettingsStore 7 键冻结）
                     Toggle("", isOn: $launchAtLogin).toggleStyle(GlowToggle()).labelsHidden()
+                        .accessibilityIdentifier("autostart-toggle")
                 }
             }
             Hint(t: "全屏 / 锁屏 / 熄屏 / 睡眠时自动暂停")
@@ -150,8 +166,9 @@ struct SettingsView: View {
                 }
                 Row(symbol: "arrow.left.arrow.right", title: "转码",
                     sub: "MKV / AVI → MP4 · 待后续版本", hairline: false) {
-                    // 行为接线：Phase 6（渲染 + disabled 占位，不做空窗口）
+                    // 行为接线：Phase 6（disabled 占位，不做空窗口）
                     Button("打开…") {}.buttonStyle(GlowButton(primary: true)).disabled(true)
+                        .accessibilityIdentifier("transcode-open")
                 }
             }
 
@@ -176,31 +193,67 @@ struct SettingsView: View {
         arbiter.decision.activeReasons.map { String(describing: $0) }.joined(separator: "、")
     }
 
+    // MARK: - 真绑定（每个写入口都是 store → applier → persist）
+
+    private var modeIndex: Binding<Int> {
+        Binding(
+            get: { PlayMode.allCases.firstIndex(of: store.playMode) ?? 0 },
+            set: { i in
+                store.playMode = PlayMode.allCases[i]
+                applier.applyMode()
+                store.persist()
+            })
+    }
+
+    private var rotationIndex: Binding<Int> {
+        Binding(
+            get: { SettingsPresentation.rotationChoicesMinutes
+                .firstIndex(of: SettingsPresentation.rotationMinutes(seconds: store.rotationInterval)) ?? 0 },
+            set: { i in
+                store.rotationInterval = SettingsPresentation.rotationSeconds(
+                    minutes: SettingsPresentation.rotationChoicesMinutes[i])
+                applier.applyInterval()
+                store.persist()
+            })
+    }
+
+    private var volumePercent: Binding<Double> {
+        Binding(
+            get: { Double(SettingsPresentation.volumePercent(store.volume)) },
+            set: { store.volume = SettingsPresentation.volumeFromPercent(Int($0.rounded())) })
+    }
+
+    private var isMuted: Binding<Bool> {
+        Binding(
+            get: { store.isMuted },
+            set: {
+                store.isMuted = $0
+                applier.applyMuted()
+                store.persist()
+            })
+    }
+
+    private var pauseOnBattery: Binding<Bool> {
+        Binding(
+            get: { store.pauseOnBattery },
+            set: {
+                store.pauseOnBattery = $0
+                store.persist()
+                // 当场重估：用最近一次已知的电源状态走同一个映射，
+                // 不等下一次电源跃迁（PLAY-10）。
+                reapplyBatteryHold()
+            })
+    }
+
     // MARK: - onAppear
 
     private func seedAndObserve() {
         rateDrag = Double(store.rate)
-        modeIndex = PlayMode.allCases.firstIndex(of: store.playMode) ?? 0
-        rotIndex = nearestRotationIndex()
-        volumeDrag = Double(SettingsPresentation.volumePercent(store.volume))
-        soundOn = !store.isMuted
-        batteryPause = store.pauseOnBattery
         // 呼吸动画只在窗口内容出现时启动（UI-SPEC §6 动画红线），关窗即停。
         if !reduceMotion {
             withAnimation(.easeInOut(duration: 10).repeatForever(autoreverses: true)) { breathe = true }
         }
         emitWindowGeometry()
-    }
-
-    private func nearestRotationIndex() -> Int {
-        let minutes = store.rotationInterval / 60
-        var best = 0
-        var bestDelta = Double.greatestFiniteMagnitude
-        for (i, v) in rotVals.enumerated() where abs(Double(v) - minutes) < bestDelta {
-            bestDelta = abs(Double(v) - minutes)
-            best = i
-        }
-        return best
     }
 
     /// 几何探针（SC-1 的探针半边）：窗口出现后打一行 `PIC_SETTINGS_WINDOW`，
