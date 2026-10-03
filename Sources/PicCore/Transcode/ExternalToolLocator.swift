@@ -46,7 +46,13 @@ public struct ExternalToolLocator {
     /// 「存在但不可执行」被**跳过而不是判死**（继续查其余途径）；
     /// `which` 退出码 0 → available(which 给的路径)；两者皆无 → unavailable。
     public func locate() -> FFmpegToolStatus {
-        // RED stub：待 GREEN 实现决策表。
+        for path in Self.probePaths {
+            if fileSystem.isExecutableFile(atPath: path) { return .available(path: path) }
+        }
+        let whichResult = which.whichFFmpeg()
+        if whichResult.status == 0, let path = whichResult.path {
+            return .available(path: path)
+        }
         return .unavailable
     }
 }
