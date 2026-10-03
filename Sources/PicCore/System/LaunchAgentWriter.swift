@@ -1,6 +1,6 @@
 // LaunchAgentWriter.swift —— 路线 B 的 plist 生成与落盘（不 spawn 进程）。
 //
-// ⚠️ 键集是**代码常量**（T-07-03 缓解面）：Label 由 init 传入且默认固定，
+// ⚠️ 键集是**代码常量**（安全缓解面）：Label 由 init 传入且默认固定，
 // ProgramArguments 只有 app 自己的可执行路径，全文件零用户输入拼入。
 // 登录项 plist 是持久执行面 —— 判据 `src_count 'KeepAlive' == 0` 锁死这个不变量：
 // 壁纸 app 崩了不该被 launchd 无限拉起，且 KeepAlive 与「退出」菜单项直接冲突。
@@ -20,9 +20,7 @@ public final class LaunchAgentWriter {
     private let label: String
     private let directory: URL
 
-    /// - Parameters:
-    ///   - label: launchd 作业标识。
-    ///   - directory: plist 落盘目录，`nil` 时取 `~/Library/LaunchAgents`。
+    /// `directory` 为 nil 时取 `~/Library/LaunchAgents`。
     public init(label: String = LaunchAgentWriter.defaultLabel, directory: URL? = nil) {
         self.label = label
         self.directory = directory ?? FileManager.default

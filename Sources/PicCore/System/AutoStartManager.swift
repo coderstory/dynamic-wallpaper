@@ -1,4 +1,4 @@
-// AutoStartManager.swift —— 开机自启的「先 A 后 B」决策内核（SYS-01）。
+// AutoStartManager.swift —— 开机自启的「先 A 后 B」决策内核。
 //
 // ⚠️ 为什么是双路线：ad-hoc / 未签名 app 上 `SMAppService.register()` 的真实行为
 // 没有可靠公开资料（Apple DTS 只给风险提示，不给结论）。本文件因此不赌任何一条：
@@ -71,11 +71,8 @@ public struct ProcessShellRunner: ShellRunner {
     }
 }
 
-/// 开机自启的唯一写入口。
-///
-/// - `setEnabled(true)`：先试路线 A，注册成功但待批准就留在 A 并弹系统设置；
-///   其余情况自动落路线 B。
-/// - `setEnabled(false)`：两条路线都清。
+/// 开机自启的唯一写入口：`setEnabled(true)` 先试路线 A，注册成功但待批准就留在 A 并弹
+/// 系统设置，其余情况自动落路线 B；`setEnabled(false)` 两条路线都清。
 @MainActor
 public final class AutoStartManager {
     private let registration: LoginItemRegistration
@@ -157,7 +154,7 @@ public final class AutoStartManager {
         emit("SYS01_DISABLED=1")
     }
 
-    /// 状态行只打状态 token，不打路径、不打文件名（D-17：状态一行、路由另一行）。
+    /// 状态行只打状态 token，不打路径、不打文件名（状态一行、路由另一行）。
     ///
     /// ⚠️ 必须显式映射：`SMAppService.Status` 是从 ObjC 导入的枚举，
     /// `String(describing:)` 给的是 `SMAppServiceStatus(rawValue: 1)` 而**不是** case 名

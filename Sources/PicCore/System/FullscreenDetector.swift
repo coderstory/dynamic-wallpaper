@@ -1,40 +1,31 @@
-// FullscreenDetector.swift —— 全屏检测（D-01：事件通知驱动，不是逐帧轮询）。
+// FullscreenDetector.swift —— 全屏检测（事件通知驱动，不是逐帧轮询）。
 //
-// 分层红线（D-09）：本文件**零 AVFoundation**，不出现 player。
+// 分层红线：本文件**零 AVFoundation**，不出现 player。
 // 单向流是 `FullscreenDetector → HoldArbiter.set(.fullscreen, active:) → PlaybackTarget.arbiterApply`。
 //
 // ── D-02 的落点（本文件存在的全部理由）────────────────────────────────────
-//
-// Phase 1 用实测证伪了纯几何阈值：
-//   `FALSE_POSITIVE_OBSERVED=1 direction=safe_area_filled_but_not_fullscreen_scored_fullscreen`
-// Ghostty(pid 1227) 与 CC Switch(pid 1228) 各把 visibleFrame(1470×833) 铺满 →
-// coverage=1.000 被判成全屏，但两者 bounds 高 833 < 屏幕 frame 高 956，
-// 结构上够不到刘海，**可证不是全屏**。coverage 已顶在 1.000 上限，调阈值改不了。
-//
-// 用户 2026-10-03 拍板走「几何之外加判别信号」，与几何取**合取**：
-//     verdict = nonGeometricActive && covering
+// Phase 1 用实测证伪了纯几何阈值：Ghostty 与 CC Switch 各把 visibleFrame 铺满 →
+// coverage=1.000 被判成全屏，但两者 bounds 高 833 < 屏幕 frame 高 956，结构上够不到刘海，
+// **可证不是全屏**。coverage 已顶在 1.000 上限，调阈值改不了。用户 2026-10-03 拍板走
+// 「几何之外加判别信号」，与几何取**合取**：`verdict = nonGeometricActive && covering`。
 //
 // ⚠️ **`FullscreenVerdict.verdict` 的函数体必须保持这个合取形状。**
 //    把它改成几何单侧，Phase 1 那条假阳性立刻复活（用户在没全屏时壁纸永久暂停），
 //    而纯几何层测不出来 —— 唯一能抓住它的就是注入式反向验证。
 //
 // ── `styleMask` 为什么不能当几何外信号（结构事实，不是推断）────────────────
+// 编排器 2026-10-03 一手实测：`CGWindowListCopyWindowInfo` 返回的字典共 11 个 key，
+// **无任何 key 含 `tyle` 或 `ullScreen`** → 公开 API 读不到**别的进程**窗口的 styleMask，
+// D-02 的候选 ① 结构上不适用。Phase 1 探针读到过 styleMask，是因为它读的是
+// **自己创建的那扇 NSWindow**。
 //
-// 编排器 2026-10-03 一手实测：`CGWindowListCopyWindowInfo` 返回的字典共 11 个 key
-// （kCGWindowAlpha / Bounds / IsOnscreen / Layer / MemoryUsage / Name / Number /
-// OwnerName / OwnerPID / SharingState / StoreType），**无任何 key 含 `tyle` 或 `ullScreen`**。
-// → 公开 API 读不到**别的进程**窗口的 styleMask，D-02 的候选 ① 结构上不适用。
-// Phase 1 探针读到过 styleMask，是因为它读的是**自己创建的那扇 NSWindow**。
-// 本 plan 的字典键普查（`probe-fullscreen.sh` 落 evidence）把这条从推断变成实测。
-//
-// ⚠️ 因此本文件**绝不读窗口标题键**（T-03-02）：枚举输出的字段白名单固定为
+// ⚠️ 因此本文件**绝不读窗口标题键**：枚举输出的字段白名单固定为
 //    pid / owner / layer / alpha / bounds / coverage —— 标题字段可能含用户文件名。
 //
-// ── 事件驱动（D-01）─────────────────────────────────────────────────────
-//
+// ── 事件驱动 ────────────────────────────────────────────────────────────
 // 订阅三个 `NSWorkspace` 公开通知：Space 变更 / 应用激活 / 应用失活。
 // **每个通知都只当触发器**：收到后一律 `re-evaluate`() 重读当前几何，
-// 不靠「边沿」记忆 —— 这条与 `LockWatcher` 的 T-03-01 处置同形。
+// 不靠「边沿」记忆 —— 这条与 `LockWatcher` 的处置同形。
 // 每个信号位的语义是「**本次重算是被谁触发的 + 此刻几何如何**」，不是「某个跃迁发生过」。
 
 import Foundation
@@ -65,10 +56,9 @@ public struct FullscreenSignals: Equatable, Sendable {
 
     /// 是否出现「几何之外」的可判别信号。
     ///
-    /// ⚠️ W-2026-10-03-18（已登记的语义降级）：两个字段名里都编进了
-    ///    `WhileFullyCovering`，所以本值恒蕴含「此刻几何满覆盖」。
-    ///    D-02 字面要求的「几何外信号可独立触发暂停」在当前形状下**不可达**；
-    ///    交付的是合取判定，不是独立触发。详见 `.planning/WINDOWS.md`。
+    /// ⚠️ 已登记的语义降级：两个字段名里都编进了 `WhileFullyCovering`，所以本值恒蕴含
+    ///    「此刻几何满覆盖」。D-02 字面要求的「几何外信号可独立触发暂停」在当前形状下
+    ///    **不可达**；交付的是合取判定，不是独立触发。
     public var nonGeometricActive: Bool {
         spaceChangedWhileFullyCovering || frontmostAppChangedWhileFullyCovering
     }
@@ -78,7 +68,7 @@ public enum FullscreenVerdict {
     /// D-02 的落点：几何**不得单独**作为判定依据。
     ///
     /// 形状写死：`nonGeometricActive && covering`。
-    /// 把函数体改成 `s.covering` 会让 T2 的注入式反向验证立刻转红 —— 那是
+    /// 把函数体改成 `s.covering` 会让注入式反向验证立刻转红 —— 那是
     /// 「合取没有被悄悄退回纯几何」的唯一机器证据。
     public static func verdict(_ s: FullscreenSignals) -> Bool {
         s.nonGeometricActive && s.covering
@@ -98,7 +88,7 @@ public struct ScreenGeometry: Equatable, Sendable {
     }
 
     /// 默认读 `NSScreen.main`。本机单屏（`inset.log:SCREENS_COUNT=1`），
-    /// 多屏留给 Phase 4/5 —— 那时 `NSScreen.main` 的选择本身就是一个待定决策。
+    /// 多屏留给以后 —— 那时 `NSScreen.main` 的选择本身就是一个待定决策。
     public static func current() -> ScreenGeometry? {
         guard let s = NSScreen.main else { return nil }
         let f = s.frame
@@ -143,7 +133,7 @@ public final class FullscreenDetector {
     private var lastTrigger: Trigger = .start
     private var lastCoverage: CoverageResult?
 
-    /// T-03-08：`start()` 只注册 3 个观察者，token 存数组；`re-evaluate`() 只读值不注册新观察者。
+    /// `start()` 只注册 3 个观察者，token 存数组；`re-evaluate`() 只读值不注册新观察者。
     private var tokens: [NSObjectProtocol] = []
 
     public init(workspace: NSWorkspace = .shared,
@@ -182,7 +172,7 @@ public final class FullscreenDetector {
         `re-evaluate`(trigger: .start, onChange: onChange)
     }
 
-    /// 按 token 逐个注销后清空数组 —— 少这一步就是 observer 泄漏（T-03-08）。
+    /// 按 token 逐个注销后清空数组 —— 少这一步就是 observer 泄漏。
     public func stop() {
         for token in tokens {
             center.notificationCenter.removeObserver(token)
@@ -245,9 +235,9 @@ public final class FullscreenDetector {
 extension FullscreenDetector {
     /// 枚举 layer 0、alpha > 0、且**不属于本进程**的窗口矩形。
     ///
-    /// 按 PID 认领（D-08），不按 owner 名：同机有别的 app 来自同一个可执行文件，
+    /// 按 PID 认领，不按 owner 名：同机有别的 app 来自同一个可执行文件，
     /// 按名字排除会把它一起滤掉。
-    /// 字段白名单：pid / layer / alpha / bounds —— **不含标题**（T-03-02）。
+    /// 字段白名单：pid / layer / alpha / bounds —— **不含标题**。
     nonisolated public static func currentWindowSamples() -> [WindowRectSample] {
         enumerateWindowEntries().map { WindowRectSample(pid: $0.pid, raw: $0.raw) }
     }
