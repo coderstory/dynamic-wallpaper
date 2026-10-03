@@ -243,6 +243,38 @@
   本项目不申请（`03-CONTEXT.md` 的 `threat_model` 已把「EoP」列为不适用）。
 - **status**：open
 
+### W-2026-10-03-19 · deviation · Phase 3 / Plan 03-03
+
+- **描述 A**：计划的威胁模型 T-03-10 写「`CGDisplayRegisterReconfigurationCallback` 一旦注册就**绑定在 `CGMainDisplayID()` 上**」—— 本机 SDK 实测**不成立**。
+- **证据 A**：`CGDisplayConfiguration.h:235` 的真实声明是
+  `CGError CGDisplayRegisterReconfigurationCallback(CGDisplayReconfigurationCallBack __nullable callback, void * __nullable userInfo)`
+  —— **没有 display 参数**，注册与摘除都是**进程级**的。实测 `REGISTER_RC=0 success=true`、`REMOVE_RC=0`。
+  `.planning/research/ARCHITECTURE.md` §4 引的同一行号也只说「显示器热插拔 / 配置变更」，没提按屏注册。
+- **保留的不变量**：摘不掉 = 进程内永久泄漏，注册与注销必须严格配对 —— 这条一个字没变，改的只是「按什么粒度摘」。
+  `DisplayWatcher.stop()` 走 `CGDisplayRemoveReconfigurationCallback`，`DisplayWatcherTests.testStartRecomputesOnceSynchronously` 断言 `unregisterCount == 1`。
+- **描述 B**：计划 `<verify>` 的注入式反向验证 perl **在本仓的代码形状下无法编译**。
+- **证据 B**：原 perl 把 `public var displayAsleep: Bool` 换成计算属性 `Bool { systemSleeping }`。
+  `DisplaySignals` 必须有显式 `init`（否则 `currentSignals()` 构造不出两个字段的值），而该 init 里 `self.displayAsleep = displayAsleep`
+  对计算属性赋值是编译错误 → 编译失败会冒充「判据转红」，正是 W-2026-10-03-17 已经点名过的反模式。
+- **纠正（判据的**意图**一个字没改）**：把耦合点从「字段声明」移到「init 赋值体」——
+  `self.displayAsleep = displayAsleep` → `self.displayAsleep = systemSleeping`。计划 `<action>` 第 6 条本来就写了两个可选口径
+  （「把两个字段合并成一个共用字段**或**把仲裁侧改成一次性清空两个 reason 的语义」），本实现取编译得通的那一个。
+- **影响**：`testWakingWithDisplayStillAsleepDoesNotResume` 在注入后**转红**（实测 `MUTATED_RC=1`，失败行含
+  `holds ("[]") is not equal to ("[HoldReason.displayAsleep]")`），恢复后 `cmp -s` 与备份逐字节一致。
+- **描述 C**：熄屏跃迁与睡眠跃迁在本会话**观测不到**；`willSleep` 观察者的投递延迟未实测。
+- **证据 C**：`evidence/display-sleep-signals.log` 的 `DISPLAY_SLEEP_TRANSITION=unobservable` 与 `SYSTEM_SLEEP_TRANSITION=unobservable`
+  两行（`reason=session_locked CGSSessionScreenIsLocked=1 loginwindow_pid=489`）；同一份日志里
+  `CGDisplay_IS_ASLEEP=1`、`DISPLAY_RECONFIG_CALLBACKS_FIRED=0`、`POWER_PREVENT_SYSTEM_SLEEP=1`
+  （外部 `caffeinate -i -t 300` 正挡着系统睡眠）。
+  ⚠️ 另有一条未实测项：两个 `NSWorkspace` 观察者用 `queue: .main`（与 `FullscreenDetector` 同形），
+  `willSleep` 的异步投递与进程真正进入睡眠之间的间隔本会话量不到。
+- **影响**：PAUSE-03 / PAUSE-04 的**接线**已证明（`start()` 同步重算实测生效，`DISPLAY_START_SYNC_DELIVERED=1 displayAsleep=1`）；
+  「真实跃迁触发暂停 / 唤醒后立刻恢复」**未**证明。已可证明的还有一条**本机独有的强事实**：显示器此刻就是熄着的（`CGDisplay_IS_ASLEEP=1`），
+  只等跃迁的实现会永远看不到这一位 —— 启动即重算那条契约在本机不是形式主义。
+- **解开条件**：解锁会话后重跑 `bash scripts/probe-display.sh`（约 10 秒，脚本无需修改），需在**熄屏 / 点亮 / 睡眠 / 唤醒**四个跃迁下各观察到一次回调；
+  `willSleep` 那条投递延迟交 Phase 7 的 20 轮休眠/唤醒一起量。
+- **status**：open
+
 ## resolved
 
 - **W-2026-10-03-09** · `NSApp.terminate` 第二处 —— 本 Phase 已收敛为 1 处并挂进 `test.sh` 每次重验
