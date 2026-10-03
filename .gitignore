@@ -4,3 +4,5 @@ dist/
 .planning/spike/out/
 fixtures/
 .build/
+Pic.xcodeproj/xcuserdata/
+Pic.xcodeproj/project.xcworkspace/xcuserdata/

@@ -1,0 +1,395 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	objectVersion = 56;
+	classes = {
+	};
+	objects = {
+
+/* Begin PBXBuildFile section */
+		510500000000000000000301 /* PicApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510500000000000000000101 /* PicApp.swift */; };
+		510500000000000000000302 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510500000000000000000102 /* AppDelegate.swift */; };
+		510500000000000000000303 /* FolderPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510500000000000000000103 /* FolderPicker.swift */; };
+		510500000000000000000304 /* MenuContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510500000000000000000104 /* MenuContentView.swift */; };
+		510500000000000000000305 /* SettingsComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510500000000000000000105 /* SettingsComponents.swift */; };
+		510500000000000000000306 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510500000000000000000106 /* SettingsView.swift */; };
+		510500000000000000000307 /* SettingsWindowUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510500000000000000000107 /* SettingsWindowUITests.swift */; };
+		510500000000000000000308 /* PicCore in Frameworks */ = {isa = PBXBuildFile; productRef = 510500000000000000000702 /* PicCore */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		510500000000000000000601 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 510500000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 510500000000000000000401;
+			remoteInfo = PicApp;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		510500000000000000000101 /* PicApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PicApp.swift; sourceTree = "<group>"; };
+		510500000000000000000102 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		510500000000000000000103 /* FolderPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderPicker.swift; sourceTree = "<group>"; };
+		510500000000000000000104 /* MenuContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuContentView.swift; sourceTree = "<group>"; };
+		510500000000000000000105 /* SettingsComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsComponents.swift; sourceTree = "<group>"; };
+		510500000000000000000106 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		510500000000000000000107 /* SettingsWindowUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowUITests.swift; sourceTree = "<group>"; };
+		510500000000000000000108 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		510500000000000000000201 /* Pic.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Pic.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		510500000000000000000202 /* PicUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PicUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		510500000000000000000502 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				510500000000000000000308 /* PicCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		510500000000000000000002 = {
+			isa = PBXGroup;
+			children = (
+				510500000000000000000004 /* PicApp */,
+				510500000000000000000008 /* UITests */,
+				510500000000000000000003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		510500000000000000000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				510500000000000000000201 /* Pic.app */,
+				510500000000000000000202 /* PicUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		510500000000000000000004 /* PicApp */ = {
+			isa = PBXGroup;
+			children = (
+				510500000000000000000101 /* PicApp.swift */,
+				510500000000000000000102 /* AppDelegate.swift */,
+				510500000000000000000103 /* FolderPicker.swift */,
+				510500000000000000000005 /* App */,
+				510500000000000000000006 /* Settings */,
+				510500000000000000000007 /* Resources */,
+			);
+			path = Sources/PicApp;
+			sourceTree = "<group>";
+		};
+		510500000000000000000005 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				510500000000000000000104 /* MenuContentView.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		510500000000000000000006 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				510500000000000000000105 /* SettingsComponents.swift */,
+				510500000000000000000106 /* SettingsView.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		510500000000000000000007 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				510500000000000000000108 /* Info.plist */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		510500000000000000000008 /* UITests */ = {
+			isa = PBXGroup;
+			children = (
+				510500000000000000000009 /* PicUITests */,
+			);
+			path = UITests;
+			sourceTree = "<group>";
+		};
+		510500000000000000000009 /* PicUITests */ = {
+			isa = PBXGroup;
+			children = (
+				510500000000000000000107 /* SettingsWindowUITests.swift */,
+			);
+			path = PicUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		510500000000000000000401 /* PicApp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 510500000000000000000802 /* Build configuration list for PBXNativeTarget "PicApp" */;
+			buildPhases = (
+				510500000000000000000501 /* Sources */,
+				510500000000000000000502 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PicApp;
+			packageProductDependencies = (
+				510500000000000000000702 /* PicCore */,
+			);
+			productName = PicApp;
+			productReference = 510500000000000000000201 /* Pic.app */;
+			productType = "com.apple.product-type.application";
+		};
+		510500000000000000000402 /* PicUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 510500000000000000000803 /* Build configuration list for PBXNativeTarget "PicUITests" */;
+			buildPhases = (
+				510500000000000000000503 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				510500000000000000000602 /* PBXTargetDependency */,
+			);
+			name = PicUITests;
+			productName = PicUITests;
+			productReference = 510500000000000000000202 /* PicUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		510500000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				TargetAttributes = {
+					510500000000000000000401 = {
+						CreatedOnToolsVersion = 27.0;
+					};
+					510500000000000000000402 = {
+						CreatedOnToolsVersion = 27.0;
+						TestTargetID = 510500000000000000000401;
+					};
+				};
+			};
+			buildConfigurationList = 510500000000000000000801 /* Build configuration list for PBXProject "Pic" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 510500000000000000000002;
+			packageReferences = (
+				510500000000000000000701 /* XCLocalSwiftPackageReference "." */,
+			);
+			productRefGroup = 510500000000000000000003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				510500000000000000000401 /* PicApp */,
+				510500000000000000000402 /* PicUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		510500000000000000000501 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				510500000000000000000301 /* PicApp.swift in Sources */,
+				510500000000000000000302 /* AppDelegate.swift in Sources */,
+				510500000000000000000303 /* FolderPicker.swift in Sources */,
+				510500000000000000000304 /* MenuContentView.swift in Sources */,
+				510500000000000000000305 /* SettingsComponents.swift in Sources */,
+				510500000000000000000306 /* SettingsView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		510500000000000000000503 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				510500000000000000000307 /* SettingsWindowUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		510500000000000000000602 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 510500000000000000000401 /* PicApp */;
+			targetProxy = 510500000000000000000601 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		510500000000000000000901 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				USE_HEADERMAP = YES;
+			};
+			name = Debug;
+		};
+		510500000000000000000902 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				USE_HEADERMAP = YES;
+			};
+			name = Release;
+		};
+		510500000000000000000903 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Sources/PicApp/Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.local.pic;
+				PRODUCT_NAME = Pic;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		510500000000000000000904 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Sources/PicApp/Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.local.pic;
+				PRODUCT_NAME = Pic;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		510500000000000000000905 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.local.pic.uitests;
+				PRODUCT_NAME = PicUITests;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = PicApp;
+			};
+			name = Debug;
+		};
+		510500000000000000000906 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Manual;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.local.pic.uitests;
+				PRODUCT_NAME = PicUITests;
+				SUPPORTED_PLATFORMS = macosx;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = PicApp;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		510500000000000000000801 /* Build configuration list for PBXProject "Pic" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				510500000000000000000901 /* Debug */,
+				510500000000000000000902 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		510500000000000000000802 /* Build configuration list for PBXNativeTarget "PicApp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				510500000000000000000903 /* Debug */,
+				510500000000000000000904 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		510500000000000000000803 /* Build configuration list for PBXNativeTarget "PicUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				510500000000000000000905 /* Debug */,
+				510500000000000000000906 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		510500000000000000000701 /* XCLocalSwiftPackageReference "." */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = .;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		510500000000000000000702 /* PicCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = PicCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 510500000000000000000001 /* Project object */;
+}

@@ -428,6 +428,62 @@
 - **status**：resolved
 
 
+### W-2026-10-03-25 · unrun-verify · Phase 5 / Plan 05-01
+
+- **描述**：`scripts/run-uitests.sh` 的**锁屏 BLOCKED 分支**在本会话从未走到（`SCREEN_LOCKED=0`，
+  会话全程解锁），故 XCUITest 在锁屏条件下的行为**未被验证**。该分支是照 Phase 2/3 的 BLOCKED
+  先例建的护栏，不是本 plan 的产品交付面。
+- **证据**：`.planning/phases/05-settings/evidence/uitest.log` 的 `SCREEN_LOCKED=0` +
+  `UITEST_STATUS=passed`；脚本第 4 分支 `if [ "$LOCKED" = 1 ]` 的 grep 守卫
+  （`grep -q 'W-2026-10-03-25' .planning/WINDOWS.md`）在本条目入库前会打
+  `W_ENTRY_MISSING` 并退出非 0 —— 那条守卫**本身**已被实际走过一次（首跑时本条目还不存在）。
+- **影响**：解锁会话下 3 条 XCUITest 全绿已证明；锁屏会话下的「blocked 而非 failed」这一半
+  仍是**未跑**的分支。
+- **解开条件**：锁屏后重跑 `bash scripts/run-uitests.sh`，期望读到
+  `UITEST_STATUS=blocked reason=screen_locked` 且退出码 0。
+- **status**：open
+
+
+### W-2026-10-03-48 · unrun-verify · Phase 5 / Plan 05-01
+
+- **描述**：`scripts/run-uitests.sh` 的**屏幕录制未授权 SKIPPED 分支**在本会话从未走到
+  （实测 `CGPreflightScreenCaptureAccess()` 为已授权，`SCREEN_CAPTURE_AUTHORIZED=1`）。
+  该分支是照锁屏分支的同纪律护栏 —— 不硬闯 macOS 的「打开系统设置」授权链。
+- **证据**：`evidence/uitest.log` 的 `SCREEN_CAPTURE_AUTHORIZED=1`；脚本第 4b 分支
+  `if [ "$CAP" = 0 ]` 与锁屏分支同形（同样先 grep W-2026-10-03-48，缺条目则
+  `W_ENTRY_MISSING` 退出非 0）。
+- **触发背景（如实记录）**：本 plan 首版的 `testCommandCommaOpensSettings` 向系统发送了
+  真实 `⌘,` 按键。本 app 是 `.accessory` 菜单栏 app，无 key window 时该按键被系统接管，
+  **实测误开了「系统设置」** —— 污染用户机器。该用例已改写为「点菜单栏图标 → 断言菜单项
+  逐字是「打开设置 ⌘,」→ 点它开窗」，不再发系统级按键（见 `W-2026-10-03-49`）。
+- **影响**：解锁 + 已授权会话下测试可跑已证明；未授权会话下「skipped 而非硬闯弹窗」这一半
+  仍是**未跑**的分支。
+- **解开条件**：在 系统设置 → 隐私与安全性 → 屏幕录制 里撤销本终端/Xcode 的授权后重跑
+  `bash scripts/run-uitests.sh`，期望读到
+  `UITEST_STATUS=skipped reason=screen_capture_unauthorized` 且退出码 0。
+- **status**：open
+
+
+### W-2026-10-03-49 · unrun-verify · Phase 5 / Plan 05-01
+
+- **描述**：**`⌘,` 的实际按键响应未被 XCUITest 证明。** 计划要求用
+  `app.typeKey(",", modifiers: .command)` 验证，实际该写法在本机会**误开「系统设置」**
+  （accessory app 无 key window，系统接管该快捷键），既证不了产品、又在污染用户机器。
+- **证据**：`evidence/uitest.log` 首版 `testCommandCommaOpensSettings` 连续三轮「通过」，但
+  通过时开的是系统设置而非产品窗口 —— 该「绿」不成立，已弃用；改为
+  `testSettingsMenuItemRendersShortcutAndOpensWindow`（点菜单栏图标 → 断言菜单项逐字是
+  「打开设置 ⌘,」→ 点它开窗），**在本条目入库后未重跑**（见本 SUMMARY「Issues Encountered」）。
+- **已证明的替代面**：菜单里「打开设置 ⌘,」的**逐字文案与快捷键渲染**由
+  `MenuContentView` 的 `MenuShortcut` ViewModifier 单点产出（`keyboardShortcut(",", modifiers: .command)`，
+  全仓 1 处），XCUITest 断言菜单项文案即覆盖该渲染契约。
+- **影响**：MENUBAR-06 的「键盘等价键真的能开窗」这一跳**未证明**；其余行为属性
+  （780 宽、关窗进程不退）已证明。
+- **解开条件**：在 XCUITest 里让 app 先获得 key window（例如经 `--open-settings` 开窗后
+  关闭，让 app 短暂持有一个窗口再发按键），或由真人在解锁会话手动按一次 ⌘, 对照设置窗打开。
+  **在能不发系统级按键的前提下证明它之前，不要恢复 `typeKey(",")` 那条用例。**
+- **status**：open
+
+
 ## resolved
 
 - **W-2026-10-03-09** · `NSApp.terminate` 第二处 —— 本 Phase 已收敛为 1 处并挂进 `test.sh` 每次重验

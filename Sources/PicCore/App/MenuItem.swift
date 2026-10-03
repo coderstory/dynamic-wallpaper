@@ -24,7 +24,7 @@ public struct MenuBarModel {
         case .pauseResume: return isPaused ? "继续" : "暂停"
         case .nextVideo: return "立即下一个"
         case .rescanFolder: return "重新扫描文件夹"
-        case .openSettings: return "打开设置窗口"
+        case .openSettings: return "打开设置"
         case .quit: return "退出"
         }
     }
