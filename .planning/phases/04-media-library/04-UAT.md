@@ -1,5 +1,6 @@
 ---
 status: complete
+resolved_gaps_note: "G-04-3 / G-04-3b 由 04-07 gap 修复闭合；G-04-3b 主观观感待用户复测"
 phase: 04-媒体库与轮换
 source: [04-VERIFICATION.md]
 started: 2026-10-03
@@ -41,7 +42,8 @@ result: [pending]
 
 total: 5
 passed: 4
-issues: 1
+issues: 0
+resolved_gaps: 2
 pending: 0
 skipped: 0
 blocked: 0
