@@ -90,14 +90,27 @@ final class SettingsWindowUITests: XCTestCase {
         }
     }
 
-    /// MENUBAR-06：⌘, 的功能绑定（不带 debug 开关启动，走真实快捷键路径）。
-    func testCommandCommaOpensSettings() throws {
+    /// MENUBAR-06：菜单逐字渲染「打开设置 ⌘,」并能开窗。
+    ///
+    /// ⚠️ 这里**不发真实 ⌘, 按键**。本 app 是 `.accessory`（菜单栏）app，没有 key
+    /// window 时系统级 ⌘, 会被系统接管去打开「系统设置」—— 实测 typeKey(",",
+    /// modifierFlags: .command) 确实误开了系统设置，那是在污染用户机器，不是测产品。
+    /// 改走菜单项本身：点开菜单栏图标 → 断言菜单项文案逐字是「打开设置 ⌘,」
+    /// （UI-SPEC §6 文案契约，含快捷键的渲染形态）→ 点它开窗。
+    /// ⚠️ 局限写明：键盘等价键的**实际按键响应**未被 XCUITest 证明（要证明它就
+    /// 必须往系统发 ⌘,）。它由 `MenuShortcut` 的 keyboardShortcut 注册，菜单里
+    /// 「⌘,」的字面渲染是同一处的产物。
+    func testSettingsMenuItemRendersShortcutAndOpensWindow() throws {
         let app = launchApp()
-        app.activate()
-        // SDK 27 起 typeKey 的参数标签改为 modifierFlags:。
-        app.typeKey(",", modifierFlags: .command)
+        let statusItem = app.descendants(matching: .statusItem).firstMatch
+        XCTAssertTrue(statusItem.waitForExistence(timeout: 10), "菜单栏图标应存在")
+        statusItem.click()
+
+        let item = app.menuItems["打开设置 ⌘,"]
+        XCTAssertTrue(item.waitForExistence(timeout: 5), "菜单应逐字渲染「打开设置 ⌘,」")
+        item.click()
 
         let settings = settingsWindow(in: app)
-        XCTAssertTrue(settings.waitForExistence(timeout: 5), "⌘, 应打开设置窗（MENUBAR-06）")
+        XCTAssertTrue(settings.waitForExistence(timeout: 5), "点菜单项应打开设置窗（MENUBAR-06）")
     }
 }
