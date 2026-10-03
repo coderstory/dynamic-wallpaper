@@ -141,6 +141,46 @@ N=$(src_count 'activeSpaceDidChangeNotification')
 N=$(src_count 'kCGWindowName')
 [ "$N" = "0" ] && ok "Sources/ 不读窗口标题（T-02-03 隐私）" || no "Sources/ 读了窗口标题键" "剥注释后计数 = $N，期望 0"
 
+# ---- Plan 03-01 T2：System/ 分层 + D-05 事件驱动的判据 ----
+# System/ 目录不存在时 src_count 返回 -1，本项报红。这是**故意的**：
+# 目录不存在就等于四个 Watcher 一个都没建，D-09 的分层无从谈起。
+# ⚠️ 新增判据的 `no()` 文案**必须带上 `ok()` 的同一句判据名**。下游 plan
+# （03-05 的 `<automated>`）会在**变异后的红日志**里 `grep -c 'System/ 四个 Watcher 零 AVFoundation'`，
+# 靠这个字符串确认「是这一条红了」。失败文案写成另一句话就查不到了。
+
+N=$(src_count 'import AVFoundation' 'Sources/PicCore/System')
+[ "$N" = "0" ] && ok "System/ 四个 Watcher 零 AVFoundation（D-09 单向流）" \
+  || no "System/ 四个 Watcher 零 AVFoundation —— System/ 依赖了播放框架" "剥注释后计数 = $N，期望 0（目录不存在时为 -1）"
+
+# D-05 的源码侧锚点：0.5 秒轮询已删，事件驱动的观察者在位。
+# ⚠️ 这两条是**源码检查，不是 D-05 的行为证明** —— D-05 的行为判据在
+# 03-05 的 `run-probe.sh holds`：12 秒零决策变化的窗口里 PIC_HOLD_OBSERVER_TICKS
+# 的最大值必须恰好为 1。**不要**拿「12 秒里 PIC_HOLD 行数 == 1」当判据：
+# observeHold() 的去重门让它在合规与违规两种实现下结果相同，那是空判（D-07）。
+N=$(src_count 'Timer(timeInterval: 0.5' 'Sources/PicApp')
+[ "$N" = "0" ] && ok "AppDelegate 零 0.5 秒 hold 轮询（D-05）" \
+  || no "AppDelegate 零 0.5 秒 hold 轮询 —— 轮询仍在" "剥注释后计数 = $N，期望 0"
+
+N=$(src_count 'withObservationTracking' 'Sources/PicApp')
+[ "$N" -ge 1 ] 2>/dev/null && ok "AppDelegate 用 withObservationTracking 驱动 PIC_HOLD（D-05）" \
+  || no "AppDelegate 用 withObservationTracking 驱动 PIC_HOLD —— observeHold 未由观察驱动" "剥注释后计数 = $N，期望 ≥ 1"
+
+# PIC_HOLD 的 active=/reason= 必须从 decision.activeReasons 派生。
+# 此前 reason 在两个分支里都写死成手动暂停，active=1 reason=screenLocked 结构上打不出来；
+# 两个分支合并成一个格式串后，这条字面量在全文件恰好 1 处。
+N=$(src_count 'PIC_HOLD active=' 'Sources/PicApp')
+[ "$N" = "1" ] && ok "PIC_HOLD active= 恰好一处，active/reason 同源于一个格式串（D-12）" \
+  || no "PIC_HOLD active= 恰好一处，active/reason 同源于一个格式串 —— 格式串散落到多处" "剥注释后计数 = $N，期望恰好 1"
+
+N=$(src_count 'reason=manualPause' 'Sources/PicApp')
+[ "$N" = "0" ] && ok "PIC_HOLD 的 reason= 不再写死成手动暂停（D-12）" \
+  || no "PIC_HOLD 的 reason= 不再写死成手动暂停 —— 仍写死" "剥注释后计数 = $N，期望 0"
+
+# D-05 唯一不空的机器判据本身：它必须留在代码里。删了它，03-05 的行为判据无处可读。
+N=$(src_count 'PIC_HOLD_OBSERVER_TICKS=' 'Sources/PicApp')
+[ "$N" = "1" ] && ok "PIC_HOLD_OBSERVER_TICKS 恰好一处（D-05 的机器判据）" \
+  || no "PIC_HOLD_OBSERVER_TICKS 恰好一处 —— 缺失或多处" "剥注释后计数 = $N，期望恰好 1"
+
 # ---- Plan 02-03 T1/T3 的菜单侧判据 ----
 MENU="Sources/PicApp/App/MenuContentView.swift"
 
@@ -181,6 +221,16 @@ NP=$({ grep -c 'player.pause()' "$MENU" 2>/dev/null || true; grep -c 'player.pla
 NT=$(src_count 'NSApp.terminate')
 [ "$NT" = "1" ] && ok "结束进程的全局调用全仓唯一落点（AppDelegate）" \
   || no "结束进程的调用散落到多处" "剥注释后 Sources/ 内计数 = $NT，期望恰好 1"
+
+# ---- Plan 03-01 T2：TEST-01 的行为判据 ----
+# 不扫源码，直接跑用例：幂集恰 64 组 + 「锁屏中退出全屏不恢复播放」的反例。
+# 上一条已经跑过全量 `swift test`，这里再单跑一次是为了失败时能把这一族的名字指出来。
+if swift test --package-path . --filter HoldArbiterTests > "$TMP/arbiter.log" 2>&1; then
+  AN=$(grep -oE 'Executed [0-9]+ tests, with 0 failures' "$TMP/arbiter.log" | tail -1 | grep -oE '^[A-Za-z]* [0-9]+' | grep -oE '[0-9]+')
+  ok "仲裁器用例全绿（幂集 64 组 + 锁屏中退出全屏不恢复，${AN:-?} 项）"
+else
+  no "仲裁器用例失败" "$(grep -E "error:|XCTAssert.*failed|failed -" "$TMP/arbiter.log" | head -2)"
+fi
 
 echo ""
 echo "── 渲染 ───────────────────────────────"

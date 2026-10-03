@@ -134,4 +134,81 @@ final class HoldArbiterTests: XCTestCase {
 
         XCTAssertEqual(target.seeks, [42.0], "锚点不得被暂停期间的位置变化覆盖")
     }
+
+    // MARK: - Plan 03-01 T2：TEST-01 的核心资产
+
+    /// TEST-01 的**存在性**判据：6 个输入 × 开闭 = 64 种组合。
+    ///
+    /// 幂集是**运行时**从 `allCases` 生成的（见 `testShouldPlayMatchesEmptyHoldsForEverySubset`），
+    /// 这里只钉住组合数本身。将来有人加/减 case，数字立刻对不上。
+    func testAllCasesCountIsSixAndPowersetIsSixtyFour() {
+        let count = HoldReason.allCases.count
+        XCTAssertEqual(count, 6, "HoldReason 必须是 manualPause + 5 个系统原因；实际 \(count) 个")
+
+        let powerset = 1 << count
+        XCTAssertEqual(powerset, 64, "TEST-01 要求 64 种组合；2^\(count) = \(powerset)")
+    }
+
+    /// `order` 两两不同 —— 否则 `PlaybackDecision.activeReasons`（即 `holds.sorted()`）
+    /// 在撞号的那两个 case 之间顺序不确定，D-10 允许的「优先级只用于 UI 文案排序」就失效。
+    /// `manualPause` 的 0 是 Phase 2 的值，不许被改（W-2026-10-03-14）。
+    func testOrderValuesAreDistinctAndManualPauseStaysZero() {
+        let orders = HoldReason.allCases.map(\.order)
+        XCTAssertEqual(orders, [0, 1, 2, 3, 4, 5], "order 必须互不相同且升序；实际 \(orders)")
+        XCTAssertEqual(HoldReason.manualPause.order, 0, "Phase 2 的值，一个字不改")
+
+        let sorted = HoldReason.allCases.sorted().map(\.order)
+        XCTAssertEqual(sorted, orders, "Comparable 必须与 order 升序一致")
+    }
+
+    /// **本 Phase 最核心的反例（D-10 / PAUSE-07）**：锁屏中退出全屏**不恢复播放**。
+    ///
+    /// 覆盖式实现（ARCHITECTURE §6.1 点名的反模式：优先级链 / 覆盖）在这一步会把
+    /// `holds` 直接写成「剩下的那一个」，于是用户从全屏退出来的瞬间壁纸就播了起来。
+    /// veto 集合语义要求 `holds` 非空就一律不播。
+    /// 这条用例在 `<automated>` 里被注入式反向验证过 —— 把移除语义换成覆盖语义后必须转红。
+    func testLockedThenFullscreenExitDoesNotResume() {
+        target.position = 42.0
+
+        arbiter.set(.screenLocked, active: true)    // ∅ → {screenLocked}：记锚点 42.0
+        arbiter.set(.fullscreen, active: true)      // → {screenLocked, fullscreen}
+        arbiter.set(.fullscreen, active: false)     // → {screenLocked}
+
+        XCTAssertEqual(arbiter.decision.holds, [.screenLocked], "退出全屏后仍锁着，holds 不得被覆盖成空集")
+        XCTAssertFalse(arbiter.decision.shouldPlay, "锁屏仍在 → 一律不播")
+        XCTAssertTrue(target.seeks.isEmpty, "退出全屏那一刻不得有任何 seek —— 有 seek 就说明续播被提前触发了")
+
+        arbiter.set(.screenLocked, active: false)   // 锁屏解除才续播
+
+        XCTAssertTrue(arbiter.decision.shouldPlay)
+        XCTAssertEqual(target.seeks, [42.0], "解除锁屏才 seek，且 seek 到第一次进 hold 时的位置")
+    }
+
+    /// D-15 在 6 个 reason 下不漂移：锚点只在 ∅ → 非∅ 写一次，
+    /// 其余 5 个 reason 依次置位再**逆序**解除，锚点必须一直是 42.0。
+    func testAnchorNotOverwrittenAcrossAllSixReasons() {
+        target.position = 42.0
+        arbiter.set(.manualPause, active: true)     // 写锚点 42.0
+        target.position = 55.0                       // 模拟暂停期间另一路改了位置
+
+        let overlay: [HoldReason] = [.fullscreen, .screenLocked, .displayAsleep, .systemSleeping, .battery]
+
+        for reason in overlay {
+            arbiter.set(reason, active: true)
+        }
+        XCTAssertEqual(arbiter.decision.holds.count, 6, "6 个 reason 全部生效")
+        XCTAssertFalse(arbiter.decision.shouldPlay)
+
+        for reason in overlay.reversed() {
+            arbiter.set(reason, active: false)
+            XCTAssertTrue(target.seeks.isEmpty, "\(reason) 解除时手动暂停仍在，不得触发续播")
+        }
+
+        XCTAssertEqual(arbiter.decision.holds, [.manualPause], "只剩手动暂停")
+        XCTAssertFalse(arbiter.decision.shouldPlay)
+
+        arbiter.set(.manualPause, active: false)
+
+        XCTAssertEqual(target.seeks, [42.0], "锚点从头到尾没被二次覆盖")
+    }
 }
