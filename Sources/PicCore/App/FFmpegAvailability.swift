@@ -1,34 +1,28 @@
 import Foundation
 
-/// 设置窗 ffmpeg 行的可用性判定（Phase 5 / TRANS-02 的前半边）。
+/// ffmpeg 可用性判定（Phase 5 的状态卡消费面）—— **零执行**，从不构造 ffmpeg 的 `Process`。
 ///
-/// ⚠️ **零执行**：只看 PATH 目录里有没有一个名为 ffmpeg 的**可执行文件**，
-/// 从不构造 `Process`、从不跑它。本机没有 timeout 机制，ffmpeg 类调用绝不进
-/// 自动路径（主会话硬约束）。
-///
-/// 版本串（`9.0.2 · 可用`）属 Phase 6 真正与 ffmpeg 交互时才拿得到，
-/// 本 Phase 状态卡只报可用性（UI-SPEC §12）。
+/// 🔴 D-17 收编（06-04 T2）：原先这里是**一套自己的 PATH 目录扫描**，与 06-02 的
+/// `ExternalToolLocator` 并存。菜单栏 app 从 Finder/DMG 启动时继承的是 launchd 的
+/// 最小 PATH（不含 `/opt/homebrew/bin`），于是同一个 app 里「明明装了 ffmpeg」
+/// 在设置窗报「未安装」、转码窗报「已就绪」—— 两套真相。判定现已全部在 locator，
+/// 本类型只剩**状态卡的消费面**：判定投影 + 文案。
 public enum FFmpegAvailability {
 
-    /// PATH 目录列表 → 是否可用。目录逐个拼接判定，任一命中即 true。
-    public static func resolve(searchPaths: [String],
-                               fileManager: FileManager = .default) -> Bool {
-        searchPaths.contains { dir in
-            // 空目录项（PATH 里的 `::`、环境缺失）拼接出的路径会落到当前目录，
-            // 那会让「没装」误报成「装了 ./ffmpeg」。
-            !dir.isEmpty
-                && fileManager.isExecutableFile(
-                    atPath: URL(fileURLWithPath: dir).appendingPathComponent("ffmpeg").path)
-        }
+    /// 判定投影：locator 的结论 → 状态卡的 `available` 参数。一行映射，不判第二次。
+    public static func available(_ status: FFmpegToolStatus) -> Bool {
+        if case .available = status { return true }
+        return false
     }
 
-    /// 生产入口：拆 `PATH` 再走 `resolve`。PATH 缺失/为空 → false。
-    public static func resolveFromPATH(
-        environment: [String: String] = ProcessInfo.processInfo.environment) -> Bool {
-        resolve(searchPaths: (environment["PATH"] ?? "").split(separator: ":").map(String.init))
+    /// 生产件 —— 判定层唯一的生产构造点。测试传假件（`WhichProbing` / `ExecutableFileProbing`）。
+    public static func productionLocator() -> ExternalToolLocator {
+        ExternalToolLocator(which: ProcessWhichProbe(), fileSystem: FileManagerExecutableProbe())
     }
 
     /// 状态卡副标签。两个值穷举 —— 不掺版本串。
+    /// 文案是 Phase 5 的承诺，改它要同步改 `PIC_FFMPEG available=<0|1> label=…`
+    /// 证据行的口径。
     public static func label(available: Bool) -> String {
         return available ? "可用" : "未安装"
     }

@@ -7,17 +7,20 @@ import PicCore
 /// 与设置窗本身同一套开窗机制（D-10：不引入第二套窗口管理）。
 struct TranscodeScene: Scene {
 
-    /// 由装配层提供队列/判定/壁纸目录，视图自己不造（PicApp 注入）。
-    let makeViewModel: () -> TranscodeViewModel
+    /// 队列 / 判定 / 壁纸目录由装配层注入，视图自己不造（D-10）。
+    let queue: TranscodeQueue
+    let locator: ExternalToolLocator
+    let wallpaperRootProvider: () -> URL?
 
     var body: some Scene {
         Window("转码", id: TranscodeScene.windowID) {
-            TranscodeWindowHost(makeViewModel: makeViewModel)
+            TranscodeWindowHost(queue: queue, locator: locator,
+                                wallpaperRootProvider: wallpaperRootProvider)
         }
         .defaultSize(width: 640, height: 420)
     }
 
-    /// 窗 id 的**唯一**一份 —— 设置窗的开窗动作按它拼（PicApp 里只出现这处常量）。
+    /// 窗 id 的唯一一份 —— 设置窗的开窗动作按它拼。
     static let windowID = "transcode"
 }
 
@@ -28,8 +31,11 @@ private struct TranscodeWindowHost: View {
 
     @StateObject private var viewModel: TranscodeViewModel
 
-    init(makeViewModel: @escaping () -> TranscodeViewModel) {
-        _viewModel = StateObject(wrappedValue: makeViewModel())
+    init(queue: TranscodeQueue, locator: ExternalToolLocator,
+         wallpaperRootProvider: @escaping () -> URL?) {
+        _viewModel = StateObject(wrappedValue: TranscodeViewModel(
+            queue: queue, locator: locator,
+            wallpaperRootProvider: wallpaperRootProvider))
     }
 
     var body: some View {

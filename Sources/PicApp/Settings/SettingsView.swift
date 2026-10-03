@@ -19,6 +19,16 @@ struct SettingsView: View {
     let requestFolder: () -> Void
     let rescanLibrary: () -> Void
     let reapplyBatteryHold: () -> Void
+    /// 转码窗的 ffmpeg 判定读数（单一真相源：与窗口徽章同一个 locator）。
+    let ffmpegAvailable: () -> Bool
+    /// 「打开…」的条件分派：注入 `openWindow` 动作，可用则开窗返回 true。
+    let openTranscode: ((() -> Void) -> Bool)
+    /// 安装途径弹层里的「重新检测」——重查并回填最新读数（Q7 的新鲜化出口）。
+    let refreshFFmpeg: () -> Bool
+
+    @Environment(\.openWindow) private var openWindow
+    /// ffmpeg 不可用时的安装途径弹层（SC#1 的第二半句：置灰之外还得给出途径）。
+    @State private var showingPathways = false
 
     // ── 唯一保留的 @State（都不是「渲染假数据」）──
     // 速度滑杆的拖动暂态（每次 onChanged 直通 store + applier）。
@@ -51,6 +61,9 @@ struct SettingsView: View {
             }
         )
         .onAppear(perform: seedAndObserve)
+        .sheet(isPresented: $showingPathways) {
+            InstallPathwaysView(onRecheck: { _ = refreshFFmpeg() })
+        }
     }
 
     // MARK: - 左列
@@ -150,9 +163,19 @@ struct SettingsView: View {
                     Text("").frame(width: 0)
                 }
                 Row(symbol: "arrow.left.arrow.right", title: "转码",
-                    sub: "MKV / AVI → MP4 · 待后续版本", hairline: false) {
-                    // 行为接线：Phase 6（disabled 占位，不做空窗口）
-                    Button("打开…") {}.buttonStyle(GlowButton(primary: true)).disabled(true)
+                    sub: "MKV / AVI → MP4", hairline: false) {
+                    // ⚠️ 不可用时**只**调 opacity（UI-SPEC §6 的置灰视觉），
+                    // 绝不用 .disabled(true) —— 那会吃掉点击，三途径说明就永远弹不出来
+                    // （SC#1 的两半句：置灰 + 给途径，必须同时成立）。
+                    Button("打开…") {
+                        if !openTranscode({ openWindow(id: TranscodeScene.windowID) }) {
+                            showingPathways = true
+                        }
+                    }
+                        .buttonStyle(GlowButton(primary: true))
+                        .opacity(ffmpegAvailable() ? 1 : 0.34)
+                        .help(ffmpegAvailable() ? "打开转码窗口"
+                                                : "未检测到 ffmpeg —— 点击查看安装途径")
                         .accessibilityIdentifier("transcode-open")
                 }
             }
@@ -167,7 +190,7 @@ struct SettingsView: View {
                 }
                 .accessibilityIdentifier("status-paused")
                 Row(symbol: "checkmark.seal.fill", title: "ffmpeg",
-                    sub: FFmpegAvailability.label(available: ffmpegAvailable), hairline: false) {
+                    sub: FFmpegAvailability.label(available: ffmpegAvailable()), hairline: false) {
                     Text("").frame(width: 0)
                 }
                 .accessibilityIdentifier("status-ffmpeg")
@@ -220,8 +243,13 @@ struct SettingsView: View {
         SettingsPresentation.joinedReasons(arbiter.decision.activeReasons)
     }
 
-    /// 纯 PATH 可执行位判定，零执行；每次 body 求值重跑（一份 PATH 的开销可忽略）。
-    private var ffmpegAvailable: Bool { FFmpegAvailability.resolveFromPATH() }
+    /// ffmpeg 可用性由 AppDelegate 持有的同一个 locator 给出（D-17 单一真相源）——
+    /// 视图不再自己扫 PATH，两处判定漂成两套真相的坑因此消除。
+    private func ffmpegStatusLine() {
+        let available = ffmpegAvailable()
+        WallpaperWindowController.emit(
+            "PIC_FFMPEG available=\(available ? 1 : 0) label=\(FFmpegAvailability.label(available: available))")
+    }
 
     private var lastScanLabel: String? {
         session.lastScanDate.map { "上次扫描 " + $0.formatted(.dateTime.hour().minute()) }
@@ -288,8 +316,7 @@ struct SettingsView: View {
             withAnimation(.easeInOut(duration: 10).repeatForever(autoreverses: true)) { breathe = true }
         }
         emitWindowGeometry()
-        WallpaperWindowController.emit(
-            "PIC_FFMPEG available=\(ffmpegAvailable ? 1 : 0) label=\(FFmpegAvailability.label(available: ffmpegAvailable))")
+        ffmpegStatusLine()
     }
 
     /// 几何探针（SC-1 的探针半边）：窗口出现后打一行 `PIC_SETTINGS_WINDOW`，
