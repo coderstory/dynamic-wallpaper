@@ -39,6 +39,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         presenting: WallpaperPresenter(controller: wallpaper),
         stopping: PlaybackStopper(player: player)
     )
+    /// 04-05 T2：轮换 → 装载的路由器。强持有（它持 `rotation.onAdvance` 闭包）；
+    /// lazy：init 引用 self 的其它属性。
+    private lazy var router = PlaybackRouter(
+        rotation: rotation,
+        loader: PlayerLoadingAdapter(player: player, arbiter: arbiter)
+    )
 
     private var ticker: Timer?
     /// D-05：0.5 秒 `Timer` 已删。`PIC_HOLD` 改由对 `arbiter.decision` 的观察驱动，
@@ -64,11 +70,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Plan 04-04：首启按需弹文件夹选择框 + 扫描起播。必须走 Task + await ——
         // pickFolder() 的模态面板要在主 run loop 上跑，在 launch 回调里同步
         // runModal() 会让启动停在那里。插在 wiring() 之后：四个 Watcher 已同步
-        // 置位，弹框期间系统信号不丢；startWallpaper() 的调用顺序一个字不动
-        //（目录获取与起播的协调是 04-05 的活）。
+        // 置位，弹框期间系统信号不丢。04-05：起播改在 bootstrap 末尾
+        //（先取目录、再扫描、最后 startWallpaper，顺序写死）。
         Task { await bootstrapAfterWiring() }
         startFrameDriver()
-        startWallpaper()
         startLoopProbeIfRequested()
         startHoldObserver()
         scheduleQuitAfterIfRequested()
@@ -277,27 +282,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - 竖切主体
 
-    private func startWallpaper() {
+    /// 04-05 T2：异步化 + 走 `MediaLibrary.scan` + `router.start`。装载分派由
+    /// router 内部的 `onAdvance` 完成（内部装载 `items[0]` 并重放仲裁决策）。
+    /// 末尾段（`arbiter.applyCurrentDecision()` → `setVolume`/`setMuted` →
+    /// `shouldPlay` 门）一个字符未动（B1 / W-2026-10-03-21）。
+    private func startWallpaper() async {
         // T-02-06：这一段只打印**原因类别**，绝不打印媒体路径。
         guard let folder = store.resolvedFolderURL() else {
             emit("PIC_NO_SOURCE reason=folder_unresolved")
             return
         }
-        // 与 spike 的取法同一写法：非递归枚举 + 按文件名排序取首。
-        guard let url = firstVideoURL(in: folder) else {
+        // 04-05：装载前的存在性检查由 `MediaLibrary.scan`（folderMissing）+
+        // 探针负责；本守卫只判「扫完有没有可播条目」。
+        guard let report = try? await library.scan(folder: folder), !report.items.isEmpty else {
             emit("PIC_NO_SOURCE reason=no_mp4_in_folder")
-            return
-        }
-        // D-14 / Pitfall 5：存在性一律查裸路径形式，喂 URL 的字符串形式会恒为 false。
-        guard store.fileExists(at: url) else {
-            emit("PIC_NO_SOURCE reason=file_missing")
             return
         }
 
         // D-13：传的是 AVQueuePlayer 实例本身，不是 AVPlayerItem ——
         // looper 的模板 item 属性在 init 时就冻结，挂在 item 上「改设置立即生效」是假的。
         wallpaper.attach(player: player.player)
-        player.load(url: url)
+        router.start(with: report.items)
+        emit("PIC_ROT_START=1")
         // D-06 / W-2026-10-03-10：起播决策**只**从仲裁器出，零播放器直连。
         // 四个 Watcher 的 start() 已在 wiring() 里同步置位，所以此刻 decision 已含
         // 本会话的全部系统信号 —— 锁屏中的会话不会先播一下再被压住。
@@ -320,6 +326,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// Phase 2 的同步取片路径。04-05 起 `startWallpaper()` 走 `MediaLibrary.scan`，
+    /// 本函数保留不删（不为此消警告去动别处）。
     private func firstVideoURL(in folder: URL) -> URL? {
         let fm = FileManager.default
         let items = (try? fm.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? []
@@ -376,6 +384,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         guard await requestFolderIfNeeded() else { return }
         await rescanAndApply()
+        // 04-05（SC4）：顺序写死 —— 先取目录、再扫描、最后起播。反序会让首次
+        // 启动在没有目录/扫描结果时先走一遍 PIC_NO_SOURCE。
+        await startWallpaper()
     }
 
     /// 该不该弹文件夹选择框由 FolderRequestPolicy 纯函数决定（SYS-03 / SOURCE-07）。
@@ -411,39 +422,55 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// 「切换目录」与「重新扫描」走**同一条**路径 —— 两处实现必然会漂。
-    /// 扫完按新结果交给协调器与轮换器：换目录即旧列表作废（SOURCE-08），
-    /// 重扫即新加的视频当场可见（SOURCE-05）。装载（player.load）由 04-05
-    /// 通过 RotationController.onAdvance 接上，本方法不碰播放端。
+    /// 04-05：扫描结果交给协调器后，按返回的 `LibraryState` 分派装载
+    /// （`.playing` → `router.start`，SC1/SC4；三个隐藏态 → `router.stop`）。
     private func rescanAndApply() async {
         guard let folder = store.resolvedFolderURL() else {
-            _ = coordinator.apply(scanOutcome: .success(0), folderConfigured: false)
+            dispatchPlayback(for: coordinator.apply(scanOutcome: .success(0),
+                                                    folderConfigured: false), items: [])
             return
         }
-        // 模式与间隔从设置带过来（当场生效，不存第二份真相）。
+        // 模式与间隔从设置带过来（当场生效，不存第二份真相）。04-05：同步后打
+        // 一行模式读数（只打 token，D-17 / T-03-02）。
         rotation.setMode(store.playMode)
         rotation.setInterval(store.rotationInterval)
+        emit("PIC_ROT_MODE=\(store.playMode.rawValue)")
         do {
             let report = try await library.scan(folder: folder)
-            rotation.setItems(report.items)
-            rotation.start()
-            _ = coordinator.apply(scanOutcome: .success(report.playableCount),
-                                  folderConfigured: true)
+            dispatchPlayback(for: coordinator.apply(scanOutcome: .success(report.playableCount),
+                                                    folderConfigured: true),
+                             items: report.items)
         } catch let error as MediaLibrary.MediaLibraryError {
-            _ = coordinator.apply(scanOutcome: .failure(error), folderConfigured: true)
+            dispatchPlayback(for: coordinator.apply(scanOutcome: .failure(error),
+                                                    folderConfigured: true), items: [])
         } catch {
             // scan 只抛 MediaLibraryError，这里是编译器要的兜底；真到了这一步
             // 说明出了没料到的错误，按「目录读不了」处理（隐藏 + 让出桌面）。
-            _ = coordinator.apply(scanOutcome: .failure(.folderUnreadable),
-                                  folderConfigured: true)
+            dispatchPlayback(for: coordinator.apply(scanOutcome: .failure(.folderUnreadable),
+                                                    folderConfigured: true), items: [])
+        }
+    }
+
+    /// 04-05 T2 ③：`LibraryState` → 装载分派。只看 `coordinator.apply` 的返回值，
+    /// 不在 AppDelegate 再判一次「有没有视频」（那会与 `LibraryAvailability` 的
+    /// 纯函数决策漂成两处）。
+    private func dispatchPlayback(for state: LibraryState, items: [VideoItem]) {
+        switch state {
+        case .playing:
+            router.start(with: items)
+        case .folderUnconfigured, .folderMissing, .noPlayableVideos:
+            emit("PIC_ROT_STOP=1")
+            router.stop()
         }
     }
 
     /// 「立即下一个」的行为侧（MENUBAR-04）：只叫轮换器，不碰 player、不碰
-    /// arbiter —— 换片由 onAdvance → 04-05 接的装载完成（T-04-22：菜单动作
-    /// 不得绕过仲裁器把已 hold 的播放器重新拉起）。
+    /// arbiter —— 换片由 onAdvance → 装载完成（T-04-22：菜单动作不得绕过仲裁器
+    /// 把已 hold 的播放器重新拉起）。04-05：换片已接上，打一行切换计数。
     func nextVideoNow() {
         emit("PIC_MENU_ACTION=next_video")
         rotation.advanceNow()
+        emit("PIC_ROT_ADVANCES=\(rotation.advances.count)")
     }
 
     /// 「重新扫描文件夹」的行为侧（MENUBAR-05 / SOURCE-05）：显式失效缓存再重扫 ——
@@ -479,4 +506,26 @@ private final class PlaybackStopper: PlaybackStopping {
     init(player: PlayerController) { self.player = player }
 
     func stopPlayback() { player.stop() }
+}
+
+/// `VideoLoading` 的产品侧适配（Plan 04-05 T2）。刻意不给 `PlayerController` 直接加
+/// conformance —— 那会让 PicCore 的类型背上 PicApp 的 seam 语义（04-03 分层纪律）。
+/// 两件事、顺序不可换：先装载，再重放仲裁决策 —— `load(url:)` 会重置队列，不重放
+/// 的话一个处于 hold 的会话会在换片后「先播一下」再被压住（B1 在起播路径防的事，
+/// 轮换路径同样要防）。走 `arbiter` 而不是 `player.arbiterApply(_:)`，让「决策从
+/// 哪来」只有一处。
+@MainActor
+private final class PlayerLoadingAdapter: VideoLoading {
+    private let player: PlayerController
+    private let arbiter: HoldArbiter
+
+    init(player: PlayerController, arbiter: HoldArbiter) {
+        self.player = player
+        self.arbiter = arbiter
+    }
+
+    func loadPlayback(url: URL) {
+        player.load(url: url)
+        arbiter.applyCurrentDecision()
+    }
 }
