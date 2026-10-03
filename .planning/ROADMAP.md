@@ -162,7 +162,7 @@ Plans:
 - [x] 04-03-PLAN.md
 - [x] 04-04-PLAN.md
 - [x] 04-05-PLAN.md
-- [ ] 04-06-PLAN.md
+- [x] 04-06-PLAN.md
 
 **Notes**:
 - `FileManager.enumerator` 递归扫描 + 扩展名过滤 + `AVURLAsset` 校验可加载视频轨
@@ -298,7 +298,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 1. 桌面层级门禁 spike | 5/5 | Done| 2026-10-03 |
 | 2. 播放内核竖切 | 4/4 | Done| 2026-10-03 |
 | 3. 系统事件仲裁 | 5/5 | Done | 2026-10-03 |
-| 4. 媒体库与轮换 | 5/6 | In Progress|  |
+| 4. 媒体库与轮换 | 6/6 | In Progress|  |
 | 5. 设置窗口与即时生效 | 0/4 | Not started | - |
 | 6. 转码与独立窗口 | 0/5 | Not started | - |
 | 7. 打包、开机自启与整机验收 | TBD | Not started | - |
