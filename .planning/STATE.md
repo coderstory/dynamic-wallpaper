@@ -140,7 +140,7 @@ None yet.
 
 - **Phase 1 是门禁**：层级方案证伪则整个架构作废，Phase 2–7 不得启动
 - **未签名 app 上 `SMAppService` 行为【待验证】** —— SYS-01 最大不确定点，Phase 7 必须实测；退路是 `~/Library/LaunchAgents/` plist
-- **Phase 6 需深度 research** —— 「视觉无损」的 CRF/preset/编码器未定、产物命名规则待设计（防扫描死循环）、GPL v3.0 自用义务边界【待验证】
+- ~~**Phase 6 需深度 research**~~ —— **已解决（Phase 6 RESEARCH.md，2026-10-03，commit `2690614`）**：① CRF/preset/编码器已定 —— libx264 CRF 18 + preset medium（终值走本机 SSIM/VMAF 实测，手动）；② 产物命名已定 —— 不加后缀，目录隔离（`Converted/`）+ MP4 原生双闸门；③ GPL v3 已关 —— 自用零义务（GPLv3 §2 逐字引用）；DMG 分发也无义务（子进程 = separate works）
 - **`com.apple.screenIsLocked` 未文档化** —— 靠 Phase 1 实测；失效则 Phase 3 升级为需 research（真正降级方案未找到公开资料）
 
 ## Deferred Items
@@ -183,7 +183,7 @@ Items acknowledged and deferred at milestone close, most recent first:
 ## Session Continuity
 
 Last session: 2026-10-03
-Stopped at: Phase 4 规划修复收尾 —— 6 个 plan 已修复（`verify.plan-structure` 全 errors=0），plan-checker 第 2 轮剩 2 个 BLOCKER 修复中（`NSApp.setActivationPolicy` 门 2→3、`PIC_LIBRARY_STATE` 门 1→2），修完即 execute
+Stopped at: Phase 4 wave 1 执行中（04-01 worktree，T1 已提交 `01c4310`）；并行：Phase 5 规划（planner 运行中，UI-SPEC 契约 `fcb3e96`+`8f2d727`）；Phase 6 规划（planner 运行中，RESEARCH `2690614`）。并发上限 10。
 Resume file: `.planning/phases/04-media-library/.continue-here.md`
 
 ---
