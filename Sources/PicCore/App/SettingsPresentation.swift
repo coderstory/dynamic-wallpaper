@@ -75,4 +75,42 @@ public enum SettingsPresentation {
         case .shuffle: return "随机"
         }
     }
+
+    // MARK: - 空态 / 运行状态卡的文案映射
+
+    /// 空态副行（UI-02 逐字硬需求）。**全仓唯一一份**：视图与探针都引用它，
+    /// 第二份拷贝不会自己漂移提醒，只会漂成两个版本的承诺。
+    public static let emptyStateBody = "没找到能播的文件。壁纸已隐藏，桌面显示的是系统原壁纸。"
+
+    /// 三态一张皮：没配过 / 目录没了 / 扫到 0 在 UI 上**不区分**，
+    /// 判定就是「不该显示壁纸」的反面。
+    public static func isEmptyState(_ state: LibraryState) -> Bool {
+        return !state.shouldShowWallpaper
+    }
+
+    /// 暂停原因 → 副标签。刻意**不写 `default:`**（照 HoldStatus.swift）：
+    /// `HoldReason` 加 case 时编译不过，比漏一分支静默显示错文案安全。
+    public static func holdReasonLabel(_ reason: HoldReason) -> String {
+        switch reason {
+        case .manualPause: return "手动暂停"
+        case .fullscreen: return "检测到全屏应用"
+        case .screenLocked: return "屏幕已锁定"
+        case .displayAsleep: return "显示器已熄屏"
+        case .systemSleeping: return "系统正在睡眠"
+        case .battery: return "电池供电中"
+        }
+    }
+
+    /// 多原因按 `order` 排序后顿号连接（veto 集合下叠加原因必须全列 ——
+    /// 只列一个会让用户误判成 bug）。空集合 → 空串，调用方据此走「播放中」分支。
+    ///
+    /// ⚠️ 排序调用**只允许出现在本函数**：这是 D-15 的变异靶点，
+    /// 抄进注释会让「拿掉排序」那条变异打偏而不改代码。
+    public static func joinedReasons(_ reasons: [HoldReason]) -> String {
+        guard !reasons.isEmpty else { return "" }
+        return reasons.sorted().map(holdReasonLabel).joined(separator: "、")
+    }
+
+    public static let playbackPausedTitle = "已暂停"
+    public static let playbackRunningTitle = "播放中"
 }

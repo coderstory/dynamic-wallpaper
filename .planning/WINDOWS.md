@@ -509,6 +509,42 @@
 - **status**：open
 
 
+### W-2026-10-03-29 · unrun-verify · Phase 5 / Plan 05-03
+
+- **描述**：**SC-5 ③ 的活体目视未做** —— 锁屏态打开设置窗看到「屏幕已锁定」副标签这一跳，
+  本会话全程屏幕锁定（`evidence/status-card.log:LOCK_STATE_AT_PROBE=1`），无法开窗目视。
+- **证据**：`evidence/status-card.log` 的 `LIVE_LOCK_OBSERVATION=blocked reason=screen_locked`；
+  `LIB_STATE_EMPTY=ok` / `FFMPEG_SELF_CONSISTENT=ok` 说明探针其余部分在本会话照跑。
+  探针的 blocked 分支先 grep 本条目存在，缺条目即 `LIVE_LOCK_W_ENTRY_MISSING` 退出非 0
+  —— 守卫本身走的是同 W-2026-10-03-25 的形状。
+- **已证明的替代面**：原因→文案的映射（`screenLocked` → 「屏幕已锁定」）由
+  `SettingsPresentation.holdReasonLabel` 的穷举单测逐字锁定（全 6 case，两两不同）；
+  「有原因则标题已暂停 + 副标签非空」的分支由 `joinedReasons` 的空集/单条/多条三条用例覆盖。
+  **数据链与文案都钉住了，只有「屏上真的出现这行字」未目视。**
+- **影响**：UI-04（SC-5）的机制面与文案面已证明；渲染面缺一次活体确认。
+- **解开条件**：解锁会话里打开设置窗目视一次；或 05-04 用 XCUITest 注入合成锁事件
+  （`PIC_LOCK_SIGNAL_PREFIX`，见 `scripts/probe-lock.sh`）复跑并断言
+  `status-paused` 行的副标签逐字等于「屏幕已锁定」。
+- **status**：open
+
+
+### W-2026-10-03-30 · deviation · Phase 5 / Plan 05-03
+
+- **描述**：运行状态卡的 ffmpeg 行**只报可用性**，不显示版本串（UI-SPEC §7 表里的
+  「9.0.2 · 可用」在本 Phase 落成「可用」/「未安装」两个值）。
+- **证据**：UI-SPEC §12 明写「状态卡只报可用性」，完整安装指引与版本串归 Phase 6（TRANS-02）；
+  `Sources/PicCore/App/FFmpegAvailability.swift` 剥注释后 `Process(` 计数 0 —— Phase 5
+  **零 ffmpeg 执行**（主会话硬红线：ffmpeg 类调用绝不进自动路径，本机也无 timeout 机制），
+  不跑它就拿不到版本号。`evidence/status-card.log:FFMPEG_SELF_CONSISTENT=ok available=1 label=可用`。
+- **影响**：用户看不到「装的是哪个版本」。本 Phase 转码入口是 disabled 占位、
+  不执行 ffmpeg，所以拿不到版本号不造成功能缺口 —— 是一处**已知不完整**而非缺陷。
+- **解开条件**：Phase 6 TRANS-02 真正与 ffmpeg 交互时，把
+  `FFmpegAvailability.label(available:)` 扩成带版本的形态；届时
+  `Sources/PicCore/Transcode/ExternalToolLocator.swift` 的 `locate()`（已拿到
+  `available(path:)`）收编本判定为薄委托，避免出现两个 ffmpeg 探测真相源。
+- **status**：open
+
+
 ## resolved
 
 - **W-2026-10-03-09** · `NSApp.terminate` 第二处 —— 本 Phase 已收敛为 1 处并挂进 `test.sh` 每次重验
