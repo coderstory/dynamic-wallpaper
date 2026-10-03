@@ -1,11 +1,11 @@
 import XCTest
 @testable import PicCore
 
-/// `HoldStatus` 单测 —— D-12「必须对外暴露当前为什么暂停」的落点。
+/// `HoldStatus` 单测 ——「必须对外暴露当前为什么暂停」的落点。
 ///
 /// 本文件**零** AVFoundation / AppKit / SwiftUI：它验证的是「起播路径的调用序列」
 /// 与「派生量的形状」，不碰 `AVPlayer.timeControlStatus`。
-/// 真实的 `status=paused` 由 03-05 的活体 evidence（`evidence/holds-live.log`）证明，
+/// 真实的 `status=paused` 由活体 evidence（`evidence/holds-live.log`）证明，
 /// 两条互补，缺一不可。
 @MainActor
 final class HoldStatusTests: XCTestCase {
@@ -110,7 +110,7 @@ final class HoldStatusTests: XCTestCase {
         XCTAssertTrue(arbiter.holdStatus.shouldPlay)
     }
 
-    // MARK: - 5 · applyCurrentDecision 不碰锚点（D-06 的行为判据）
+    // MARK: - 5 · applyCurrentDecision 不碰锚点（行为判据）
 
     func testApplyCurrentDecisionForwardsCurrentDecisionWithoutTouchingAnchor() {
         target.position = 33.0
@@ -130,14 +130,13 @@ final class HoldStatusTests: XCTestCase {
         XCTAssertEqual(target.seeks, [33.0], "锚点必须在解除时仍然有效")
     }
 
-    // MARK: - 6 · B1 的变异测试靶子：起播路径的 setRate 门在 shouldPlay 之后
+    // MARK: - 6 · 变异测试靶子：起播路径的 setRate 门在 shouldPlay 之后
 
     /// 把 `startWallpaper()` 末尾那一段**逻辑原样**搬进测试，用替身跑两遍。
     ///
     /// 🔴 下面这个 `do { }` 不是多余的：它保证「删掉 `if decision.shouldPlay {`
     /// 那一行」之后整个文件**仍能编译**。没有它，变异会变成一个 `}` 悬空的
-    /// **编译错误** —— 编译失败冒充「判据转红」正是 W-2026-10-03-17 点名过的反模式
-    /// （03-03 因此把耦合点从字段声明挪到 init 赋值体）。有了它，删掉门控后
+    /// **编译错误** —— 编译失败冒充「判据转红」是点名过的反模式。有了它，删掉门控后
     /// `setRate` 变成无条件调用，`setRateCalls` 从 0 变 1，
     /// 下面那条 `XCTAssertEqual` 就会以**断言失败**的形式转红。
     private func runStartPath(_ decision: PlaybackDecision, sink: SettingsSink, arbiter: HoldArbiter) {

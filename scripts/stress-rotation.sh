@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# stress-rotation.sh —— Plan 07-04 T1 的 SC4 前半：50 次换片、内存回基线 ±10%。
+# stress-rotation.sh —— SC4 前半：50 次换片、内存回基线 ±10%。
 #
 #   bash scripts/stress-rotation.sh
 #     → 压测前备份 rotationInterval / playMode 两个键
@@ -7,15 +7,15 @@
 #     → 读退出快照 PIC_ROT_ADVANCES_TOTAL 与两次 RSS，算漂移
 #     → 恢复两个键的原值 → 全部 STRESS_* 行落 evidence/stress-rotation.log
 #
-# 四条纪律（沿用 scripts/probe-lock.sh / probe-sys01.sh 已跑通的那几条）：
+# 四条纪律：
 #   ① 所有外部命令套 `perl -e 'alarm N; exec @ARGV'` —— 本机没有 timeout 命令。
 #   ② **不用 set -e**：失败原样落日志由人读；清理无条件（trap 与断言同一条路径）。
 #   ③ `set -u` + `export LC_ALL=C`。
 #   ④ **零转码**：只播放 fixtures 里已有的 mp4，播放是 app 的日常行为。
 #      转码二进制的名字一个都不许出现在本文件的非注释行里（禁令判据 grep 那个词）。
 #
-# ⚠️ 基线口径（W-2026-10-03-44）：RSS0 取自 **warmup 15 秒之后**，不是冷启动。
-#    冷启动那一段正在建窗口、装解码器，比的是它等于在测「启动多贵」，不是「换片漏不漏」。
+# ⚠️ 基线口径：RSS0 取自 **warmup 15 秒之后**，不是冷启动。冷启动那一段正在建窗口、
+#    装解码器，比的是它等于在测「启动多贵」，不是「换片漏不漏」。
 
 set -u
 export LC_ALL=C
@@ -96,7 +96,7 @@ emit_line "STRESS_BASELINE_PM=$OLD_PM"
 
 # ================= 3. 写入压测参数 =================
 # playMode 的 rawValue 取 loopList —— SettingsStore.PlayMode 的 case 名即 rawValue，
-# 与 load 侧 `PlayMode(rawValue:)` 的解析拼法一致（执行期已核对）。
+# 与 load 侧 `PlayMode(rawValue:)` 的解析拼法一致。
 alarm 20 defaults write "$DOMAIN" rotationInterval -float 1 >/dev/null 2>&1 || true
 alarm 20 defaults write "$DOMAIN" playMode -string loopList >/dev/null 2>&1 || true
 emit_line "STRESS_ROTATION_INTERVAL=1"

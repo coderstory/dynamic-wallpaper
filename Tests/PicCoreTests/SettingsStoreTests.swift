@@ -109,14 +109,14 @@ final class SettingsStoreTests: XCTestCase {
                        "Phase 2 只枚举单循环；列表循环/列表随机是 Phase 4（Plan 04-02）纯追加的 case")
     }
 
-    // ── Plan 03-04 T1：PAUSE-05「电池供电时暂停（开关，默认关闭）」的两半 ──────
+    // ── PAUSE-05「电池供电时暂停（开关，默认关闭）」的两半 ──────
     //
-    // D-11 把「默认关闭」提为硬约束，因为它决定的是「用户在电池上会不会莫名其妙
+    // 「默认关闭」是硬约束，因为它决定的是「用户在电池上会不会莫名其妙
     // 失去壁纸」这个**用户可见**的后果：默认开 = 用户拿电池本时壁纸无故停住，
-    // 看起来像 app 坏了（PITFALLS Pitfall 2b：宁可少暂停也不要误暂停）。
+    // 看起来像 app 坏了（宁可少暂停也不要误暂停）。
     // 这一组用例锁住 PAUSE-05 的两半：**默认关** + **可开可关且能存住**。
 
-    /// 第一半：seed 层与解析层**两道**默认都是 false（T-03-14）。
+    /// 第一半：seed 层与解析层**两道**默认都是 false。
     ///
     /// 两道都要断言：`Seed` 的参数默认值管的是「没给种子」，
     /// `init` 的 `?? seed.pauseOnBattery` 兜底管的是「给了种子但键不存在」。
@@ -163,7 +163,7 @@ final class SettingsStoreTests: XCTestCase {
     /// ⚠️ 默认 false 是**产品决策**不是实现细节：自启是用户显式打开的东西，
     /// 默认开等于替用户往开机项里塞一个登录项（且要靠 unregister 才收得回来）。
     ///
-    /// round-trip 是 SYS-01 的前提：开关不持久化，用户拨开的设置重启即丢，
+    /// round-trip 是自启的前提：开关不持久化，用户拨开的设置重启即丢，
     /// 「开机自启」这项判据就无从谈起。
     func testLaunchAtLoginDefaultsFalseAndRoundTrips() {
         XCTAssertFalse(SettingsStore.Seed().launchAtLogin, "种子层的默认值必须是 false")

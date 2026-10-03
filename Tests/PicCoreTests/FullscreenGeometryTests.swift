@@ -1,12 +1,12 @@
-// FullscreenGeometryTests.swift —— Plan 03-02 T1：几何层对齐 Phase 1 `--selftest` 的四条基准。
+// FullscreenGeometryTests.swift —— 几何层对齐 `--selftest` 的四条基准。
 //
 // ⚠️ 本文件的每一个夹具数字都来自实测日志，**没有一个是编的**：
 //   `.planning/spike/out/fullscreen-scenarios.log` 的 `SELFTEST_BLOCK` / `S0` 段，
 //   `.planning/phases/02-playback-core/evidence/inset.log`。
 // 写测试时改了夹具里的任何数字 = 判据作废。
 //
-// 本文件**只锁几何数字**。「那扇窗不该被判成全屏」是 T2 的 `FullscreenVerdict` 的事 ——
-// 两个文件各判一次会让判定逻辑出现两个落点（D-07 同一类问题）。
+// 本文件**只锁几何数字**。「那扇窗不该被判成全屏」是 `FullscreenVerdict` 的事 ——
+// 两个文件各判一次会让判定逻辑出现两个落点。
 
 import XCTest
 @testable import PicCore
@@ -29,7 +29,7 @@ final class FullscreenGeometryTests: XCTestCase {
             inset: .zero)
     }
 
-    // ── 1. 坐标系翻转（D-04）─────────────────────────────────────────────
+    // ── 1. 坐标系翻转 ──────────────────────────────────────────────
 
     /// `S0` 段 `WIN pid=1227 ... bounds=0.0,33.0,1470.0,833.0 flipped_y=90.000` 的逐字重放。
     func testFlipMatchesPhaseOneBaseline() {
@@ -69,9 +69,9 @@ final class FullscreenGeometryTests: XCTestCase {
     /// `SELFTEST=chrome coverage=1.000 per_window_best=0.894`、
     /// `SELFTEST=split coverage=1.000 per_window_best=0.600`。
     ///
-    /// **`split` 这条是本 plan 几何侧的核心资产**：两块各 0.600 / 0.400 合起来才 1.000。
+    /// **`split` 这条是几何侧的核心资产**：两块各 0.600 / 0.400 合起来才 1.000。
     /// 实现一旦退化成「逐窗口取最大」，`split` 会输出 0.600 而这条立刻红 ——
-    /// Phase 1 探针把它原样写在 `SELFTEST_PROOF` 行上作为承重证据。
+    /// 探针把它原样写在 `SELFTEST_PROOF` 行上作为承重证据。
     func testPerWindowBestMatchesPhaseOneBaselines() {
         let chrome = aggregate([(1000, ScreenRect(x: 0, y: 33, w: 1470, h: 124)),
                                 (1000, ScreenRect(x: 0, y: 121, w: 1470, h: 835))])
@@ -86,7 +86,7 @@ final class FullscreenGeometryTests: XCTestCase {
                           "split 上两者相等说明聚合退化成了逐窗口取最大")
     }
 
-    // ── 4. 桌面层内缩补偿（D-03）────────────────────────────────────────
+    // ── 4. 桌面层内缩补偿 ─────────────────────────────────────────
 
     /// `inset.log` 三行的直接算术：`SCREEN_FRAME=0,0,1470,956` 减 `WINDOW_FRAME=14,9,1442,938`
     /// 得 `INSET_LEFT=14 / INSET_TOP=9 / INSET_RIGHT=14 / INSET_BOTTOM=9`；反向补偿回去
@@ -97,17 +97,17 @@ final class FullscreenGeometryTests: XCTestCase {
         XCTAssertEqual(widened, ScreenRect(x: 0, y: 0, w: 1470, h: 956))
     }
 
-    // ── 5. Phase 1 那条假阳性：几何照样算满，但几何不是判定 ──────────────
+    // ── 5. 那条假阳性：几何照样算满，但几何不是判定 ──────────────
 
     /// `S0` 段 `TOP_PID=1227 coverage=1.000 rects=1`（Ghostty）与
     /// `FALSE_POSITIVE_NOTE`：该窗口 bounds 高 833 < 屏幕 frame 高 956，够不到刘海，
     /// 可证不是全屏，但 coverage 顶到 1.000。
     ///
-    /// 本条**只锁几何数字**。「它不该被判成全屏」由 T2 的 `FullscreenVerdict` 断言
+    /// 本条**只锁几何数字**。「它不该被判成全屏」由 `FullscreenVerdict` 断言
     /// （`testFalsePositiveWindowGeometryOnePointZeroStaysFalse`）。两处各判一次、
     /// 断言不重叠，是刻意的。
     func testFalsePositiveWindowStaysAtFullCoverageButIsNotTheDecision() {
-        // 逐字重放 Phase 1 S0（探针当时不补偿内缩）。
+        // 逐字重放实测 S0（探针当时不补偿内缩）。
         let literalReplay = aggregate([(1227, ScreenRect(x: 0, y: 33, w: 1470, h: 833))])
         XCTAssertEqual(literalReplay.global, 1.000, accuracy: 0.005)
         XCTAssertEqual(literalReplay.globalPid, 1227)

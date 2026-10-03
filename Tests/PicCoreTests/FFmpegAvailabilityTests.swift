@@ -54,13 +54,13 @@ final class FFmpegAvailabilityTests: XCTestCase {
         XCTAssertTrue(statusCardSays(whichStatus: 0, whichPath: "/opt/custom/bin/ffmpeg"))
     }
 
-    /// 🔴 D-17 收编的核心判据：GUI 最小 PATH 下（`which` 失败）显式探测仍命中。
+    /// 🔴 核心判据：GUI 最小 PATH 下（`which` 失败）显式探测仍命中。
     /// 收编前这套判定读的是 `PATH` 环境变量，本机会误报「未安装」。
     func testGuiMinimalPathStillFindsHomebrewInstall() {
         XCTAssertTrue(statusCardSays(whichStatus: 1, executables: ["/opt/homebrew/bin/ffmpeg"]))
     }
 
-    /// 文案与「状态卡只报可用性」（UI-SPEC §12）——版本串属 Phase 6。
+    /// 文案与「状态卡只报可用性」——版本串不在这一层。
     func testLabelIsAvailableOrNotInstalledOnly() {
         XCTAssertEqual(FFmpegAvailability.label(available: true), "可用")
         XCTAssertEqual(FFmpegAvailability.label(available: false), "未安装")

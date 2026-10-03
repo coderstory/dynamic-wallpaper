@@ -1,11 +1,11 @@
 import XCTest
 @testable import PicCore
 
-/// 「该不该弹文件夹选择框」的纯函数判据（Plan 04-04 T2 / SYS-03 / SOURCE-07 / T-04-19）。
+/// 「该不该弹文件夹选择框」的纯函数判据。
 ///
 /// 不 import AppKit、不依赖 fixtures/ —— 干净 clone 上必须绿。
 /// setUp/tearDown 形状沿用 SettingsStoreTests（独立 suite + unsetenv）：
-/// 输入要能表达 `PIC_SOURCE_FOLDER` 那一级（Phase 2 的三级优先），
+/// 输入要能表达 `PIC_SOURCE_FOLDER` 那一级（三级优先），
 /// 测试进程里那个环境变量必须先摘掉，免得外部环境漏进来。
 @MainActor
 final class FolderRequestPolicyTests: XCTestCase {

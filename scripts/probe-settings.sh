@@ -1,17 +1,16 @@
 #!/usr/bin/env bash
-# probe-settings.sh —— Plan 05-01 T1 的设置窗 tracer 证据采集。一条命令：
+# probe-settings.sh —— 设置窗 tracer 证据采集。一条命令：
 #
 #   bash scripts/probe-settings.sh
 #     → swift build -c debug
-#     → 空临时目录当 source（PIC_SOURCE_FOLDER 指过去，不碰真实素材目录，D-22）
+#     → 空临时目录当 source（PIC_SOURCE_FOLDER 指过去，不碰真实素材目录）
 #     → .build/debug/Pic --open-settings --quit-after 10，stderr 与
 #       PIC_EVIDENCE_FILE 证据文件双落 $LOG
 #     → 断言并回写 PIC_SETTINGS_BOOT / PIC_SETTINGS_WINDOW / PROCESS_EXITED
 #
-# 纪律照 probe-lock.sh：alarm 包装（本机无 timeout）、LC_ALL=C、不用 set -e、
-# mktemp + trap cleanup。
+# 纪律：alarm 包装（本机无 timeout）、LC_ALL=C、不用 set -e、mktemp + trap cleanup。
 #
-# ⚠️ seeding 机制实测修正（相对计划的偏差，已在 SUMMARY 登记）：计划原文写
+# ⚠️ seeding 机制实测修正（不要改回 argument domain）：计划原文写
 #    「argument domain（-rate 1.5 参数域）」，实测 `UserDefaults.object(forKey:)`
 #    对 argument domain 返回 NSTaggedPointerString，`as? Float` / `as? Bool` 均转不
 #    成（SettingsStore 的读法拿到的是 seed 默认值）。改用进程名域：
@@ -38,7 +37,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 mkdir -p "$EV"
-# 每次全量重采（入库的是本 plan 的采集读数；后续 plan 的门禁只读不写）。
+# 每次全量重采（入库的就是本脚本的采集读数；下游门禁只读不写）。
 : > "$LOG"
 
 # 1. 编译
@@ -48,7 +47,7 @@ if ! alarm 300 swift build -c debug --package-path . > "$TMP/build.log" 2>&1; th
   exit 1
 fi
 
-# 2. 空临时目录当 source（不碰真实素材目录，D-22）
+# 2. 空临时目录当 source（不碰真实素材目录）
 SRC_DIR="$TMP/source-empty"
 mkdir -p "$SRC_DIR"
 
@@ -66,12 +65,12 @@ alarm 60 env PIC_SOURCE_FOLDER="$SRC_DIR" PIC_EVIDENCE_FILE="$EVFILE" \
   ".build/debug/Pic" --open-settings --quit-after 10 > "$TMP/app.out" 2> "$TMP/app.err"
 APP_RC=$?
 
-# stderr 是唯一落 $LOG 的原始流（D-17：同一行不落两遍，否则 TICK 等计数读起来
-# 翻倍）；证据文件单独断言 —— 它证明的是 PIC_EVIDENCE_FILE 桥本身可用（XCUITest
-# 依赖这条桥），不是第二个数据源。
+# stderr 是唯一落 $LOG 的原始流（同一行不落两遍，否则 TICK 等计数读起来翻倍）；
+# 证据文件单独断言 —— 它证明的是 PIC_EVIDENCE_FILE 桥本身可用（XCUITest 依赖这条桥），
+# 不是第二个数据源。
 cat "$TMP/app.err" > "$LOG"
 
-# 5. 断言并回写（每条一行、一个数一次，D-17）
+# 5. 断言并回写（每条一行、一个数一次）
 PASS=1
 if grep -q 'PIC_SETTINGS_BOOT rate=1.5 volume=0.5 muted=1' "$LOG"; then
   echo "PROBE_BOOT=ok" >> "$LOG"

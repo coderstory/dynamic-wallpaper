@@ -1,7 +1,7 @@
 import XCTest
 @testable import PicCore
 
-/// `LibraryAvailability` 纯函数决策的单测（SOURCE-06 的决策半边）。
+/// `LibraryAvailability` 纯函数决策的单测（决策半边）。
 ///
 /// 六条全部是纯函数断言：不构造窗口、不碰 AVFoundation —— 决策层若是真的纯函数，
 /// 就必须能在无屏幕、无播放器的环境里穷举它的全部输入空间。

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# probe-sys01.sh —— Plan 07-02 T3 的一次性实测：未签名 app 的开机自启到底走哪条路线。
+# probe-sys01.sh —— 一次性实测：未签名 app 的开机自启到底走哪条路线。
 #
 #   bash scripts/probe-sys01.sh
 #     → 备份 com.local.pic 偏好域 + 记路线 A/B 的基线读数
@@ -9,7 +9,7 @@
 #        → 恢复偏好备份）→ 复查三项是否回基线
 #     → 全部 SYS01_* 读数落 evidence/sys01.log
 #
-# 四条纪律（沿用 scripts/probe-lock.sh 已跑通的那几条）：
+# 四条纪律：
 #   ① 所有外部命令套 `perl -e 'alarm N; exec @ARGV'` —— 本机没有 timeout 命令，
 #      权限弹窗或异常输入会挂死整个采集。
 #   ② **不用 set -e**：探针失败不中止脚本，失败原样落日志由人读。
@@ -17,8 +17,8 @@
 #      系统登录项与用户偏好是这个脚本唯一会真正改动的东西，留下脏状态就是害人。
 #   ④ `set -u` + `export LC_ALL=C`。
 #
-# ⚠️ **绝不调用 BTM 的整体重置子命令**（W-2026-10-03-41）。它清掉的是**全部**登录项，
-#    不只是本 app 的 —— 核弹。本脚本剥注释后该命令计数必须 == 0（判据 grep 这个词）。
+# ⚠️ **绝不调用 BTM 的整体重置子命令**。它清掉的是**全部**登录项，不只是本 app 的
+#    —— 核弹。本脚本剥注释后该命令计数必须 == 0（判据 grep 这个词）。
 #    只用现代的 bootstrap / bootout，不出现已废弃的 load / unload 子命令。
 #
 # ⚠️ **只读计数、不改用户真实开机项配置**：本脚本唯一触碰系统登录项的动作
@@ -76,7 +76,7 @@ emit_line() { printf '%s\n' "$*" >> "$LOG"; }
 
 # ---- 路线 A 的系统侧读数。dumpbtm 本机会挂（见 evidence 里的 SYS01_BTM_* 行），
 #      故套 alarm；超时按 0 记，但**另打一行可用性** —— 读不到与读到 0 是两件事，
-#      合成一个数字就是把差别抹掉（D-17）。
+#      合成一个数字就是把差别抹掉。
 #
 # ⚠️ 必须**直接调用**（不能写成 `X="$(btm_read)"`）：命令替换跑在子 shell 里，
 #    函数里的赋值传不回父 shell，`set -u` 下就是 unbound variable。
@@ -123,7 +123,7 @@ alarm 20 launchctl print "$GUI/$LABEL" >/dev/null 2>&1
 BASELINE_LAUNCHCTL_RC=$?
 
 # ⚠️ 基线必须在**写 enable 之前**取。晚一步取就变成「跟清理后的自己比」——
-#    恒等于、恒绿，判据就废了（这是本脚本第一版的真 bug）。
+#    恒等于、恒绿，判据就废了。
 prefs_probe() { alarm 10 defaults read "$DOMAIN" launchAtLogin 2>/dev/null || echo "<absent>"; }
 BASELINE_PREFS_VALUE="$(prefs_probe)"
 emit_line "SYS01_BASELINE_PREFS=$BASELINE_PREFS_VALUE"

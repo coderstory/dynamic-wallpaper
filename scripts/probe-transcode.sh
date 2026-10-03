@@ -1,16 +1,14 @@
 #!/usr/bin/env bash
-# probe-transcode.sh —— Plan 06-03 T2 的执行 tracer 活体证据采集。一条命令，无参数：
+# probe-transcode.sh —— 执行 tracer 活体证据采集。一条命令，无参数：
 #
 #   bash scripts/probe-transcode.sh
 #     → 编译 throwaway driver（与产品源码一起编 —— 证据跑的是产品代码）
-#     → 跑 driver（FakeRunner，零真实转码调用），stdout 落 Phase 6 自己的
-#       evidence/transcode-tracer.log
+#     → 跑 driver（FakeRunner，零真实转码调用），stdout 落 evidence/transcode-tracer.log
 #
-# 纪律（照 scripts/probe-media-library.sh）：
+# 纪律：
 #   ① 所有外部命令套 perl -e 'alarm N; exec @ARGV' —— 本机没有 timeout 命令。
 #   ② 探针失败不中止脚本（不用 set -e）：失败原样写进日志，由人读日志判定。
-#   ③ evidence 落 Phase 6 自己的目录；支持 PIC_EVIDENCE_DIR 重定向
-#      （06-05 的统一校验段靠它不覆盖入库证据）。
+#   ③ evidence 支持 PIC_EVIDENCE_DIR 重定向，不覆盖入库证据。
 #   ④ 编译失败也要落日志（空 evidence 会让后续判据静默通过）。
 #
 # ⚠️ SRC 清单是**手写**的（probe-lock.sh 头注的真事故：漏列一个文件 → 编译失败

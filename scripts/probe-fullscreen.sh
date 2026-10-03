@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# probe-fullscreen.sh —— Plan 03-02 T2 的全屏信号证据采集。一条命令，无子命令：
+# probe-fullscreen.sh —— 全屏信号证据采集。一条命令，无子命令：
 #
 #   bash scripts/probe-fullscreen.sh
 #     → 编译 throwaway driver（与产品源码一起编）
 #     → 跑一次（瞬时，无等待 —— 本会话没有跃迁可等）
 #     → 全量 stdout 落 evidence/fullscreen-signals.log，末尾追加两行汇总
 #
-# 三条纪律（照 scripts/probe-lock.sh 已跑通的那三条）：
+# 三条纪律：
 #   ① 所有外部命令套 `perl -e 'alarm N; exec @ARGV'` —— 本机没有 timeout 命令，
-#      权限弹窗或异常输入会挂死采集（Phase 1 已踩过）。
-#   ② `export LC_ALL=C` —— W-2026-10-03-13：UTF-8 locale 下脚本输出会按字节偏移丢 2 字节，
-#      之后任何 grep 都会中止整份文件，判据假红。
+#      权限弹窗或异常输入会挂死采集。
+#   ② `export LC_ALL=C` —— UTF-8 locale 下脚本输出会按字节偏移丢 2 字节，之后任何
+#      grep 都会中止整份文件，判据假红。
 #   ③ 探针失败不中止脚本（不用 set -e）：失败原样写进日志，由人读日志判定。
 
 set -u

@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 # 能自动化的验证都在这。需要人眼/真机的（全屏暂停、桌面层级、耗电）不在此列。
+#
+# ⚠️ 措辞纪律（各段只留一行引用，不重复）：每条 `no()` 的判据名必须**逐字**等于
+#    同一条 `ok()` 的判据名，红绿只靠 ✅ / ❌ 前缀区分。下游会在**变异后的红日志**
+#    里 `grep -c '❌ <判据名>'` 确认「是这一条红了」—— 失败文案写成另一句就查不到。
+#    判据一个都不放宽，只改文案。
 cd "$(dirname "$0")"
 
 # 本脚本自己把 LC_CTYPE 固定成 C。原因（实测，非推断）：
@@ -89,7 +94,7 @@ w.contentView!.layer?.addSublayer(AVPlayerLayer())'
 
 echo ""
 echo "── 产品代码 ───────────────────────────"
-# Plan 02-02 T3：把「产品代码长成该长的样子」变成每次都自动重验的判据。
+# 把「产品代码长成该长的样子」变成每次都自动重验的判据。
 #
 # ⚠️ 两条纪律，踩过就记住：
 #   ① 扫描对象**一律是 Sources/ 或产品源码文件**。判据持有字面量是判据的定义，
@@ -136,16 +141,13 @@ N=$(src_count 'import AVFoundation' 'Sources/PicCore/State')
 N=$(src_count 'absoluteString')
 [ "$N" = "0" ] && ok "Sources/ 不用 URL 的字符串形式做存在性检查（D-14 / Pitfall 5）" || no "Sources/ 出现 URL 字符串形式" "剥注释后计数 = $N，期望 0"
 
-# SYS-02（Phase 2 锁定的不变量）：窗口不做 Space 级差异化处理。
-# ⚠️ Phase 3 / Plan 03-02 起口径由「token 出现 0 次」改为下面两条排除式判据 ——
-# D-02 要求 FullscreenDetector 订阅 activeSpaceDidChangeNotification 作为几何之外的
+# 已锁定的不变量：窗口不做 Space 级差异化处理。
+# ⚠️ 口径由「token 出现 0 次」改为下面两条排除式判据 ——
+# FullscreenDetector 订阅 activeSpaceDidChangeNotification 作为几何之外的
 # 判别信号，那是「订阅通知做检测」，不是「按 Space 做差异化行为」。见
-# .planning/WINDOWS.md 的 W-2026-10-03-17 · deviation。
+# .planning/WINDOWS.md 的 deviation 条目。
 
-# ⚠️ 下面两条的 `no()` 文案**必须带上 `ok()` 的同一句判据名**：
-# 下游 plan（03-05）会在**变异后的红日志**里 `grep -c '❌ 产品代码零 Space 身份读取'`，
-# 靠这个字符串确认「是这一条红了」。失败文案写成另一句就查不到 —— 03-01 首跑时正是这个原因。
-# （另一侧：绿日志里的 `ok()` 行带 ✅ 而非 ❌，不会自中）
+# ⚠️ 下面两条的措辞纪律见文件头（判据名逐字相同，红绿靠 ✅ / ❌ 区分）。
 # ① 壁纸窗口仍走系统默认行为：collectionBehavior 四项原样，不加任何 Space 相关位。
 N=$(src_count 'fullScreenAuxiliary' 'Sources/PicCore/Render')
 [ "$N" -ge 1 ] 2>/dev/null && ok "壁纸窗口仍走系统默认 Space 行为（collectionBehavior 未被加塞）" \
@@ -162,22 +164,20 @@ M=$(src_count 'CGSSetActiveSpace')
 N=$(src_count 'kCGWindowName')
 [ "$N" = "0" ] && ok "Sources/ 不读窗口标题（T-02-03 隐私）" || no "Sources/ 读了窗口标题键" "剥注释后计数 = $N，期望 0"
 
-# ---- Plan 03-01 T2：System/ 分层 + D-05 事件驱动的判据 ----
+# ---- System/ 分层 + 事件驱动的判据 ----
 # System/ 目录不存在时 src_count 返回 -1，本项报红。这是**故意的**：
-# 目录不存在就等于四个 Watcher 一个都没建，D-09 的分层无从谈起。
-# ⚠️ 新增判据的 `no()` 文案**必须带上 `ok()` 的同一句判据名**。下游 plan
-# （03-05 的 `<automated>`）会在**变异后的红日志**里 `grep -c 'System/ 四个 Watcher 零 AVFoundation'`，
-# 靠这个字符串确认「是这一条红了」。失败文案写成另一句话就查不到了。
+# 目录不存在就等于四个 Watcher 一个都没建，分层无从谈起。
+# ⚠️ 措辞纪律见文件头。
 
 N=$(src_count 'import AVFoundation' 'Sources/PicCore/System')
 [ "$N" = "0" ] && ok "System/ 四个 Watcher 零 AVFoundation（D-09 单向流）" \
   || no "System/ 四个 Watcher 零 AVFoundation —— System/ 依赖了播放框架" "剥注释后计数 = $N，期望 0（目录不存在时为 -1）"
 
-# D-05 的源码侧锚点：0.5 秒轮询已删，事件驱动的观察者在位。
-# ⚠️ 这两条是**源码检查，不是 D-05 的行为证明** —— D-05 的行为判据在
-# 03-05 的 `run-probe.sh holds`：12 秒零决策变化的窗口里 PIC_HOLD_OBSERVER_TICKS
-# 的最大值必须恰好为 1。**不要**拿「12 秒里 PIC_HOLD 行数 == 1」当判据：
-# observeHold() 的去重门让它在合规与违规两种实现下结果相同，那是空判（D-07）。
+# 事件驱动的源码侧锚点：0.5 秒轮询已删，观察者在位。
+# ⚠️ 这两条是**源码检查，不是行为证明** —— 行为判据在 `run-probe.sh holds`：
+# 12 秒零决策变化的窗口里 PIC_HOLD_OBSERVER_TICKS 的最大值必须恰好为 1。
+# **不要**拿「12 秒里 PIC_HOLD 行数 == 1」当判据：observeHold() 的去重门让它在
+# 合规与违规两种实现下结果相同，那是空判。
 N=$(src_count 'Timer(timeInterval: 0.5' 'Sources/PicApp')
 [ "$N" = "0" ] && ok "AppDelegate 零 0.5 秒 hold 轮询（D-05）" \
   || no "AppDelegate 零 0.5 秒 hold 轮询 —— 轮询仍在" "剥注释后计数 = $N，期望 0"
@@ -197,12 +197,12 @@ N=$(src_count 'reason=manualPause' 'Sources/PicApp')
 [ "$N" = "0" ] && ok "PIC_HOLD 的 reason= 不再写死成手动暂停（D-12）" \
   || no "PIC_HOLD 的 reason= 不再写死成手动暂停 —— 仍写死" "剥注释后计数 = $N，期望 0"
 
-# D-05 唯一不空的机器判据本身：它必须留在代码里。删了它，03-05 的行为判据无处可读。
+# 唯一不空的机器判据本身：它必须留在代码里。删了它，行为判据无处可读。
 N=$(src_count 'PIC_HOLD_OBSERVER_TICKS=' 'Sources/PicApp')
 [ "$N" = "1" ] && ok "PIC_HOLD_OBSERVER_TICKS 恰好一处（D-05 的机器判据）" \
   || no "PIC_HOLD_OBSERVER_TICKS 恰好一处 —— 缺失或多处" "剥注释后计数 = $N，期望恰好 1"
 
-# ---- Plan 02-03 T1/T3 的菜单侧判据 ----
+# ---- 菜单侧判据 ----
 MENU="Sources/PicApp/App/MenuContentView.swift"
 
 # 菜单项必须只由 MenuItemID.allCases 遍历产出。哨兵单测（MenuBarModelTests）能成立
@@ -229,21 +229,21 @@ PN=$(sed -n '/struct MenuContentView/,/^}/p' "$MENU" 2>/dev/null \
 [ "$PN" = "0" ] && ok "菜单结构体内零取文件名 API（MENUBAR-08）" \
   || no "菜单结构体内出现取文件名 API" "剥注释后计数 = $PN，期望 0（检查范围 $MENU 的 MenuContentView 行区间）"
 
-# T-02-08：菜单动作绕过仲裁器直连 AVPlayer 会让 Phase 3 的 veto 集合失效。
+# 菜单动作绕过仲裁器直连 AVPlayer 会让 veto 集合失效。
 # 范围是**菜单文件**，不是 Sources/PicApp/ 整个目录 —— 威胁边界是「菜单动作」这条。
 # AppDelegate 的 startWallpaper() 在起播时有一处 player.player.play()：那不是菜单动作，
-# 且发生在任何 watcher 存在之前（Phase 3 才接 watcher），所以不归这条判据管。
-# （该处另记在 .planning/WINDOWS.md，Phase 3 接 watcher 时要一并复核。）
+# 且发生在任何 watcher 存在之前（watcher 是后来才接的），所以不归这条判据管。
+# （该处另记在 .planning/WINDOWS.md，接 watcher 时要一并复核。）
 NP=$({ grep -c 'player.pause()' "$MENU" 2>/dev/null || true; grep -c 'player.play()' "$MENU" 2>/dev/null || true; } | awk '{s+=$1} END{print s+0}')
 [ "$NP" = "0" ] && ok "菜单侧零 AVPlayer 直连（D-11 单向流 / T-02-08）" \
   || no "菜单侧直连了播放器" "$MENU 内 player.pause()+player.play() 计数 = $NP，期望 0"
 
-# 结束进程的全局调用必须只有一个落点，否则两处将来必然会漂移（T-02-09 的同类纪律）。
+# 结束进程的全局调用必须只有一个落点，否则两处将来必然会漂移。
 NT=$(src_count 'NSApp.terminate')
 [ "$NT" = "1" ] && ok "结束进程的全局调用全仓唯一落点（AppDelegate）" \
   || no "结束进程的调用散落到多处" "剥注释后 Sources/ 内计数 = $NT，期望恰好 1"
 
-# ---- Plan 03-01 T2：TEST-01 的行为判据 ----
+# ---- 幂集与 veto 的行为判据 ----
 # 不扫源码，直接跑用例：幂集恰 64 组 + 「锁屏中退出全屏不恢复播放」的反例。
 # 上一条已经跑过全量 `swift test`，这里再单跑一次是为了失败时能把这一族的名字指出来。
 if swift test --package-path . --filter HoldArbiterTests > "$TMP/arbiter.log" 2>&1; then
@@ -253,16 +253,15 @@ else
   no "仲裁器用例失败" "$(grep -E "error:|XCTAssert.*failed|failed -" "$TMP/arbiter.log" | head -2)"
 fi
 
-# ---- Plan 03-05 T2：Phase 3 的四条源码判据 + 两条行为判据 + 四条探针判据 ----
-# ⚠️ 措辞纪律：下面新增判据的 `no()` 文案**必须带上 `ok()` 的同一句判据名**。
-#   03-01 / 03-02 / 03-04 连续踩了三次 —— 判据转红了但 `grep -c '❌ …'` 命中 0，
-#   查不到是哪一条。判据一个都不放宽，只改文案。
+# ---- 四条源码判据 + 两条行为判据 + 四条探针判据 ----
+# ⚠️ 措辞纪律见文件头（连续踩过三次：判据转红了但 `grep -c '❌ …'` 命中 0，
+#   查不到是哪一条。判据一个都不放宽，只改文案）。
 # ⚠️ 覆盖数声明：本段只有第 ① 条做了插桩反向验证（往 LockWatcher.swift 插
-#   `import AVFoundation` → 该条必须转红 → 恢复 → cmp -s）。第 ② 条由 03-01 验过、
-#   第 ③ 条是 Phase 2 既有、第 ④ 条与 03-02 的 SYS-02 判据同形且 03-02 已验。
+#   `import AVFoundation` → 该条必须转红 → 恢复 → cmp -s）。第 ② 条在锁屏那段验过、
+#   第 ③ 条是既有判据、第 ④ 条与 SYS-02 判据同形且已验。
 #   **不许**把这段写成「四条源码判据都做过反向验证」。
 
-# ① D-09 分层（本 plan 唯一做反向验证的那条）
+# ① 分层（本段唯一做反向验证的那条）
 N=$(src_count 'import SwiftUI' 'Sources/PicCore/State')
 [ "$N" = "0" ] && ok "State/ 零 SwiftUI 依赖（D-12 只产数据不渲染）" \
   || no "State/ 零 SwiftUI 依赖（D-12 只产数据不渲染）" "剥注释后 Sources/PicCore/State 内计数 = $N，期望 0"
@@ -271,7 +270,7 @@ N=$(src_count 'import AppKit' 'Sources/PicCore/State')
 [ "$N" = "0" ] && ok "State/ 零 AppKit 依赖（D-12 只产数据不渲染）" \
   || no "State/ 零 AppKit 依赖（D-12 只产数据不渲染）" "剥注释后 Sources/PicCore/State 内计数 = $N，期望 0"
 
-# ② D-06：起播路径零播放器直连。B1 的门控另由 HoldStatusTests 的变异测试承担。
+# ② 起播路径零播放器直连。门控另由 HoldStatusTests 的变异测试承担。
 N=$(src_count 'player.player.play()' 'Sources/PicApp')
 M=$(src_count 'player.player.pause()' 'Sources/PicApp')
 [ "$N$M" = "00" ] && ok "起播路径零播放器直连（D-06 / W-2026-10-03-10 已收口）" \
@@ -288,12 +287,12 @@ else
      "GATE_LINE=${GATE_LINE:-none} RATE_LINE=${RATE_LINE:-none}，要求 GATE_LINE < RATE_LINE；setRate 的实现就是 player.rate = r，无条件调用会把已 hold 的播放器重新拉起"
 fi
 
-# ④ D-12：PIC_HOLD_SUMMARY 恰好一处（AppDelegate 的可观测出口）。
+# ④ PIC_HOLD_SUMMARY 恰好一处（AppDelegate 的可观测出口）。
 N=$(src_count 'PIC_HOLD_SUMMARY summary=' 'Sources/PicApp')
 [ "$N" = "1" ] && ok "PIC_HOLD_SUMMARY 恰好一处（D-12 数据落点的可观测出口）" \
   || no "PIC_HOLD_SUMMARY 恰好一处（D-12 数据落点的可观测出口）" "剥注释后计数 = $N，期望恰好 1"
 
-# ---- Plan 03-05 T2：行为判据（不扫源码）----
+# ---- 行为判据（不扫源码）----
 if swift test --package-path . --filter HoldStatusTests > "$TMP/holdstatus.log" 2>&1; then
   HN=$(grep -oE 'Executed [0-9]+ tests, with 0 failures' "$TMP/holdstatus.log" | tail -1 | grep -oE '^[A-Za-z]* [0-9]+' | grep -oE '[0-9]+')
   ok "HoldStatus 用例全绿（D-12 派生量 + B1 门控，${HN:-?} 项）"
@@ -301,14 +300,14 @@ else
   no "HoldStatus 用例失败（D-12 派生量 + B1 门控）" "$(grep -E "error:|XCTAssert.*failed|failed -" "$TMP/holdstatus.log" | head -2)"
 fi
 
-# ---- Plan 03-05 T2：四条探针脚本的关键行（行为判据）----
-# 4 条脚本约 30 秒。它们各自写 Phase 3 自己的 evidence，本段跑一遍再读那一条关键行。
+# ---- 四条探针脚本的关键行（行为判据）----
+# 4 条脚本约 30 秒。它们各自写自己那一层的 evidence，本段跑一遍再读那一条关键行。
 # ⚠️ 读的是 **evidence 文件**而不是脚本的 stdout —— 这些脚本把 driver 的输出
 #    写进日志文件，只往 stderr 打一行 `PROBE_OK`。只收 stdout 会恒红。
 #
 # ⚠️ 这些脚本默认**就地覆盖** evidence 文件。若会话锁定态与当初采集时不同，覆盖掉的
-#    就是上一个 plan 的读数（本 plan 实测踩到：复跑 `probe-fullscreen.sh` 时会话已解锁，
-#    `COVERAGE` 从 1.000 变 0.000，03-02 入库的日志被覆盖）。
+#    就是上一个 plan 的读数（实测踩到：复跑 `probe-fullscreen.sh` 时会话已解锁，
+#    `COVERAGE` 从 1.000 变 0.000，入库的日志被覆盖）。
 #    → 故本段把产物重定向到 `$TMP/ev`（探针脚本读 PIC_EVIDENCE_DIR 环境变量），
 #      仓库内已入库的证据**一律不写**；旧入库版本只**只读**拷到 `$TMP` 供比对，
 #      若本次读数与入库版本不同就提示，**不**替别的 plan 改判据或改产物值。
@@ -337,17 +336,15 @@ probe_line probe-fullscreen.sh fullscreen-signals.log    '^FULLSCREEN_VERDICT=' 
 probe_line probe-display.sh    display-sleep-signals.log '^DISPLAY_SLEEP_TRANSITION='     "熄屏/睡眠跃迁观测已采集（03-03 探针，关键行存在）"
 probe_line probe-power.sh      power-signals.log         '^POWER_TRANSITION='             "电池跃迁观测已采集（03-04 探针，关键行存在）"
 
-# ---- Plan 04-06 T1：Phase 4 源码层门禁（媒体库与轮换）----
-# ⚠️ 措辞纪律（照 test.sh:144-147 与 :265-268 的原话）：本段新增判据的 `no()`
-#   文案必须带上 `ok()` 的同一句判据名（逐字相同），红绿靠 ✅ / ❌ 前缀区分 ——
-#   下游会在红日志里按 `❌ <判据名>` 定位是哪一条红了。判据一个都不放宽，只改文案。
+# ---- 源码层门禁（媒体库与轮换）----
+# ⚠️ 措辞纪律见文件头。
 # ⚠️ 本段只读源码计数（全部经 src_count），不跑探针脚本、不跑 swift build、
 #   不碰任何转码命令。编译与单测由本脚本既有段承担。
 echo ""
 echo "── Phase 4：媒体库与轮换（源码层）────"
 
 # ① Media/ 分层：只做文件系统与探针，不引渲染层。目录不存在时 src_count 返回 -1，
-#    本项报红 —— Phase 4 门禁要求 Phase 4 的产物在，这是有意的。
+#    本项报红 —— 本层门禁要求本层的产物在，这是有意的。
 N=$(src_count 'import AppKit' 'Sources/PicCore/Media')
 [ "$N" = "0" ] && ok "Media/ 零 AppKit 依赖（只做文件系统与探针）" \
   || no "Media/ 零 AppKit 依赖（只做文件系统与探针）" "剥注释后 Sources/PicCore/Media 内计数 = $N，期望 0（目录不存在时为 -1）"
@@ -357,14 +354,14 @@ N=$(src_count 'import SwiftUI' 'Sources/PicCore/Media')
   || no "Media/ 零 SwiftUI 依赖（只做文件系统与探针）" "剥注释后 Sources/PicCore/Media 内计数 = $N，期望 0（目录不存在时为 -1）"
 
 # ② 面板唯一落点：token 带括号数「构造调用」—— 冻结类名 NSOpenPanelFolderPicker
-#    自带无括号子串，裸 token 会被它恒撑到 2（04-04 Deviation 2 / 04-05 Deviation 1
-#    的移交形态）。等于 0 说明 SYS-03 没实现，大于 1 说明出现了第二处落点。
+#    自带无括号子串，裸 token 会被它恒撑到 2。等于 0 说明没实现，大于 1 说明出现了
+#    第二处落点。
 N=$(src_count 'NSOpenPanel(' 'Sources')
 [ "$N" = "1" ] && ok "文件夹选择面板全仓唯一落点（FolderPicker）" \
   || no "文件夹选择面板全仓唯一落点（FolderPicker）" "构造调用 NSOpenPanel( 剥注释后全仓计数 = $N，期望恰好 1：等于 0 说明 SYS-03 没实现，大于 1 说明出现了第二处落点"
 
-# ③ 轮换器零播放进度读取（PLAY-06 / D-10「到点就切 ≠ 播完才切」的常驻代理）。
-#    单文件计数：先拷进临时目录再对该目录 src_count（04-02 的既有做法）。
+# ③ 轮换器零播放进度读取（「到点就切 ≠ 播完才切」的常驻代理）。
+#    单文件计数：先拷进临时目录再对该目录 src_count。
 #    四个标识符是判据的定义，必须逐字出现在判据名里 —— 只要轮换器能读到其中
 #    任何一个，一个「等播完再换」的实现就能悄悄混进来。
 RC="$TMP/rotation-src"; mkdir -p "$RC"
@@ -389,8 +386,8 @@ else
   no "轮换器零播放进度读取（AVPlayerItemDidPlayToEndTime）" "文件缺失：Sources/PicCore/Playback/RotationController.swift 不在（04-02 未执行）"
 fi
 
-# ---- Plan 04-06 T2：Phase 4 探针 evidence 门禁 ----
-# 刻意的取舍（照实说，不美化）：本段**不重跑** Phase 4 的两个探针脚本，只读
+# ---- 探针 evidence 门禁 ----
+# 刻意的取舍（照实说，不美化）：本段**不重跑**这两个探针脚本，只读
 # **已入库**的 evidence 文件。理由两条：
 #   1. 媒体库探针的 driver 会建一个桌面级 NSWindow（tracer 要证窗口 attach 后
 #      可见）—— 在本脚本里反复起 GUI 进程与既有「打包段不起 GUI 进程」的纪律冲突；
@@ -398,7 +395,7 @@ fi
 #      权限收紧 + 复原，每次跑本脚本都让工作树反复变脏。
 # 行为侧的等价覆盖由本脚本既有的全量 swift test 承担（MediaLibraryTests /
 # PlaybackRouterTests / RotationControllerTests / RotationTests 都在其中）。
-# ⚠️ D-22：真实目录的一次性抽样计时行（informational=1 那行）**不进任何判据** ——
+# ⚠️ 真实目录的一次性抽样计时行（informational=1 那行）**不进任何判据** ——
 #    读数随会话浮动，拿它当门禁会变成 flaky 判据，故本段的正则一律不碰它。
 # ⚠️ 本段不重跑探针，也就不需要 evidence 重定向的环境变量；不跑 swift build /
 #    swift test / 任何探针脚本 / 任何转码命令 —— 只读文件。
@@ -426,7 +423,7 @@ p4_line rotation-wiring.log '^PIC_ROT_EMPTY_LOADS=0$' "轮换装配空列表零�
 p4_line rotation-wiring.log '^PIC_ROT_MODE=(loopSingle|loopList|shuffle)$' "轮换装配模式 token 已打（PIC_ROT_MODE）"
 p4_line rotation-wiring.log '^PIC_ROT_APP_LAUNCH informational=1 scope=piccore-chain reason=app-launch-blocked-by-locked-screen$' "轮换装配范围声明已打（PIC_ROT_APP_LAUNCH informational=1）"
 
-# 两份日志的媒体文件名零泄漏（T-03-02）：数三个扩展名的出现行数，各要求 0。
+# 两份日志的媒体文件名零泄漏：数三个扩展名的出现行数，各要求 0。
 MLFN=$(grep -cE '\.mp4|\.mov|\.m4v' .planning/phases/04-media-library/evidence/media-library.log 2>/dev/null || true)
 [ "$MLFN" = "0" ] && ok "媒体库 evidence 零媒体文件名（T-03-02）" \
   || no "媒体库 evidence 零媒体文件名（T-03-02）" "media-library.log 内 .mp4/.mov/.m4v 行计数 = ${MLFN:-<文件缺失>}，期望 0"
@@ -436,8 +433,8 @@ RWFN=$(grep -cE '\.mp4|\.mov|\.m4v' .planning/phases/04-media-library/evidence/r
 
 echo ""
 echo "── Phase 5：设置窗与运行层（源码层）──"
-# ⚠️ 措辞纪律同前：每条 no() 文案带 ok() 的同一句判据名（逐字相同），红绿靠 ✅/❌ 区分。
-# ⚠️ 七个数字全部先数现状再写死（2026-10-04 实测：0 / 0 / 0 / 1 文件 / 1 / 1 / 0 / 0）。
+# ⚠️ 措辞纪律见文件头。
+# ⚠️ 七个数字全部先数现状再写死（实测：0 / 0 / 0 / 1 文件 / 1 / 1 / 0 / 0）。
 
 N=$(src_count 'import AVFoundation' 'Sources/PicApp/Settings')
 [ "$N" = "0" ] && ok "设置窗视图零 AVFoundation 依赖（05-01 分层）" \
@@ -471,22 +468,21 @@ N=$(src_count 'MUT-P5-')
 [ "$N" = "0" ] && ok "变异插桩零残留" \
   || no "变异插桩零残留" "剥注释后 Sources/ 内 MUT-P5- 计数 = $N，期望 0"
 
-# D-18：按条目标题行计。正文里的交叉引用不占号 —— 同一号在正文出现十几次是正常的。
+# 按条目标题行计。正文里的交叉引用不占号 —— 同一号在正文出现十几次是正常的。
 WD=$(grep -E '^### W-' .planning/WINDOWS.md | sort | uniq -d | wc -l | tr -d ' ')
 [ "$WD" = "0" ] && ok "W 编号全库唯一" \
   || no "W 编号全库唯一" "重复的条目标题：$(grep -E '^### W-' .planning/WINDOWS.md | sort | uniq -d | tr '\n' ' ')"
 
 echo "── Phase 6：转码（纯逻辑 + 红线门）──────"
-# ⚠️ 措辞纪律（照 test.sh:144-147 与 :265-268 的原话）：本段 `no()` 文案必须带上
-#   `ok()` 的同一句判据名（逐字相同），红绿靠 ✅ / ❌ 前缀区分。
+# ⚠️ 措辞纪律见文件头。
 # ⚠️ 本段**零 ffmpeg 进程调用**：只跑 swift 单测（转码侧全部是替身）+ 读源码计数 +
 #   读已入库 evidence。转码执行只存在于手动 bench 脚本里（红线，见下）。
 # ⚠️ 编译与全量单测由本脚本既有的「产品代码」段承担，本段不重跑。
-# ⚠️ 本段**不重跑** transcode 探针（照 Phase 4 的 p4_line 纪律：探针重跑会覆盖
-#   已入库 evidence；06-03 的 tracer 用例同在下面那条单测里）。
+# ⚠️ 本段**不重跑** transcode 探针（照上面 p4_line 纪律：探针重跑会覆盖
+#   已入库 evidence；tracer 用例同在下面那条单测里）。
 
 # ① Transcode/ 分层：只有文件系统与子进程执行，不引渲染/UI/响应式框架。
-#    目录不存在时 src_count 返回 -1 → 报红（Phase 6 的产物必须在，这是有意的）。
+#    目录不存在时 src_count 返回 -1 → 报红（本层产物必须在，这是有意的）。
 N=$(src_count 'import AppKit' 'Sources/PicCore/Transcode')
 [ "$N" = "0" ] && ok "Transcode/ 零 AppKit 依赖（只做文件系统与子进程）" \
   || no "Transcode/ 零 AppKit 依赖（只做文件系统与子进程）" "剥注释后计数 = $N，期望 0（目录不存在时为 -1）"
@@ -522,7 +518,7 @@ else
   no "转码成败只认进程退出码" "文件缺失：Sources/PicCore/Transcode/ProcessTranscodeRunner.swift 不在（06-03 未执行）"
 fi
 
-# ③ 三途径安装说明的外显两条。`pathway:` 标识符的完整性由 06-04 的 FFmpeg 单测锁。
+# ③ 三途径安装说明的外显两条。`pathway:` 标识符的完整性由 FFmpeg 单测锁。
 N=$(src_count 'xattr -dr com.apple.quarantine' 'Sources/PicApp/Transcode')
 [ "$N" -ge 1 ] 2>/dev/null && ok "安装说明含静态二进制的去隔离命令" \
   || no "安装说明含静态二进制的去隔离命令" "剥注释后 Sources/PicApp/Transcode 内计数 = $N，期望 ≥ 1"
@@ -564,7 +560,7 @@ else
   no "Phase6 转码队列单测全绿" "$(grep -E 'error:|XCTAssert.*failed' "$TMP/trcqueue.log" | head -2)"
 fi
 
-# ⑥ 06-03 tracer 的活体 evidence（**只读**，不重跑探针）。
+# ⑥ tracer 的活体 evidence（**只读**，不重跑探针）。
 #    四行分别锁：不回流（候选集零 Converted 条目）、产物可播、重复批次幂等跳过、
 #    全程 runner 只被调用一次（防重复烤机）。
 p6_log=".planning/phases/06-transcode/evidence/transcode-tracer.log"
@@ -587,12 +583,12 @@ else
   no "Phase6 探针四行闭环（不回流可播幂等零重复spawn）" "缺：$P6_MISSING"
 fi
 
-# ⑦ 🔴 ffmpeg 红线（STATE.md 2026-10-03 拍板）：本脚本全程零 ffmpeg 进程调用，
+# ⑦ 🔴 ffmpeg 红线（STATE.md 拍板）：本脚本全程零 ffmpeg 进程调用，
 #    转码 bench 只能人工手动跑（scripts 下的手动脚本）。一次 libvmaf 实测跑出过
 #    779.9% CPU，挂进常规校验等于每次校验烤一次机。
 #
 #    ⚠️ 判据**自身**用拆串构造：模式在文件里以 `"a""b"` 两段字面存在，bash 拼接
-#    后才成为目标串。写成 joined 字面会让这条判据 grep 到自己、恒红（D-13 教训）。
+#    后才成为目标串。写成 joined 字面会让这条判据 grep 到自己、恒红。
 #    剥 bash 注释行后再计数 —— 注释里的提醒字样不算调用。
 BB="transcode""-bench"
 EP1="ffmpeg"" -i"
@@ -609,12 +605,11 @@ fi
 
 echo ""
 echo "── Phase 7 交付：产物形态 + evidence ──"
-# ⚠️ 措辞纪律（照 test.sh:144-147 与 :265-268 的原话）：本段 `no()` 文案必须带
-#   `ok()` 的同一句判据名（逐字相同），红绿靠 ✅ / ❌ 前缀区分。
-# ⚠️ 本段**不重跑任何探针**，只读 Phase 7 自己已入库的 evidence（照 Phase 4 的
+# ⚠️ 措辞纪律见文件头。
+# ⚠️ 本段**不重跑任何探针**，只读本段自己已入库的 evidence（照 Phase 4 的
 #   p4_line 纪律：重跑会覆盖已入库证据）。
 # ⚠️ 本段**不复用** Phase 3 的 probe 读法 —— 那个 helper 把 evidence 路径硬编码在
-#   Phase 3 的目录下，读不到 Phase 7 的目录，复用会假红。这里另起一套读法。
+#   Phase 3 的目录下，读不到本段的目录，复用会假红。这里另起一套读法。
 # ⚠️ 干净 clone 里没有 build/ 与 evidence/ —— 走 skip 不走红。
 
 P7EV=".planning/phases/07-delivery/evidence"
@@ -639,9 +634,9 @@ else
   [ "${NP:-0}" -ge 1 ] 2>/dev/null && ok "PicProbe 保留探针（成对正控）" \
     || no "PicProbe 保留探针（成对正控）" "剥符号后计数 = ${NP:-<无此产物>}，期望 ≥ 1（正控缺失则上一条的 0 无意义）"
 
-  # spctl 是**正向**断言：未签名未公证的 app 就该被拒，rc=3 才是 PACK-02 的形态面。
-  # 把它当失败就是把判据方向写反（W-2026-10-03-47）。
-  # ⚠️ 变量名不能叫 SRC —— test.sh:30 的 SRC 是**渲染段的源文件清单**，
+  # spctl 是**正向**断言：未签名未公证的 app 就该被拒，rc=3 才是形态面成立。
+  # 把它当失败就是把判据方向写反。
+  # ⚠️ 变量名不能叫 SRC —— 上面的 SRC 是**渲染段的源文件清单**，
   #    这里覆盖它会让「设置窗渲染」段编译一个空列表而恒红。
   spctl -a -t exec -vv build/Pic.app >/dev/null 2>&1
   SPCTL_RC=$?
@@ -708,7 +703,7 @@ swiftc -O -parse-as-library -target arm64-apple-macosx15.0 -o "$TMP/render" $SRC
 
 echo ""
 echo "── 打包产物 ───────────────────────────"
-# Plan 02-04 T3：build.sh 的产出本身也要被验，不能只验源码。
+# build.sh 的产出本身也要被验，不能只验源码。
 # 五项全是本地命令，不起 GUI 进程。干净 clone 下走 skip 分支（跳过 N 项），
 # 退出码仍是 0 —— test.sh 必须能在没打过包的机器上跑完。
 if [ ! -d build ]; then

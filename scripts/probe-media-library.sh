@@ -1,23 +1,22 @@
 #!/usr/bin/env bash
-# probe-media-library.sh —— Plan 04-01 T3 的 tracer 活体证据采集。一条命令，无参数：
+# probe-media-library.sh —— tracer 活体证据采集。一条命令，无参数：
 #
 #   bash scripts/probe-media-library.sh
 #     → 先跑 scripts/make-media-fixture-tree.sh 建树（保证 driver 有输入）
 #     → 编译 throwaway driver（与产品源码一起编）
-#     → 跑 driver，全量 stdout 落 Phase 4 自己的 evidence/media-library.log
-#     → 末尾追加真实目录的一次一层抽样计时（D-22，标 informational=1，不进任何判据）
+#     → 跑 driver，全量 stdout 落 evidence/media-library.log
+#     → 末尾追加真实目录的一次一层抽样计时（标 informational=1，不进任何判据）
 #
-# 纪律（照 scripts/probe-lock.sh）：
+# 纪律：
 #   ① 所有外部命令套 `perl -e 'alarm N; exec @ARGV'` —— 本机没有 timeout 命令。
 #   ② 探针失败不中止脚本（不用 set -e）：失败原样写进日志，由人读日志判定。
-#   ③ evidence 落 Phase 4 自己的目录（run-probe.sh:23-26 的教训：绝不能写进
-#      Phase 2/3 的 evidence 目录）。
+#   ③ evidence 支持 PIC_EVIDENCE_DIR 重定向；绝不能写进别人的 evidence 目录。
 #   ④ 编译失败也要落日志（`: > "$LOG"` + PROBE_COMPILE_RC=1）—— 空 evidence 会
 #      让后续判据静默通过。
 #
-# ⚠️ SRC 清单是**手写**的（probe-lock.sh:36-63 记过真事故：03-05 给 HoldArbiter 加
-#    holdStatus 后漏列 State/HoldStatus.swift，编译失败且日志被清空）。新增/删除
-#    State/ 或 Media/ 下的文件时必须同步改这里。
+# ⚠️ SRC 清单是**手写**的（probe-lock.sh 记过真事故：给 HoldArbiter 加 holdStatus 后
+#    漏列 State/HoldStatus.swift，编译失败且日志被清空）。新增/删除 State/ 或 Media/
+#    下的文件时必须同步改这里。
 
 set -u
 export LC_ALL=C
@@ -77,9 +76,9 @@ cp "$OUT" "$LOG"
 LINES=$(wc -l < "$LOG" | tr -d ' ')
 echo "PROBE_LOG_LINES=$LINES" >> "$LOG"
 
-# ④ 真实目录的一次一层抽样计时（D-22）：只做非递归的一层计数 + 计时，打一行
-#    informational=1。这一行不带任何判据，也不被 04-06 的 test.sh 读。
-#    真实目录的递归计时**不做**（那正是 D-22 要防的慢操作）。
+# ④ 真实目录的一次一层抽样计时：只做非递归的一层计数 + 计时，打一行
+#    informational=1。这一行不带任何判据。真实目录的递归计时**不做**（那正是要防的
+#    慢操作）。
 REALDIR="$HOME/Movies/视频壁纸"
 ENTRIES=0
 SECONDS_T=0

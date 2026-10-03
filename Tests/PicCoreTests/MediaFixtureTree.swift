@@ -13,10 +13,10 @@ import Foundation
 /// | `a.mp4` | 接受 | 收 |
 /// | `B.MOV` | 接受 | 收（扩展名大小写不敏感） |
 /// | `notes.txt` | — | 扩展名拒绝 |
-/// | `broken.mp4` | 拒绝 | 视频轨拒绝（D-08） |
+/// | `broken.mp4` | 拒绝 | 视频轨拒绝 |
 /// | `sub/c.m4v` | 接受 | 收 |
-/// | `sub/skip.mkv` `sub/y.avi` `sub/z.webm` | — | 扩展名拒绝（SOURCE-03 反证） |
-/// | `sub/deep/deeper/d.MP4` | 接受 | 收 —— 三次目录深度（SOURCE-02 专门用例） |
+/// | `sub/skip.mkv` `sub/y.avi` `sub/z.webm` | — | 扩展名拒绝（反证） |
+/// | `sub/deep/deeper/d.MP4` | 接受 | 收 —— 三次目录深度（专门用例） |
 /// | `Converted/out.mp4` | 接受（假探针会收） | 整棵排除 |
 /// | `converted-lower/keep.mp4` | 接受 | **必须收**（排除是目录名精确匹配，不是子串） |
 /// | `视频壁纸/e.mp4` | 接受 | 收（目录名含空格与中文，走 `path` 路线） |

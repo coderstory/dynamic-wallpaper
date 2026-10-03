@@ -1,10 +1,9 @@
 import XCTest
 @testable import PicCore
 
-/// 系统事件 → 仲裁 → 播放端的**纵向集成**用例（Plan 03-01 T1）。
+/// 系统事件 → 仲裁 → 播放端的**纵向集成**用例。
 ///
-/// 本文件**不得引入播放框架**（ARCHITECTURE §9：`System/` 与 `State/` 零 AVFoundation）——
-/// 判据见 `test.sh` 的「`System/` 四个 Watcher 零 AVFoundation」与 T2 的 `<automated>`。
+/// 本文件**不得引入播放框架**（`System/` 与 `State/` 零 AVFoundation）。
 @MainActor
 final class SystemEventPipelineTests: XCTestCase {
 
@@ -34,7 +33,7 @@ final class SystemEventPipelineTests: XCTestCase {
         RunLoop.main.run(until: Date().addingTimeInterval(seconds))
     }
 
-    // MARK: - start() 的同步回调（B4）
+    // MARK: - start() 的同步回调
 
     /// `start()` 必须在**不投递任何通知**的情况下当场把当前锁屏状态喂给仲裁器。
     ///
@@ -96,7 +95,7 @@ final class SystemEventPipelineTests: XCTestCase {
         watcher.stop()
     }
 
-    // MARK: - T-03-01：会话字典取值的纯函数
+    // MARK: - 会话字典取值的纯函数
 
     /// 「读不到」与「没锁」是两件事。三种夹具把三者的输出都钉死：
     /// 字典为 nil / 键缺失 → `false`；值为 0 → `false`；值为 1 → `true`。
@@ -143,7 +142,7 @@ final class SystemEventPipelineTests: XCTestCase {
         arbiter.set(.screenLocked, active: true)
         XCTAssertEqual(target.applies.count, appliesAfterStart, "同一 reason 重复置位只 apply 一次")
 
-        // 解除：换掉会话字典再投「已解锁」通知 —— 通知只当触发器（T-03-01）。
+        // 解除：换掉会话字典再投「已解锁」通知 —— 通知只当触发器。
         watcher.stop()
         let watcher2 = LockWatcher(
             center: center,
@@ -157,7 +156,7 @@ final class SystemEventPipelineTests: XCTestCase {
         watcher2.stop()
     }
 
-    /// `stop()` 之后通知不再触发回调 —— Pitfall 4 的配对语义（T-03-03）。
+    /// `stop()` 之后通知不再触发回调 —— 与注册配对的语义。
     func testStopRemovesObserversSoLaterSignalsAreIgnored() {
         let center = DistributedNotificationCenter()
         let names = makeNames()
@@ -214,7 +213,7 @@ final class SystemEventPipelineTests: XCTestCase {
         watcher.stop()
     }
 
-    // MARK: - HoldReason 的形状（TEST-01 的地基）
+    // MARK: - HoldReason 的形状
 
     /// 6 个 case、幂集恰 64 组、order 互不相同。
     /// 子集在**运行时**从 `allCases` 生成，不存在手抄的 64 条断言。

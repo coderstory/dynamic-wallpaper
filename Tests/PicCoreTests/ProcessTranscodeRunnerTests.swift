@@ -1,11 +1,11 @@
 import XCTest
 @testable import PicCore
 
-// C6 合规说明（红线）：本测试的桩二进制是 /bin/sh 跑 printf + echo —— 不是
+// 合规说明（红线）：本测试的桩二进制是 /bin/sh 跑 printf + echo —— 不是
 // ffmpeg、不转码、毫秒级、零编码负载。它验证的是 Process / stdout 管道 /
 // 退出码机制，不触「禁止真实转码调用」的禁令。任何情况下不得为了让测试
 // 「更真实」而把桩换成真实转码器 —— 那是 779.9% CPU 事故的直接复发。
-// 真转码只存在于 06-05 的手动 bench。
+// 真转码只存在于手动 bench。
 final class ProcessTranscodeRunnerTests: XCTestCase {
 
     /// 线程安全收集盒：onProgressLine 来自 readabilityHandler 的后台队列。

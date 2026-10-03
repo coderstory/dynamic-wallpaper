@@ -2,7 +2,7 @@ import AVFoundation
 import XCTest
 @testable import PicCore
 
-/// G-04-3b 的不变量：`load` 返回时队列已经非空。
+/// 不变量：`load` 返回时队列已经非空。
 ///
 /// 旧的清空形态在「清空后」到「looper 异步补位前」有一段空队列，图层无
 /// currentItem 可呈现。判据在第二次装载上取：装载一返回就同步读队列，

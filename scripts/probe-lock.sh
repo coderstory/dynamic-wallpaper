@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# probe-lock.sh —— Plan 03-01 T1 的锁屏接线证据采集。一条命令，无子命令：
+# probe-lock.sh —— 锁屏接线证据采集。一条命令，无子命令：
 #
 #   bash scripts/probe-lock.sh
 #     → 编译 throwaway driver（与产品源码一起编）
 #     → 跑 6 秒，投 2 次合成通知
 #     → 全量 stdout 落 evidence/lock-wiring.log，末尾追加两行汇总
 #
-# 两条纪律（照 scripts/run-probe.sh 已跑通的那两条）：
+# 两条纪律：
 #   ① 所有外部命令套 `perl -e 'alarm N; exec @ARGV'` —— 本机没有 timeout 命令，
-#      权限弹窗或异常输入会挂死采集（Phase 1 已踩过）。
+#      权限弹窗或异常输入会挂死采集。
 #   ② 探针失败不中止脚本（不用 set -e）：失败原样写进日志，由人读日志判定。
 #
 # ⚠️ 合成通知一律用 `com.local.pic.tests.lock.` 前缀，绝不投 `com.apple.screenIsLocked`
@@ -29,10 +29,10 @@ BIN="$TMP/lockwatcher-driver"
 OUT="$TMP/driver.out"
 
 # driver + 产品源码一起编 —— 证据跑的是产品代码，不是探针里重写一遍的逻辑。
-# ⚠️ 这份清单是**手写**的，`swift build` 不会替我们更新它。03-05 给 `HoldArbiter`
-# 加了 `holdStatus`（它返回 `HoldStatus`）之后，本脚本因漏列 `State/HoldStatus.swift`
-# 而编译失败 —— `PROBE_COMPILE_RC=1` 且日志被清空。**新增/删除 State/ 下的文件时，
-# 必须同步改这里**，否则 03-01 的证据采集会静默变成空文件（判据会假绿）。
+# ⚠️ 这份清单是**手写**的，`swift build` 不会替我们更新它。给 `HoldArbiter` 加了
+# `holdStatus` 之后，本脚本因漏列 `State/HoldStatus.swift` 而编译失败 ——
+# `PROBE_COMPILE_RC=1` 且日志被清空。**新增/删除 State/ 下的文件时必须同步改这里**，
+# 否则证据采集会静默变成空文件（判据会假绿）。
 SRC="Sources/PicCore/State/HoldReason.swift \
      Sources/PicCore/State/PlaybackDecision.swift \
      Sources/PicCore/State/HoldStatus.swift \

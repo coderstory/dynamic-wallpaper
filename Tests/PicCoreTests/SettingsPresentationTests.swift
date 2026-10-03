@@ -1,9 +1,9 @@
 import XCTest
 @testable import PicCore
 
-/// `SettingsPresentation` 纯显示映射单测（Plan 05-01 T1）。
+/// `SettingsPresentation` 纯显示映射单测。
 ///
-/// 窗口常量（780/680）在这里锁死 —— SC-1 的两个数的唯一来源是
+/// 窗口常量（780/680）在这里锁死 —— 这两个数的唯一来源是
 /// `SettingsPresentation`，视图与探针都读它，不许散落字面量。
 final class SettingsPresentationTests: XCTestCase {
 
@@ -48,10 +48,9 @@ final class SettingsPresentationTests: XCTestCase {
         XCTAssertEqual(SettingsPresentation.rateBounds.upperBound, 2.0)
     }
 
-    // ---- Plan 05-02 T1：轮换值表 / 两条置灰联动 / 模式文案 ----
+    // ---- 轮换值表 / 两条置灰联动 / 模式文案 ----
     //
-    // ⚠️ 两条联动的用例是 UI-03 的牙齿：变异 MUT-P5-LINK-ROT / MUT-P5-LINK-VOL
-    // 拿掉任一条判据，本组必须转红，且红光来自断言而非编译失败（D-16）。
+    // ⚠️ 两条联动的用例是牙齿：拿掉任一条判据，本组必须转红，且红光来自断言而非编译失败。
 
     func testRotationLabelSwitchesToHoursAtSixty() {
         XCTAssertEqual(SettingsPresentation.rotationLabel(minutes: 5), "5 分钟")
@@ -88,7 +87,7 @@ final class SettingsPresentationTests: XCTestCase {
         XCTAssertFalse(SettingsPresentation.volumeControlsEnabled(isMuted: true))
     }
 
-    /// 分段控件按 `PlayMode.allCases` 渲染（04-02 T1 锁序），文案单一来源。
+    /// 分段控件按 `PlayMode.allCases` 渲染（锁序），文案单一来源。
     func testPlayModeLabelCoversAllCasesInOrder() {
         XCTAssertEqual(PlayMode.allCases.map(SettingsPresentation.playModeLabel),
                        ["单循环", "列表循环", "随机"])
@@ -96,7 +95,7 @@ final class SettingsPresentationTests: XCTestCase {
 
     // ---- 空态文案 / 三态一张皮 / 暂停原因 / 状态卡标题 ----
 
-    /// UI-02 逐字硬需求。哨兵写在本测试里 —— 常量改一个字这里就红。
+    /// 逐字硬需求。哨兵写在本测试里 —— 常量改一个字这里就红。
     func testEmptyStateBodyMatchesSpecVerbatim() {
         XCTAssertEqual(SettingsPresentation.emptyStateBody,
                        "没找到能播的文件。壁纸已隐藏，桌面显示的是系统原壁纸。")
@@ -145,7 +144,7 @@ final class SettingsPresentationTests: XCTestCase {
         XCTAssertEqual(Set(labels).count, 6, "六条文案两两不同，否则 UI 无法区分原因")
     }
 
-    /// 变异 MUT-P5-REASON-ORDER 的牙齿：拿掉排序这一行，多原因用例转红。
+    /// 变异靶子的牙齿：拿掉排序这一行，多原因用例转红。
     func testJoinedReasonsSortsByOrderBeforeJoining() {
         XCTAssertEqual(SettingsPresentation.joinedReasons([.screenLocked, .manualPause]),
                        "手动暂停、屏幕已锁定")

@@ -1,7 +1,7 @@
 import XCTest
 @testable import PicCore
 
-/// 转码队列行为判据（Plan 06-03 T1）：成功 / 失败 / 幂等跳过 / 串行 / 双预检。
+/// 转码队列行为判据：成功 / 失败 / 幂等跳过 / 串行 / 双预检。
 ///
 /// FakeRunner 是进程外零调用的内存替身：自己写 .tmp 文件、返回可控退出码 ——
 /// 全套测试零真实转码、零真实进程（C6 红线）。
@@ -70,7 +70,7 @@ final class TranscodeQueueTests: XCTestCase {
 
     // MARK: - 用例
 
-    /// 成功路径：status 0 → rename 成 .mp4，源文件原封不动（TRANS-04 落盘侧）。
+    /// 成功路径：status 0 → rename 成 .mp4，源文件原封不动（落盘侧）。
     func testSuccessfulJobRenamesTmpToMp4AndKeepsSource() async throws {
         let source = makeSource()
         let runner = FakeRunner()

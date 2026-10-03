@@ -4,8 +4,8 @@
 #   bash scripts/soak-analyze.sh <soak.log>
 #
 # 阈值全是写死的数字，改阈值 = 改这一行并留 git 历史（不许写进「显著」「明显」）。
-# 判词四态，「数据不够」的三种形态（invalid / insufficient / fail-by-missing）
-# 都不许被算成 pass —— 长跑最有价值的结论是「这次跑不算数」，而不是「看起来还行」。
+# 判词四态，「数据不够」的三种形态（invalid / insufficient / fail-by-missing）都不许
+# 被算成 pass —— 长跑最有价值的结论是「这次跑不算数」，而不是「看起来还行」。
 #
 # 判定序：insufficient → invalid → fail → pass。第一条命中的即判词，
 # 后面的检查不再改写它（gap 序列判 fail 就是这个序被写错的表现）。

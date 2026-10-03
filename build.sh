@@ -16,23 +16,21 @@ mkdir -p "$OUT" "$DIST"
 
 ASSETS=".planning/design/assets"
 
-# 探针符号计数。必须 `grep -cE` —— 裸 grep 的 '|' 是字面量，恒 0 假绿灯
-# （RESEARCH 坑 1 / W-2026-10-03-35）。
+# 探针符号计数。必须 `grep -cE` —— 裸 grep 的 '|' 是字面量，恒 0 假绿灯。
 probe_symbols() { nm "$1/Contents/MacOS/$APP_NAME" | grep -cE 'LoopProbe|WindowProbe|FrameDriver'; }
 
 # 组装 .app —— 交付与探针两条线**共用这一份实现**。两处手写同样的 mkdir/cp/
 # codesign 块必然漂移，抽成函数是「为正确性花的钱」（反膨胀：抽，不复制）。
-# $1 = 产物名；裸二进制已在 $OUT/$1 就位（bundle 内的可执行名恒为 $APP_NAME）。
+# $1 = 产物名；裸二进制已在 $OUT/$1 就位。
 assemble_app() {
   local app="$OUT/$1.app"
   mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
   cp "$OUT/$1" "$app/Contents/MacOS/$APP_NAME"
-  # Info.plist 的唯一真相源是 Sources/PicApp/Resources/Info.plist。
-  # 刻意不在这里再内联一份 heredoc —— 两份手写同一份 plist 必然漂移，
-  # 而 AC「diff 两份退出 0」就是防这件事的（cp 过去即可逐字一致）。
+  # Info.plist 的唯一真相源是 Sources/PicApp/Resources/Info.plist。刻意不再内联
+  # 一份 heredoc —— 两份手写同一份 plist 必然漂移。
   cp "Sources/PicApp/Resources/Info.plist" "$app/Contents/Info.plist"
-  # 图标：.icns 由 iconutil 出（CFBundleIconFile=Pic 指向它）；菜单栏用
-  # menubar-v1 的 Template 三档。menubar-v2 是对照稿，一个都不拷。
+  # 图标：.icns 由 iconutil 出（CFBundleIconFile=Pic 指向它）；菜单栏用 menubar-v1 的
+  # Template 三档，menubar-v2 是对照稿，一个都不拷。
   cp "$OUT/Pic.icns" "$app/Contents/Resources/Pic.icns"
   cp "$ASSETS/menubar-v1.png"     "$app/Contents/Resources/menubar-v1Template.png"
   cp "$ASSETS/menubar-v1@2x.png"  "$app/Contents/Resources/menubar-v1Template@2x.png"
@@ -41,8 +39,7 @@ assemble_app() {
 }
 
 # iconutil 路（不依赖 actool / .xcassets，与 SwiftPM 路线同构）：
-# .planning/design/assets/ 里的文件名已经是 iconset 规范名，直接 cp 进 .iconset。
-# iconset 目录刻意留在 build/ 里不清理 —— 判据要数它（ASSET-01）。
+# iconset 目录刻意留在 build/ 里不清理 —— 判据要数它。
 echo "==> 出 .icns（iconutil，图标真相源 = .planning/design/assets/）"
 rm -rf "$OUT/${APP_NAME}.iconset"
 mkdir -p "$OUT/${APP_NAME}.iconset"
@@ -60,7 +57,7 @@ assemble_app "$APP_NAME"
 APP="$OUT/${APP_NAME}.app"
 
 # DMG 的内容物只从 staging 来，绝不指 build/ —— build/ 里还住着 PicProbe.app
-# 与 iconset 等中间产物，指错就把第二产物装进用户要安装的 DMG（W-2026-10-03-37）。
+# 与 iconset 等中间产物，指错就把第二产物装进用户要安装的 DMG。
 echo "==> 准备 staging（只放 Pic.app）"
 STAGE="$DIST/stage"
 mkdir -p "$STAGE"
@@ -79,10 +76,9 @@ fi
 # 收尾清临时文件：create-dmg 失败会留 dist/rw.*.dmg，混进下面的摘要就多出一个假 DMG。
 rm -f "$DIST"/rw.*.dmg
 
-# 第二遍构建：**不传** define，探针全保留 → PicProbe.app。
-# 顺序必须「先交付后探针」：每遍都会覆盖 .build/release，组装必须在各自构建
-# 之后立刻做（裸二进制已 cp 到 $OUT，后一遍覆盖 .build 无影响）。
-# PicProbe.app 是测量取证体，**不进 staging、不进 DMG**。
+# 第二遍构建：**不传** define，探针全保留 → PicProbe.app。顺序必须「先交付后探针」：
+# 每遍都会覆盖 .build/release，组装必须在各自构建之后立刻做。PicProbe.app 是测量
+# 取证体，**不进 staging、不进 DMG**。
 echo "==> 编译探针产物（保留 LoopProbe/WindowProbe/FrameDriver）"
 swift build --package-path . -c release
 cp ".build/release/${APP_NAME}" "$OUT/PicProbe"
@@ -101,7 +97,7 @@ echo ""
 echo "==> 签名与产物摘要（供 evidence/app-bundle.log 采集）"
 codesign -dv --verbose=2 "$APP" 2>&1 | grep -E '^(Identifier|Signature|TeamIdentifier)='
 md5 -q "$DIST/${APP_NAME}-${VERSION}.dmg"
-# 一个数一行（D-17）：交付物与探针产物是两个数，不许合成一个读法。
+# 一个数一行：交付物与探针产物是两个数，不许合成一个读法。
 # 成对出现才成判据 —— 只有 == 0 一条就是 grep 模式空集的假绿灯。
 echo "PROBE_SYMBOLS_PIC=$(probe_symbols "$APP")"
 echo "PROBE_SYMBOLS_PROBE=$(probe_symbols "$OUT/PicProbe.app")"

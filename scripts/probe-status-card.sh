@@ -1,16 +1,15 @@
 #!/usr/bin/env bash
-# probe-status-card.sh —— Plan 05-03 T2 的来源卡 / 运行状态卡 tracer 证据采集。
+# probe-status-card.sh —— 来源卡 / 运行状态卡 tracer 证据采集。
 #
 #   bash scripts/probe-status-card.sh
-#     → 空临时目录当 source（PIC_SOURCE_FOLDER，不碰真实素材目录，D-22）
+#     → 空临时目录当 source（PIC_SOURCE_FOLDER，不碰真实素材目录）
 #     → .build/debug/Pic --open-settings --quit-after 6，stderr 与 PIC_EVIDENCE_FILE 双落
 #     → 断言 PIC_LIBRARY_STATE / PIC_SETTINGS_WINDOW / PIC_FFMPEG 三类行
-#     → 锁屏活体观察（SC-5 ③）按 BLOCKED 纪律记账，不阻塞
+#     → 锁屏活体观察按 BLOCKED 纪律记账，不阻塞
 #
-# 纪律照 probe-settings.sh：alarm 包装（本机无 timeout）、LC_ALL=C、不用 set -e、
-# mktemp + trap cleanup。
+# 纪律：alarm 包装（本机无 timeout）、LC_ALL=C、不用 set -e、mktemp + trap cleanup。
 #
-# ⚠️ 空态文案的**渲染**不在本探针里 —— 那要 XCUITest（05-04）。本探针只证数据链：
+# ⚠️ 空态文案的**渲染**不在本探针里 —— 那要 XCUITest。本探针只证数据链：
 #    库状态行、窗口几何行、ffmpeg 可用性行。零 ffmpeg 执行：ffmpeg 行来自
 #    PATH 可执行位判定，本脚本也不调用 ffmpeg 本身。
 set -u
@@ -58,14 +57,14 @@ run_round() { # $1=source 目录  $2=输出前缀
 
 run_round "$SRC_EMPTY" "$TMP/empty"
 run_round "$SRC_LINKS" "$TMP/links"
-# stderr 是唯一落 $LOG 的原始流（emit 全走 stderr，D-17：同一行不落两遍）。
+# stderr 是唯一落 $LOG 的原始流（emit 全走 stderr，同一行不落两遍）。
 # 两轮都进同一份日志 —— 两轮的 PIC_* 行可区分（库状态不同，ffmpeg/几何行各两遍）。
 cat "$TMP/empty.err" "$TMP/links.err" > "$LOG"
 
 PASS=1
 note() { printf '%s\n' "$1" >> "$LOG"; }
 
-# 3. 断言（每条一行、一个数一次，D-17）
+# 3. 断言（每条一行、一个数一次）
 if grep -q 'PIC_LIBRARY_STATE=no_playable_videos' "$EVFILE"; then
   note "LIB_STATE_EMPTY=ok"
 else
@@ -104,7 +103,7 @@ note "FFMPEG_EMIT_LINES=$FF_LINE_N"
 LINK_TOK=$(grep -c 'PIC_LIBRARY_STATE=playing' "$EVFILE" || true)
 note "LIB_STATE_WITH_LINKS=$([ "${LINK_TOK:-0}" -ge 1 ] && echo playing || echo not_playing)"
 
-# 5. 活体观察（SC-5 ③）：锁屏态开设置窗看「屏幕已锁定」副标签。
+# 5. 活体观察：锁屏态开设置窗看「屏幕已锁定」副标签。
 LOCK_RAW=$(alarm 90 swift -e '
 import CoreGraphics
 import Foundation
@@ -117,13 +116,13 @@ note "LOCK_STATE_AT_PROBE=${LOCKED:-unknown}"
 if [ "${LOCKED:-0}" = "1" ]; then
   note "LIVE_LOCK_OBSERVATION=blocked reason=screen_locked"
   note "LIVE_LOCK_UNLOCK_CONDITION=解锁会话里开设置窗目视，或 05-04 用 XCUITest 注入合成锁事件复跑"
-  # blocked 分支先查条目在册 —— 静默跳过的缺陷比缺陷本身更坏（照 W-2026-10-03-25）。
+  # blocked 分支先查条目在册 —— 静默跳过的缺陷比缺陷本身更坏。
   if ! grep -q 'W-2026-10-03-29' .planning/WINDOWS.md; then
     note "LIVE_LOCK_W_ENTRY_MISSING"
     PASS=0
   fi
 else
-  # 解锁会话：数据链已由本脚本证明，肉眼目视仍需真人/05-04，诚实记 attempted。
+  # 解锁会话：数据链已由本脚本证明，肉眼目视仍需真人，诚实记 attempted。
   note "LIVE_LOCK_OBSERVATION=attempted"
   note "LIVE_LOCK_NOTE=解锁会话下「屏幕已锁定」副标签的活体目视未由自动化完成，见 W-2026-10-03-29"
 fi

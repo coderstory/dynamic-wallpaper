@@ -1,6 +1,6 @@
 import XCTest
 
-/// 设置窗首批 XCUITest（Plan 05-01 T2）。
+/// 设置窗首批 XCUITest。
 ///
 /// 断言只锁**行为属性**（宽度 / 存在 / 进程活），不锁内部实现。
 /// 开窗走 `--open-settings` 脚手架（复用用户路径的两个函数），读数经
@@ -15,7 +15,7 @@ final class SettingsWindowUITests: XCTestCase {
         let base = FileManager.default.temporaryDirectory
             .appendingPathComponent("pic-uitest-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
-        // 空 source 隔离（D-22 精神）：不碰真实素材目录，也避免首启弹 NSOpenPanel。
+        // 空 source 隔离：不碰真实素材目录，也避免首启弹 NSOpenPanel。
         sourceDir = base.appendingPathComponent("source-empty", isDirectory: true)
         try FileManager.default.createDirectory(at: sourceDir, withIntermediateDirectories: true)
         evidenceURL = base.appendingPathComponent("evidence.log")
@@ -56,7 +56,7 @@ final class SettingsWindowUITests: XCTestCase {
         return text
     }
 
-    /// SC-1 的 XCUITest 半边：宽 780（±1.5）；minWidth 680 由探针行断言
+    /// XCUITest 半边：宽 780（±1.5）；minWidth 680 由探针行断言
     /// （XCUITest 读不到 contentMinSize 就不假装读得到）。
     func testWindowOpensAt780WideViaDebugSwitch() throws {
         let app = launchApp(extraArguments: ["--open-settings"])
@@ -69,7 +69,7 @@ final class SettingsWindowUITests: XCTestCase {
                       "证据桥应含窗口几何行，实际：\(evidence)")
     }
 
-    /// MENUBAR-02：关窗后进程不退、设置窗消失；菜单栏图标仍可寻
+    /// 关窗后进程不退、设置窗消失；菜单栏图标仍可寻
     /// （statusItems 找不到就不硬拗，登记 NOTE，真人验证留 UAT）。
     func testClosingWindowKeepsProcessAlive() throws {
         let app = launchApp(extraArguments: ["--open-settings"])
@@ -90,7 +90,7 @@ final class SettingsWindowUITests: XCTestCase {
         }
     }
 
-    /// MENUBAR-06：菜单逐字渲染「打开设置 ⌘,」并能开窗。
+    /// 菜单逐字渲染「打开设置 ⌘,」并能开窗。
     ///
     /// ⚠️ 这里**不发真实 ⌘, 按键**。本 app 是 `.accessory`（菜单栏）app，没有 key
     /// window 时系统级 ⌘, 会被系统接管去打开「系统设置」—— 实测 typeKey(",",
@@ -114,7 +114,7 @@ final class SettingsWindowUITests: XCTestCase {
         XCTAssertTrue(settings.waitForExistence(timeout: 5), "点菜单项应打开设置窗（MENUBAR-06）")
     }
 
-    /// SC-4 交互半边（PLAY-07）：拖速度滑杆当场生效，退出再起回读到拖后的值。
+    /// 交互半边：拖速度滑杆当场生效，退出再起回读到拖后的值。
     ///
     /// 自绘滑杆拖不到目标值时**不静默放过**：XCTSkip 并在 skip 串里写明 W 号
     /// （run-uitests.sh 按同号 grep 登记簿，缺登记即非 0 退出）。

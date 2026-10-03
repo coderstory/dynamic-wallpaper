@@ -1,7 +1,7 @@
 import XCTest
 @testable import PicCore
 
-/// D-23 播放第二入口 —— `Converted/` 子树可播清单 + 合并去重（SC#5 数据侧）。
+/// 播放第二入口 —— `Converted/` 子树可播清单 + 合并去重（数据侧）。
 @MainActor
 final class ConvertedLibraryTests: XCTestCase {
 

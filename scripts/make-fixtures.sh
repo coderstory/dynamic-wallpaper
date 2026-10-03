@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# make-fixtures.sh —— 用本机 ffmpeg 的 lavfi 合成源现场生成确定性测试语料（D-02）。
+# make-fixtures.sh —— 用本机 ffmpeg 的 lavfi 合成源现场生成确定性测试语料。
 #
-# 纪律（D-02 红线）：
+# 纪律（红线）：
 #   * 用户真实素材 ~/Movies/视频壁纸 有 484 个 mp4 / 约 42GB。抽样只做一层非递归枚举，
 #     且只建符号链接 —— 严禁把 GB 级素材复制进仓库（下方代码行里没有整词的复制命令，
-#     这条纪律由 plan 的「剥注释后整词计数 == 0」判据机械保证）。
+#     这条纪律由「剥注释后整词计数 == 0」判据机械保证）。
 #   * 递归遍历视频目录的判断是整词的「递归枚举命令」，本脚本刻意不含它；
 #     抽样只列一层。
 #
 # 三个合成语料：
-#   clip-a.mp4        8s 1280x720@30fps，带 1kHz 正弦音轨（给 Phase 5 变速保音高留料）
+#   clip-a.mp4        8s 1280x720@30fps，带 1kHz 正弦音轨（给变速保音高留料）
 #   clip-b.mp4        8s 640x480@30fps，无音轨
 #   clip-sentinel.mp4 5s 320x240@24fps，无音轨 —— 哨兵串就是文件名本身，全 Phase 复用
 set -euo pipefail
@@ -52,7 +52,7 @@ mkdir -p "$OUTDIR"
   -t 8 -an -c:v libx264 -preset veryfast -pix_fmt yuv420p \
   "$OUTDIR/clip-b.mp4"
 
-# clip-sentinel：哨兵语料，文件名即哨兵串，Phase 2-03 直接复用同一串
+# clip-sentinel：哨兵语料，文件名即哨兵串
 "$FFMPEG" -hide_banner -loglevel error -y \
   -f lavfi -i "testsrc2=size=320x240:rate=24" \
   -t 5 -an -c:v libx264 -preset veryfast -pix_fmt yuv420p \

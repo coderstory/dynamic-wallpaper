@@ -1,11 +1,11 @@
 import XCTest
 @testable import PicCore
 
-/// `SettingsApplier`（「当场生效」唯一落点）单测（Plan 05-01 T1）。
+/// `SettingsApplier`（「当场生效」唯一落点）单测。
 ///
 /// `testHeldPlayerDoesNotGetRateApplied` 是 shouldPlay 门禁的牙齿 ——
-/// 变异验证（MUT-P5-RATE-GATE）打在 `applyRate` 第一行，拿掉门后必须
-/// 恰好这一条转红，且红光来自断言而非编译失败（D-16）。
+/// 变异验证打在 `applyRate` 第一行，拿掉门后必须恰好这一条转红，
+/// 且红光来自断言而非编译失败。
 @MainActor
 final class SettingsApplierTests: XCTestCase {
 
@@ -27,7 +27,7 @@ final class SettingsApplierTests: XCTestCase {
         try await super.tearDown()
     }
 
-    /// 播放中（holds 空）改速度：`AVPlayer.rate` 当场变（PLAY-07 的机制证明）。
+    /// 播放中（holds 空）改速度：`AVPlayer.rate` 当场变（机制证明）。
     func testPlayingRateAppliesImmediately() {
         let store = SettingsStore(defaults: defaults, seed: SettingsStore.Seed())
         store.rate = 1.5
@@ -54,7 +54,7 @@ final class SettingsApplierTests: XCTestCase {
         XCTAssertNotEqual(player.player.rate, store.rate)
     }
 
-    /// 音量/静音不设门：held 下仍当场落位（PLAY-08/09 的机制前提 ——
+    /// 音量/静音不设门：held 下仍当场落位（机制前提 ——
     /// `setVolume`/`setMuted` 不会把播放器拉起）。
     func testVolumeAndMutedApplyWithoutGate() {
         let store = SettingsStore(defaults: defaults, seed: SettingsStore.Seed())
@@ -87,7 +87,7 @@ final class SettingsApplierTests: XCTestCase {
         XCTAssertEqual(player.player.rate, store.rate)
     }
 
-    // MARK: - Plan 05-02 T1：模式 / 轮换 / 电池三条接线
+    // MARK: - 模式 / 轮换 / 电池三条接线
 
     /// 手动调度器：与 RotationControllerTests 同型（不跨测试文件引用）。
     final class ManualScheduler: RotationScheduling {
@@ -135,7 +135,7 @@ final class SettingsApplierTests: XCTestCase {
         XCTAssertEqual(rotation.mode, .shuffle)
     }
 
-    /// 轮换间隔当场重排程（04-02 为 Phase 5 预留的落点）。
+    /// 轮换间隔当场重排程（预留的落点）。
     func testApplyIntervalReschedulesImmediately() {
         let (rotation, scheduler) = startedRotation()
         let (applier, store) = makeApplier(arbiter: HoldArbiter())

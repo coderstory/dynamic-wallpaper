@@ -1,4 +1,4 @@
-// PowerWatcherTests.swift —— Plan 03-04 T1：PAUSE-05「电池供电时暂停（开关，默认关闭）」。
+// PowerWatcherTests.swift —— PAUSE-05「电池供电时暂停（开关，默认关闭）」。
 //
 // 拔电源是**硬件动作**，本会话做不到。本组用例守住的是三件不依赖那次动作的事：
 //
@@ -10,9 +10,9 @@
 //
 // ①② 是本次注入式反向验证的目标：把 `shouldHold` 改成忽略开关之后，
 // `testPolicyHoldsOnlyWhenEnabledAndOnBattery` 与 `testDefaultSettingMeansBatteryNeverHolds`
-// 必须转红 ——「一条从没红过的判据不证明它会红」（D-07）。
+// 必须转红 ——「一条从没红过的判据不证明它会红」。
 //
-// ⚠️ 本文件**不引入播放框架**（ARCHITECTURE §9：`System/` 与 `State/` 零 AVFoundation）。
+// ⚠️ 本文件**不引入播放框架**（`System/` 与 `State/` 零 AVFoundation）。
 //    `FakeTarget` 是本文件**本地**的等价实现，不跨文件引用别处那一个。
 
 import XCTest
@@ -50,7 +50,7 @@ final class PowerWatcherTests: XCTestCase {
 
     // ── 1. 判定是纯函数：四种组合各一行 ─────────────────────────────────
 
-    /// **第二行是 D-11 的核心**：`true, false → false` —— 在电池上、开关关，一律不暂停。
+    /// **第二行是核心**：`true, false → false` —— 在电池上、开关关，一律不暂停。
     ///
     /// 这条如果反了（写成 `isOnBattery || ...` 或直接返回 `isOnBattery`），
     /// 用户拿电池本时壁纸就会无故停住，看起来像 app 坏了。
@@ -89,7 +89,7 @@ final class PowerWatcherTests: XCTestCase {
 
     // ── 2. `.battery` 与其它 reason 独立共存 ─────────────────────────────
 
-    /// 与 03-01 / 03-03 同构：换一条 reason 再锁一次，veto 集合语义不变。
+    /// 与锁屏 / 熄屏同构：换一条 reason 再锁一次，veto 集合语义不变。
     ///
     /// 覆盖式实现（进入 hold 时顺手把集合覆盖成 `[.battery]`）会让这里转红 ——
     /// 那样「锁屏中拔电源」就会把锁屏那条抹掉，壁纸在锁屏状态下开始播。
@@ -125,13 +125,12 @@ final class PowerWatcherTests: XCTestCase {
     ///
     /// 这条断言的是**键名**与**值的形状** —— 计划原本写「键 `"AC Power"` 取 `CFBoolean`」，
     /// 本机 SDK 实测不成立（`IOPSKeys.h:311` 键名是 `"Power Source State"`，
-    /// `:303` 类型是 CFString），这是 PLAN_DEVIATION，见 03-04-SUMMARY。
-    /// 本用例锁的是**真实**的键名与三态映射，不锁错的那个字面量。
+    /// `:303` 类型是 CFString）。本用例锁的是**真实**的键名与三态映射，不锁错的那个字面量。
     func testPowerSourceStateKeyIsTheRealSDKKeyAndValuesAreStrings() {
         XCTAssertEqual(PowerWatcher.powerSourceStateKey, "Power Source State",
                        "kIOPSPowerSourceStateKey 的实测键名，不是 AC Power")
 
-        // 本机此刻在 AC 上（本机是 MacBook Air M5，有内置电池但接着电源），
+        // 本机此刻在 AC 上（有内置电池但接着电源），
         // 所以这里断言的是**三态映射**，不硬编「当前一定是哪个态」。
         switch PowerWatcher.readPowerState() {
         case .onAC:

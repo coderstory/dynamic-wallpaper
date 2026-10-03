@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# dev-seed.sh —— Phase 2 无文件夹选择面板（D-03），设置靠预置。
+# dev-seed.sh —— 无文件夹选择面板（D-03），设置靠预置。
 #
 # 两条并行预置路径，因为 swift run 起的进程没有 bundle id、UserDefaults 域取不到
 # com.local.pic（打包成 .app 后 bundle id 才是 com.local.pic）：
@@ -8,7 +8,7 @@
 #
 # 键名必须与 Sources/PicCore/State/SettingsStore.swift 实际读取的键一致：
 #   sourceFolderPath / rate / volume / muted / playMode / rotationInterval
-# 不做 NSOpenPanel（Phase 4）、不做沙盒 bookmark（PACK-02 已定不上架、不需要沙盒）。
+# 不做 NSOpenPanel、不做沙盒 bookmark（不上架、不需要沙盒）。
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

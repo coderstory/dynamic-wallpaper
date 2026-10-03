@@ -42,7 +42,7 @@ final class MediaLibraryTests: XCTestCase {
 
     func testRecursionFindsClipThreeDirectoriesDeep() async throws {
         let report = try await scanTree()
-        // SOURCE-02 的专门用例：三层嵌套必须被发现，不是靠顶层用例顺带覆盖。
+        // 专门用例：三层嵌套必须被发现，不是靠顶层用例顺带覆盖。
         XCTAssertTrue(report.items.contains { $0.url.path.hasSuffix("sub/deep/deeper/d.MP4") },
                       "三次目录深度下的 d.MP4 必须在 items 里")
         XCTAssertEqual(report.items.count, 6,
@@ -55,7 +55,7 @@ final class MediaLibraryTests: XCTestCase {
         let report = try await scanTree()
         XCTAssertTrue(report.items.contains { $0.url.path.contains("视频壁纸") },
                       "中文+空格目录名下的 e.mp4 必须被收")
-        // 把 D-09 的理由钉死：URL 的字符串形态确实会被百分号编码，
+        // 把理由钉死：URL 的字符串形态确实会被百分号编码，
         // 所以存在性检查只能用 path。
         let cjkPathURL = URL(fileURLWithPath: tree.cjkDirectoryURL.path)
         XCTAssertTrue(VideoItem(url: cjkPathURL).url.absoluteString.contains("%"),

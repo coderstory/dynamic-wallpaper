@@ -3,7 +3,7 @@ import ServiceManagement
 import XCTest
 @testable import PicCore
 
-/// 开机自启双路线决策内核（SYS-01）的 7 条行为用例。
+/// 开机自启双路线决策内核的 7 条行为用例。
 ///
 /// ⚠️ 本文件**不碰**真实系统状态：不调 `SMAppService.register()`、不 spawn `launchctl`、
 /// 不写 `~/Library/LaunchAgents`。路线 B 落在每个用例各自的临时目录里。

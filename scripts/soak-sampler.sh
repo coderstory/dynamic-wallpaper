@@ -20,7 +20,7 @@ TMP="$(mktemp -d)"
 cleanup() { rm -rf "$TMP"; return 0; }
 trap cleanup EXIT INT TERM
 
-# 本机没有 timeout 命令（Phase 1 踩过）：权限弹窗或异常输入会把无人值守的采样挂死。
+# 本机没有 timeout 命令：权限弹窗或异常输入会把无人值守的采样挂死。
 alarm() { perl -e "alarm $1; exec @ARGV" "${@:2}"; }
 
 # ps 的 `-o rss=` 带前导空格、macOS 的 `wc -l` 带右对齐补白 —— 不剥净就拼出
@@ -33,7 +33,7 @@ num() {
 
 SOAK_DIR="${SOAK_DIR:-$ROOT/.planning/phases/07-delivery/evidence/soak}"
 # 采样期间只盯一个 Pic 进程；同时跑第二个（开发期另一个 build、或用户手开一个）
-# 会让 pgrep 采错对象，7 天序列从此对着另一个进程 —— 记进 UAT-SOAK 的 7 天规则。
+# 会让 pgrep 采错对象，7 天序列从此对着另一个进程。
 SOAK_PID="${SOAK_PID:-$(pgrep -x Pic 2>/dev/null | head -1)}"
 LOG="$SOAK_DIR/soak.log"
 

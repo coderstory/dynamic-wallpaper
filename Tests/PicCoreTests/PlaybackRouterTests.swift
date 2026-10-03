@@ -1,7 +1,7 @@
 import XCTest
 @testable import PicCore
 
-/// 轮换 → 装载装配链的行为判据（Plan 04-05 T1）。
+/// 轮换 → 装载装配链的行为判据。
 ///
 /// **不引入任何播放框架**：`PlaybackRouter` 只对协议说话，「轮换驱动装载」
 /// 因此在无屏幕环境可测 —— `advanceNow()` 就是全部驱动，没有 runloop、
@@ -35,7 +35,7 @@ final class PlaybackRouterTests: XCTestCase {
 
     // MARK: - 工具
 
-    /// 三条人造条目：临时目录拼接，不碰媒体语料（D-22）。
+    /// 三条人造条目：临时目录拼接，不碰媒体语料。
     private func makeItems(_ count: Int) -> [VideoItem] {
         let dir = URL(fileURLWithPath: NSTemporaryDirectory())
         return (0..<count).map { VideoItem(url: dir.appendingPathComponent("p4-0405-item-\($0).bin")) }
@@ -65,7 +65,7 @@ final class PlaybackRouterTests: XCTestCase {
         XCTAssertEqual(router.loadCount, 1)
     }
 
-    /// 「立即下一个」按列表顺序前进（SC3 的行为侧）。
+    /// 「立即下一个」按列表顺序前进。
     func testAdvanceNowLoadsNextInLoopList() {
         let items = makeItems(3)
         let (_, loader, router) = makeRouter(mode: .loopList)
@@ -77,7 +77,7 @@ final class PlaybackRouterTests: XCTestCase {
         XCTAssertEqual(loader.loaded, [items[0].url, items[1].url, items[2].url])
     }
 
-    /// 随机模式一轮内每条恰好一次（PLAY-05 在装配链上的延续）。
+    /// 随机模式一轮内每条恰好一次（内核那条在装配链上的延续）。
     func testShuffleRoundVisitsEveryItemExactlyOnce() {
         let items = makeItems(3)
         let (_, loader, router) = makeRouter(mode: .shuffle)
@@ -92,7 +92,7 @@ final class PlaybackRouterTests: XCTestCase {
         XCTAssertEqual(Set(loader.loaded.dropFirst()).count, 3)
     }
 
-    /// 空列表零装载（04-03 降级路径在装配链上的前置）。
+    /// 空列表零装载（降级路径在装配链上的前置）。
     func testEmptyItemsLoadsNothing() {
         let (_, loader, router) = makeRouter(mode: .loopList)
 
@@ -103,7 +103,7 @@ final class PlaybackRouterTests: XCTestCase {
         XCTAssertNil(router.current)
     }
 
-    /// 重绑不会让单次 advance 多装载（T-04-26：装载次数不随轮换线性放大）。
+    /// 重绑不会让单次 advance 多装载 —— 装载次数不随轮换线性放大。
     func testStartRebindingDoesNotDoubleLoadPerAdvance() {
         let items = makeItems(3)
         let (_, loader, router) = makeRouter(mode: .loopList)

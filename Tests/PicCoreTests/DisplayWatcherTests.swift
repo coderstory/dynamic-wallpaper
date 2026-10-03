@@ -1,16 +1,16 @@
-// DisplayWatcherTests.swift —— Plan 03-03 T1：熄屏（PAUSE-03）与睡眠（PAUSE-04）的两条 reason。
+// DisplayWatcherTests.swift —— 熄屏（PAUSE-03）与睡眠（PAUSE-04）的两条 reason。
 //
 // 这一组用例守护的不是「API 能不能调通」，而是三件**结构**事实：
 //
 //   ① 两个 reason **各自独立**置位与解除 —— 熄屏不影响睡眠位，反之亦然。
-//   ② 叠加时**先解除哪一个都不恢复播放**；只有两个都清空才 seek，**且只 seek 一次**（D-15 的锚点）。
+//   ② 叠加时**先解除哪一个都不恢复播放**；只有两个都清空才 seek，**且只 seek 一次**。
 //   ③ `start()` **不投递任何通知**也必须当场把当前状态算一遍（装配层的启动契约）。
 //
 // ①② 是本次注入式反向验证的目标：把两个字段耦合（共用一个来源）之后，
 // `testWakingWithDisplayStillAsleepDoesNotResume` 必须转红 ——
-// 「一条从没红过的判据不证明它会红」（D-07）。
+// 「一条从没红过的判据不证明它会红」。
 //
-// ⚠️ 本文件**不引入播放框架**（ARCHITECTURE §9：`System/` 与 `State/` 零 AVFoundation）。
+// ⚠️ 本文件**不引入播放框架**（`System/` 与 `State/` 零 AVFoundation）。
 //    `FakeTarget` 是本文件**本地**的等价实现，不跨文件引用 `HoldArbiterTests` 里那一个 ——
 //    两个测试目标里跨文件耦合测试替身，比各写一份更难排查。
 
@@ -55,7 +55,7 @@ final class DisplayWatcherTests: XCTestCase {
     }
 
     /// 薄包装：持有**真实**的仲裁器并转发，同时记录 `set` 的调用序列。
-    /// 不改 `HoldArbiter` 的签名（PITFALLS Pitfall 3：每个信号源独立可测）。
+    /// 不改 `HoldArbiter` 的签名（每个信号源独立可测）。
     @MainActor
     private final class ArbiterSpy {
         let arbiter: HoldArbiter
@@ -63,7 +63,7 @@ final class DisplayWatcherTests: XCTestCase {
 
         init(target: PlaybackTarget) { arbiter = HoldArbiter(target: target) }
 
-        /// 装配层（Plan 03-05）的接线形状：一份 `DisplaySignals` 拆成**两次** `set`。
+        /// 装配层的接线形状：一份 `DisplaySignals` 拆成**两次** `set`。
         func apply(_ signals: DisplaySignals) {
             setCalls.append((.displayAsleep, signals.displayAsleep))
             arbiter.set(.displayAsleep, active: signals.displayAsleep)
@@ -114,9 +114,8 @@ final class DisplayWatcherTests: XCTestCase {
 
     /// **唤醒不等于恢复**：睡眠结束而显示器仍熄着时，一个 hold 还在，就一律不播。
     ///
-    /// 这正是 03-01 在锁屏 / 全屏叠加上抓到过的那类错误（`testLockedThenFullscreenExitDoesNotResume`），
-    /// 换到熄屏 / 睡眠这一对上的版本 —— 覆盖式实现会让「唤醒」顺手把 `holds` 清空，
-    /// 于是合上盖子又打开、屏幕还没亮的那一秒，壁纸开始播。
+    /// 换到熄屏 / 睡眠这一对上的经典错误 —— 覆盖式实现会让「唤醒」顺手把 `holds`
+    /// 清空，于是合上盖子又打开、屏幕还没亮的那一秒，壁纸开始播。
     ///
     /// 注入式反向验证：把 `DisplaySignals` 的两个字段耦合（共用一个来源）后，
     /// 下面这条 `holds` 断言必须转红。
@@ -188,7 +187,7 @@ final class DisplayWatcherTests: XCTestCase {
 
     // ── 4. 清空时是两次 `set`，不是一次批量清空 ─────────────────────────
 
-    /// 两个 reason 的**解除路径各自可测**（PITFALLS Pitfall 3：任一源坏掉不污染其他）。
+    /// 两个 reason 的**解除路径各自可测**（每个信号源独立可测：任一源坏掉不污染其他）。
     ///
     /// 若装配层改成「一次性清空两个 reason」，本条转红 —— 那样两个 reason 的解除
     /// 就绑成了一根绳，其中一个信号源坏掉时另一个也查不出来。
@@ -250,7 +249,7 @@ final class DisplayWatcherTests: XCTestCase {
         XCTAssertEqual(deliveries.count, 1, "重复 start() 不再同步重算")
         XCTAssertEqual(hook.registerCount, 1, "重复 start() 不得重复注册重配置回调")
 
-        // `stop()` 必须把重配置回调摘掉（T-03-10）—— 摘不掉就是进程内永久泄漏。
+        // `stop()` 必须把重配置回调摘掉 —— 摘不掉就是进程内永久泄漏。
         watcher.stop()
         XCTAssertFalse(watcher.isRunning)
         XCTAssertEqual(hook.unregisterCount, 1, "stop() 必须摘掉重配置回调")

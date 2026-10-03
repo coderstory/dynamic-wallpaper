@@ -1,7 +1,7 @@
 import XCTest
 @testable import PicCore
 
-/// `MediaCoordinator` 单测 —— SOURCE-06 降级路径的**执行半边**。
+/// `MediaCoordinator` 单测 —— 降级路径的**执行半边**。
 ///
 /// 文件内自带两个记录式替身（不 import AVFoundation / AppKit）：
 /// 协调器只对着 `WallpaperPresenting` / `PlaybackStopping` 两个协议说话，
@@ -88,7 +88,7 @@ final class MediaCoordinatorTests: XCTestCase {
         XCTAssertEqual(presenter.showCount, 0)
     }
 
-    // MARK: - 5 · SOURCE-06 的恢复路径
+    // MARK: - 5 · 恢复路径
 
     func testRecoveryFromHiddenToPlayingResumesWithoutRestart() {
         // 进隐藏

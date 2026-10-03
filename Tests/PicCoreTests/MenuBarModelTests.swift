@@ -1,13 +1,13 @@
 import XCTest
 @testable import PicCore
 
-/// MENUBAR-08 的哨兵法 —— 菜单栏**不显示当前播放的文件名**。
+/// 哨兵法 —— 菜单栏**不显示当前播放的文件名**。
 ///
 /// 菜单栏是全局常驻、路过的人一眼能扫到的地方。文件名会泄露用户在看的片子
 /// （「Work-Interview-Final-v3.mp4」这类），所以这条要求必须有牙齿，
 /// 不能只是一句「我们不写文件名」的纪律。
 ///
-/// 哨兵串 `clip-sentinel.mp4` 是 02-01 生成的合成视频的**文件名本身**，没有第二个别名。
+/// 哨兵串 `clip-sentinel.mp4` 是合成视频的**文件名本身**，没有第二个别名。
 /// ⚠️ 这里以字面量写死，**不去读 `fixtures/` 里的真实文件** —— 否则干净 clone 上
 /// （fixtures 未生成）`swift test` 会红。
 @MainActor
@@ -145,7 +145,7 @@ final class MenuBarModelTests: XCTestCase {
         XCTAssertEqual(target.applies.count, 0, "打开设置不得把决策推给播放端")
     }
 
-    // MARK: - Phase 4 新增两项（Plan 04-04 T1）
+    // MARK: - 新增两项（菜单项文案与路径无关）
 
     func testNextVideoAndRescanLabelsAreDistinctAndPathless() {
         for isPaused in [false, true] {

@@ -1,13 +1,13 @@
-// FullscreenDetectorTests.swift —— Plan 03-02 T2：D-02 合取判定的四条用例。
+// FullscreenDetectorTests.swift —— 合取判定的四条用例。
 //
-// 这一组用例守护的是 Phase 1 用实测证伪掉的那件事：
+// 这一组用例守护的是早期用实测证伪掉的那件事：
 //
 //   `FALSE_POSITIVE_OBSERVED=1 direction=safe_area_filled_but_not_fullscreen_scored_fullscreen`
 //   —— Ghostty(pid 1227) 与 CC Switch(pid 1228) 各把 visibleFrame(1470×833) 铺满，
 //      coverage=1.000 被旧阈值判成全屏，但两者 bounds 高 833 < 屏幕 frame 高 956，
 //      **结构上够不到刘海，可证不是全屏**。
 //
-// coverage 顶在 1.000 上限，任何阈值调整都改不了这件事（D-02）。
+// coverage 顶在 1.000 上限，任何阈值调整都改不了这件事。
 // 所以本组用例测的不是「阈值是多少」，而是「**几何单独为真时必须判 false**」。
 //
 // ⚠️ 判据只在这里判一次。`FullscreenGeometryTests` 只锁几何数字，
@@ -18,7 +18,7 @@ import XCTest
 
 final class FullscreenDetectorTests: XCTestCase {
 
-    // Phase 1 S0 段的逐字重放：Ghostty 铺满 visibleFrame。
+    // 逐字重放早期实测 S0：Ghostty 铺满 visibleFrame。
     private let falsePositiveSamples = [WindowRectSample(pid: 1227, raw: ScreenRect(x: 0, y: 33, w: 1470, h: 833))]
     private let visible = ScreenRect(x: 0, y: 90, w: 1470, h: 833)
     private let screenHeight: Double = 956
@@ -38,12 +38,11 @@ final class FullscreenDetectorTests: XCTestCase {
                        "D-02：几何足够时没有几何外信号，一律不得判成全屏")
     }
 
-    // ── 2. Phase 1 假阳性夹具端到端 ─────────────────────────────────────
+    // ── 2. 假阳性夹具端到端 ───────────────────────────────────────
 
-    /// 一个断言同时锁住「几何算得对」与「判定用得对」，两个数字都能指回 Phase 1 的日志行。
+    /// 一个断言同时锁住「几何算得对」与「判定用得对」，两个数字都能指回实测日志行。
     ///
-    /// 这是 T1 的第 5 条（`testFalsePositiveWindowStaysAtFullCoverageButIsNotTheDecision`）
-    /// 在判定侧的对应物。两条不重叠：那条只说 coverage=1.000，这条说 coverage=1.000 **不判全屏**。
+    /// 与几何侧那条不重叠：那条只说 coverage=1.000，这条说 coverage=1.000 **不判全屏**。
     func testFalsePositiveWindowGeometryOnePointZeroStaysFalse() {
         let coverage = FullscreenGeometry.aggregate(samples: falsePositiveSamples,
                                                     visible: visible,

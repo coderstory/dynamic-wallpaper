@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# verify-uninstall.sh —— Plan 07-04 T2 的 SC 尾项：卸载残留逐项复查为 0。
+# verify-uninstall.sh —— 卸载残留逐项复查为 0。
 #
 #   bash scripts/verify-uninstall.sh
 #     → 记四项基线（defaults 域 / Preferences 落盘 plist / 路线 B LaunchAgent / BTM 记录）
@@ -9,12 +9,12 @@
 #     → 复查四项全为 0/absent → UNINSTALL_RESIDUE_TOTAL=0
 #     → defaults import 恢复 + 复读 sourceFolderPath 比对 → UNINSTALL_RESTORED=1
 #
-# ⚠️ **这是「校验脚本」，不是真卸载**（W-2026-10-03-46）。真卸载的终态由 UAT 人工执行一次；
-#    本脚本验证的是**清理路径与复查机制**本身。跑完必须把开发机偏好原样恢复 ——
+# ⚠️ **这是「校验脚本」，不是真卸载**。真卸载的终态由 UAT 人工执行一次；本脚本验证的
+#    是**清理路径与复查机制**本身。跑完必须把开发机偏好原样恢复 ——
 #    export/import 备份链是唯一防线，`sourceFolderPath` 前后比对是它的判据。
 #
-# ⚠️ **绝不调用 BTM 的整体重置子命令**（W-2026-10-03-41）。它清掉的是**全部**登录项，
-#    不只是本 app 的 —— 核弹。削注释后本文件该命令计数必须 == 0（判据 grep 这个词）。
+# ⚠️ **绝不调用 BTM 的整体重置子命令**。它清掉的是**全部**登录项，不只是本 app 的
+#    —— 核弹。削注释后本文件该命令计数必须 == 0（判据 grep 这个词）。
 #    只用现代的 bootout，不出现已废弃的 unload 子命令。
 #
 # 纪律（同 probe 系）：`set -u` + `export LC_ALL=C`，外部命令套 alarm，不用 set -e。
@@ -68,7 +68,7 @@ mkdir -p "$EV"
 : > "$LOG"
 
 # ---- 四项读数 ----
-# BTM 读不到与读到 0 是两件事，故返回值分两个变量（D-17）。
+# BTM 读不到与读到 0 是两件事，故返回值分两个变量。
 # ⚠️ 必须**直接调用**（不能写成 `X="$(btm_read)"`）：命令替换跑在子 shell 里，
 #    函数里的赋值传不回父 shell，`set -u` 下就是 unbound variable。
 btm_read() {

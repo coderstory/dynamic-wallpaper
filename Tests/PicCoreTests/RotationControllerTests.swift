@@ -1,11 +1,11 @@
 import XCTest
 @testable import PicCore
 
-/// 轮换内核的行为判据（Plan 04-02 T3）—— 三种模式 + 一轮无重复 + 到点就切 +
+/// 轮换内核的行为判据 —— 三种模式 + 一轮无重复 + 到点就切 +
 /// 播种可复现 + 空列表静默 + 模式/间隔当场生效。
 ///
 /// **不引入任何播放框架**：轮换逻辑的测试必须能在没有任何 AV 对象的条件下成立，
-/// 那正是「轮换器与播放器解耦」（PLAY-06 / D-10）的可测代理 —— `ManualScheduler.fire()`
+/// 那正是「轮换器与播放器解耦」的可测代理 —— `ManualScheduler.fire()`
 /// 就能推进到下一条，全程不存在「片长」这个概念。
 @MainActor
 final class RotationControllerTests: XCTestCase {
@@ -70,7 +70,7 @@ final class RotationControllerTests: XCTestCase {
         return (controller, scheduler)
     }
 
-    // MARK: - 用例 1：轮换到点在单循环下永远停在同一条（PLAY-03）
+    // MARK: - 用例 1：轮换到点在单循环下永远停在同一条
 
     func testLoopSingleAlwaysReturnsTheSameItem() {
         let (controller, scheduler) = makeController(random: SeededRandomSource(seed: 42))
@@ -89,7 +89,7 @@ final class RotationControllerTests: XCTestCase {
         XCTAssertEqual(controller.current, Self.threeItems[0])
     }
 
-    // MARK: - 用例 2：列表循环按顺序走完一圈再回第一条（PLAY-04）
+    // MARK: - 用例 2：列表循环按顺序走完一圈再回第一条
 
     func testLoopListWalksEveryItemThenWrapsToFirst() {
         let (controller, _) = makeController(random: SeededRandomSource(seed: 42))
@@ -104,7 +104,7 @@ final class RotationControllerTests: XCTestCase {
         XCTAssertEqual(controller.currentIndex, 0)
     }
 
-    // MARK: - 用例 3：列表随机一轮内每条恰好一次（PLAY-05 / TEST-03）
+    // MARK: - 用例 3：列表随机一轮内每条恰好一次
 
     func testShuffleVisitsEveryItemExactlyOncePerRound() {
         let (controller, _) = makeController(random: SeededRandomSource(seed: 42))
@@ -123,11 +123,10 @@ final class RotationControllerTests: XCTestCase {
         XCTAssertEqual(round1.count, 3)
         XCTAssertEqual(Set(round2), [0, 1, 2], "第二轮同样每条恰好一次")
         XCTAssertEqual(round2.count, 3)
-        // 判据加严（计划的 fails_when ⑥ 明令）：「顺序轮转」实现
-        // （nextIndex = (currentIndex + 1) % items.count）同样满足上面两个
-        // 「每轮是排列」的断言 —— 必须用已冻结的 seed=42 真实顺序把它抓住。
+        // 判据加严：「顺序轮转」实现（nextIndex = (currentIndex + 1) % items.count）同样满足
+        // 上面两个「每轮是排列」的断言 —— 必须用已冻结的 seed=42 真实顺序把它抓住。
         // 该顺序由 SeededRandomSource 的冻结算法（播种散列 + xorshift64 +
-        // Fisher–Yates）唯一决定，本机 2026-10-03 实测。
+        // Fisher–Yates）唯一决定。
         XCTAssertEqual(idx, [1, 0, 2, 2, 1, 0],
                        "seed=42 的冻结顺序 —— 顺序轮转会给 [1,2,0,1,2,0]，被这条抓住")
     }
@@ -155,8 +154,8 @@ final class RotationControllerTests: XCTestCase {
         XCTAssertNotEqual(first42, order43,
                           "seed 43 与 seed 42 必须给出不同顺序（本机实测 42→[1,0,2]、43→[0,1,2]）")
 
-        // 另一侧确认：洗袋真的调了注入的随机源（T-04-10 —— 绕过 seam 直接用
-        // 系统随机的实现会让同 seed 不可复现，上半句已经红；这里再证明注入源被调）。
+        // 另一侧确认：洗袋真的调了注入的随机源 —— 绕过 seam 直接用系统随机的实现会让同
+        // seed 不可复现，上半句已经红；这里再证明注入源被调。
         let counting = CountingRandomSource()
         let (controller, _) = makeController(random: counting)
         controller.setItems(Self.threeItems)
@@ -166,7 +165,7 @@ final class RotationControllerTests: XCTestCase {
         XCTAssertGreaterThan(counting.calls, 0, "洗袋必须调用注入的随机源")
     }
 
-    // MARK: - 用例 5：到点就切 —— 不等播完，不需要任何片长概念（PLAY-06 / D-10）
+    // MARK: - 用例 5：到点就切 —— 不等播完，不需要任何片长概念
 
     func testRotationElapsedAdvancesWithoutWaitingForPlayback() {
         let (controller, scheduler) = makeController(random: SeededRandomSource(seed: 42))
@@ -187,7 +186,7 @@ final class RotationControllerTests: XCTestCase {
         XCTAssertEqual(scheduler.scheduleCount, 2, "切完立刻重排下一程")
     }
 
-    // MARK: - 用例 6：空列表不打点、不回调、不崩（04-03 降级 / 04-05 装配的前置）
+    // MARK: - 用例 6：空列表不打点、不回调、不崩（装配的前置）
 
     func testEmptyListAdvancesNothingAndCallsOnAdvanceZeroTimes() {
         let (controller, scheduler) = makeController(random: SeededRandomSource(seed: 42))
@@ -239,7 +238,7 @@ final class RotationControllerTests: XCTestCase {
         XCTAssertNotNil(scheduler.pending, "重排程后必须有 pending 的下一程")
     }
 
-    // MARK: - 用例 8：单循环下用户显式「立即下一个」照样换片（G-04-3 / MENUBAR-04）
+    // MARK: - 用例 8：单循环下用户显式「立即下一个」照样换片
 
     func testUserRequestedAdvancesInLoopSingle() {
         let (controller, _) = makeController(random: SeededRandomSource(seed: 42))
@@ -256,7 +255,7 @@ final class RotationControllerTests: XCTestCase {
         XCTAssertEqual(controller.currentIndex, 0, "三条一轮，走完三条回到 0")
     }
 
-    // MARK: - 用例 9：轮换到点在单循环下仍锁定同一条（PLAY-03）
+    // MARK: - 用例 9：轮换到点在单循环下仍锁定同一条
 
     func testRotationElapsedHoldsLoopSingleLocked() {
         let (controller, scheduler) = makeController(random: SeededRandomSource(seed: 42))

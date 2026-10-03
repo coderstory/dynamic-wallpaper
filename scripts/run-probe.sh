@@ -1,26 +1,26 @@
 #!/usr/bin/env bash
-# run-probe.sh —— Plan 02-02 的三项证据采集，一条命令一个子命令：
+# run-probe.sh —— 一条命令一个子命令，各写一份 evidence log：
 #
-#   bash scripts/run-probe.sh order   → evidence/order.log   （层级判定 + 按 PID 认领的证据）
-#   bash scripts/run-probe.sh inset   → evidence/inset.log   （D-08 四个几何内缩整数）
-#   bash scripts/run-probe.sh loop    → evidence/loop.log    （300 秒无缝循环采样）
-#   bash scripts/run-probe.sh quit    → evidence/quit.log    （优雅终止收尾 + SIGTERM 观测）
-#   bash scripts/run-probe.sh app     → evidence/app-bundle.log （打包 .app 上的层级序 + 激活策略 + ad-hoc 签名）
-#   bash scripts/run-probe.sh refresh → evidence/refresh.log     （两种运行模式的显示刷新驱动与 tick 率）
-#   bash scripts/run-probe.sh holds   → Phase 3 evidence/holds-live.log（真实系统信号下的活体 hold）
+#   order   层级判定 + 按 PID 认领的证据
+#   inset   四个几何内缩整数
+#   loop    300 秒无缝循环采样
+#   quit    优雅终止收尾 + SIGTERM 观测
+#   app     打包 .app 上的层级序 + 激活策略 + ad-hoc 签名
+#   refresh 两种运行模式的显示刷新驱动与 tick 率
+#   holds   真实系统信号下的活体 hold
 #
-# ⚠️ 前六个子命令的 `EV` 指向 **Phase 2** 的 evidence 目录；`holds` 指向 **Phase 3 自己的**
-#   目录（`EV3`）。理由：`EV` 是 Phase 2 的交接面，写进去会让 Phase 2 的目录随 Phase 3 漂移。
+# ⚠️ 前六个子命令的 `EV` 指向旧阶段的 evidence 目录；`holds` 指向它自己那一阶段
+#   的目录（`EV3`）。理由：`EV` 是上一阶段的交接面，写进去会让它的目录随下一阶段漂移。
 #
 # 两条纪律：
 #   ① 所有外部命令都套 `perl -e 'alarm N; exec @ARGV'` —— 本机没有 timeout 命令，
-#      权限弹窗或异常输入会挂死采集（Phase 1 已踩过）。
+#      权限弹窗或异常输入会挂死采集。
 #   ② 探针失败不中止脚本（不用 set -e）：失败原样写进日志，由人读日志判定。
 #
-# 两个探针分住两处，理由是 D-04：
+# 两个探针分住两处（层级判定分两半承担）：
 #   - 产品侧 Sources/PicCore/Playback/WindowProbe.swift：只按 PID 认领，不碰图标层的值，
 #     所以产品源码里那个被禁用的标识符保持 0 次（scripts 把它现编译成一次性可执行文件）。
-#   - 判定侧 .planning/spike/WindowProbe.swift：Phase 1 已验证的 throwaway 探针，现编译现跑，
+#   - 判定侧 .planning/spike/WindowProbe.swift：throwaway 探针，现编译现跑，
 #     「我方层 < 图标层」这一半由它承担。
 
 set -u
@@ -34,12 +34,12 @@ BIN="$ROOT/.build/debug/Pic"
 SRC_PROBE="$ROOT/Sources/PicCore/Playback/WindowProbe.swift"
 SPIKE_PROBE="$ROOT/.planning/spike/WindowProbe.swift"
 FIXTURES="$ROOT/fixtures"
-# 交付 .app 自 Phase 7 起以 -DPIC_NO_PROBE 构建，测量符号已剥离。refresh 的
-# app_bundle 轮要读 REFRESH_* 读数，所以它的读数改从**保留探针**的 PicProbe.app 取。
+# 交付 .app 以 -DPIC_NO_PROBE 构建，测量符号已剥离。refresh 的 app_bundle 轮要读
+# REFRESH_* 读数，所以它的读数改从**保留探针**的 PicProbe.app 取。
 APP_BIN="$ROOT/build/PicProbe.app/Contents/MacOS/Pic"
-# `app` 子命令钉死在交付 app 上 —— 判据名说的是「交付 app」，读数就必须来自
-# 交付 app。不跟 APP_BIN 改道，否则 evidence/app-bundle.log 会标称交付 app
-# 却记着 PicProbe 的读数（假绿灯的跨文件形态）。
+# `app` 子命令钉死在交付 app 上 —— 判据名说的是「交付 app」，读数就必须来自交付 app。
+# 不跟 APP_BIN 改道，否则 evidence/app-bundle.log 会标称交付 app 却记着 PicProbe
+# 的读数（假绿灯的跨文件形态）。
 DELIVERY_BIN="$ROOT/build/Pic.app/Contents/MacOS/Pic"
 TMP="$(mktemp -d)"
 APP_PID=""
@@ -88,10 +88,9 @@ stop_app() {
 }
 
 # ---- 黑帧可观测性：真测一次，不靠断言 ----
-# 取一张屏，量它的平均亮度（ffmpeg signalstats 的 YAVG）。
-# 判据有标定：纯白对照是 235，纯黑是 16（YUV 黑电平）。屏取回来若停在黑电平上，
-# 说明这一帧根本没有桌面内容 —— 此时「有没有黑帧」在本机原理上就测不出来，
-# 只能如实记 blocked，绝不拿别的东西冒充。
+# 取一张屏，量它的平均亮度（ffmpeg signalstats 的 YAVG）。判据有标定：纯白对照是
+# 235，纯黑是 16（YUV 黑电平）。屏取回来若停在黑电平上，说明这一帧根本没有桌面内容
+# —— 此时「有没有黑帧」在本机原理上就测不出来，只能如实记 blocked，绝不拿别的东西冒充。
 yavg_of() {
   perl -e 'alarm 30; exec @ARGV' ffmpeg -hide_banner -i "$1" \
     -vf signalstats,metadata=print:key=lavfi.signalstats.YAVG -f null - 2>&1 \
@@ -209,7 +208,6 @@ cmd_quit() {
   # 用 `--quit-after <秒>` 触发**同一个** terminateApp()，也就是菜单「退出」闭包走的那条路。
   # 刻意直接跑二进制、不套 swift run wrapper —— wrapper 的 PID 与子进程 PID 不同，
   # 上一版就是这么把 PID 判据测假的。
-  #
   # 为什么不用 kill -TERM：本机实测 AppKit 不为 SIGTERM 装 handler，零 delegate 回调、
   # 进程立即死亡，走不到 applicationWillTerminate。见下面第二轮与 SIGTERM_HOOK_NOTE。
   log "QUIT_START mode=graceful_request via=--quit-after"
@@ -233,7 +231,7 @@ cmd_quit() {
 
   # ---- 第二轮：信号路径（只观测，不断言）----
   # SIGTERM_HOOK_SEEN 取实测值、不设期望值：这是 AppKit 的既有行为，不是本 app 的判据，
-  # 换框架时它会变。把它写成断言等于把框架实现细节钉死成产品契约。
+  # 换框架时它会变。写成断言等于把框架实现细节钉死成产品契约。
   log "QUIT_START mode=sigterm_observation"
   PIC_SOURCE_FOLDER="$FIXTURES" "$BIN" > "$TMP/sigterm.out" 2> "$TMP/sigterm.err" &
   APP_PID=$!
@@ -246,8 +244,8 @@ cmd_quit() {
     swaited=$((swaited + 1))
   done
   local shook sexit
-  # 注意别写 `grep -c ... || echo 0` —— grep 命中 0 行时**同时**打印 0 并以 1 退出，
-  # 那样 shook 会变成 "0\n0"，后面的整数比较直接报错（第一版就是这么炸的）。
+  # 注意别写 `grep -c ... || echo 0` —— 命中 0 行时 grep **同时**打印 0 并以 1 退出，
+  # 那样 shook 会变成 "0\n0"，后面的整数比较直接报错。
   shook=$(grep -cE '^PIC_TERMINATED ' "$TMP/sigterm.err" 2>/dev/null)
   shook=${shook:-0}
   [ "$shook" -gt 0 ] 2>/dev/null && shook=1 || shook=0
@@ -312,7 +310,7 @@ cmd_loop() {
   return 0
 }
 
-# ---- Plan 02-04 T1：打包产物上的层级复验 ----
+# ---- 打包产物上的层级复验 ----
 # 直接跑 Contents/MacOS/Pic，**不用 open** —— open 起的进程不受脚本控制，kill 收不干净。
 # 层级探针与 cmd_order 用同一套两个二进制，判据口径完全一致。
 cmd_app() {
@@ -347,7 +345,7 @@ cmd_app() {
   alarm 30 "$TMP/winprobe"      --pid "$pid" > "$TMP/app-probe-before.txt" 2>&1; local rc_prod=$?
   alarm 30 "$TMP/spikewinprobe" --pid "$pid" > "$TMP/app-spike-before.txt"  2>&1; local rc_spk=$?
 
-  # ---- killall Finder（只 kill，launchd 自动拉起；与 Phase 1 的 run-gate.sh 同一副作用）----
+  # ---- killall Finder（只 kill，launchd 自动拉起）----
   alarm 20 killall Finder 2>/dev/null
   local killall_rc=$?
   sleep 5
@@ -406,9 +404,8 @@ cmd_app() {
   return 0
 }
 
-# ---- Plan 02-04 T2：PDCA-A4 显示刷新回调在两种运行模式下的实测 ----
+# ---- PDCA-A4 显示刷新回调在两种运行模式下的实测 ----
 # 一次跑两轮，各起一个进程、各等满测量窗口（FrameDriver 默认 10s + 余量）。
-#
 # 为什么 `swift run` 那轮也用直接 exec：swift run 的 wrapper PID 与子进程 PID 不同，
 # cmd_quit 已经被这个坑炸过一次；且这里只读 stderr 行，不认 PID，wrapper 只会多一层噪声。
 refresh_one() {   # $1=mode  $2=binary
@@ -491,15 +488,15 @@ cmd_refresh() {
 
 # ---- Plan 03-05 T2：真实系统信号下的活体 hold ----
 #
-# 这个子命令回答一个 Phase 3 之前没人能回答的问题：**装配之后**，四个 Watcher 的信号
-# 会不会真的让产品进入 hold，以及 hold 住之后播放器是不是真的停在 `paused`。
+# 这个子命令回答一个装配之前没人能回答的问题：**装配之后**，四个 Watcher 的信号会不会
+# 真的让产品进入 hold，以及 hold 住之后播放器是不是真的停在 `paused`。
 #
 # ⚠️ 三条纪律：
-#   ① 观察窗口 12 秒，不是 Phase 2 各探针的 4 秒。D-05 的判据要在这段窗口里读
-#      `PIC_HOLD_OBSERVER_TICKS` 的**最大值**：零决策变化的 12 秒里它必须恒为 1
-#      （0.5 秒轮询会涨到约 24）。窗口太短，这条判据就没有分辨率。
-#   ② stdout 与 stderr **必须合并**：`WallpaperWindowController.emit` 全部走 stderr，
-#      只收 stdout 会得到一个空日志，让后面的判据静默通过。
+#   ① 观察窗口 12 秒。D-05 的判据要在这段窗口里读 `PIC_HOLD_OBSERVER_TICKS` 的**最大值**：
+#      零决策变化的 12 秒里它必须恒为 1（0.5 秒轮询会涨到约 24）。窗口太短，这条判据就
+#      没有分辨率。
+#   ② stdout 与 stderr **必须合并**：`WallpaperWindowController.emit` 全部走 stderr，只收
+#      stdout 会得到一个空日志，让后面的判据静默通过。
 #   ③ **不许**为了跑出 `holds=(screenLocked)` 去合成 `com.apple.screenIsLocked` ——
 #      那个名字由别的进程投递，投它会让同机其它壁纸 app 一起暂停。合成的那条只在
 #      `scripts/probe-lock.sh` 里、用 `com.local.pic.tests.lock.` 前缀跑。

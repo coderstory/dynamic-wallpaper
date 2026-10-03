@@ -1,7 +1,7 @@
 import XCTest
 @testable import PicCore
 
-/// 仲裁器单测 —— 纯逻辑，**本文件不得引入播放框架**（ARCHITECTURE §9：State/ 零依赖）。
+/// 仲裁器单测 —— 纯逻辑，**本文件不得引入播放框架**（State/ 零依赖）。
 @MainActor
 final class HoldArbiterTests: XCTestCase {
 
@@ -31,7 +31,7 @@ final class HoldArbiterTests: XCTestCase {
         try await super.tearDown()
     }
 
-    /// 幂集判据：子集在**运行时**从 `allCases` 生成，Phase 3 加 case 后自动从
+    /// 幂集判据：子集在**运行时**从 `allCases` 生成，加 case 后自动从
     /// 2^n 扩到 2^(n+1)，测试代码一个字都不用改。
     func testShouldPlayMatchesEmptyHoldsForEverySubset() {
         let all = HoldReason.allCases
@@ -102,7 +102,7 @@ final class HoldArbiterTests: XCTestCase {
     }
 
     /// UI 侧读「是否手动暂停」的唯一入口 —— 它必须是 `decision.holds` 的派生量。
-    /// 若 Phase 5 在 UI 侧另立一个可变的 `isPaused`，本用例不会红，但
+    /// 若 UI 侧另立一个可变的 `isPaused`，本用例不会红，但
     /// `test.sh` 的「UI 侧零可变真相源」源码判据会红；两条一起锁。
     func testIsManuallyPausedIsDerivedFromHolds() {
         XCTAssertFalse(arbiter.isManuallyPaused, "初始 holds 为空，不是手动暂停")
@@ -112,7 +112,7 @@ final class HoldArbiterTests: XCTestCase {
         XCTAssertFalse(arbiter.isManuallyPaused, "hold 解除后派生量跟着回落")
     }
 
-    /// D-15 的正面判据：手动暂停后解除，续播点是**暂停时**的那一秒，
+    /// 正面判据：手动暂停后解除，续播点是**暂停时**的那一秒，
     /// 不是片头。判据是 `FakeTarget.seeks` 里的具体秒数，不是「播起来了」。
     func testManualPauseResumesFromAnchorNotFromZero() {
         target.position = 42.0
@@ -124,8 +124,8 @@ final class HoldArbiterTests: XCTestCase {
         XCTAssertTrue(arbiter.decision.shouldPlay, "hold 清空后应当恢复播放")
     }
 
-    /// D-15 的第二半：锚点只在 ∅→非∅ 写入一次。暂停期间位置被别处改掉
-    /// （Phase 3 的系统 hold、Phase 4 的换片都会这样），解除后仍从原锚点续播。
+    /// 第二半：锚点只在 ∅→非∅ 写入一次。暂停期间位置被别处改掉
+    /// （系统 hold、换片都会这样），解除后仍从原锚点续播。
     func testAnchorNotOverwrittenBySecondHold() {
         target.position = 42.0
         arbiter.set(.manualPause, active: true)
@@ -135,9 +135,9 @@ final class HoldArbiterTests: XCTestCase {
         XCTAssertEqual(target.seeks, [42.0], "锚点不得被暂停期间的位置变化覆盖")
     }
 
-    // MARK: - Plan 03-01 T2：TEST-01 的核心资产
+    // MARK: - 幂集与 order 的核心资产
 
-    /// TEST-01 的**存在性**判据：6 个输入 × 开闭 = 64 种组合。
+    /// **存在性**判据：6 个输入 × 开闭 = 64 种组合。
     ///
     /// 幂集是**运行时**从 `allCases` 生成的（见 `testShouldPlayMatchesEmptyHoldsForEverySubset`），
     /// 这里只钉住组合数本身。将来有人加/减 case，数字立刻对不上。
@@ -150,8 +150,8 @@ final class HoldArbiterTests: XCTestCase {
     }
 
     /// `order` 两两不同 —— 否则 `PlaybackDecision.activeReasons`（即 `holds.sorted()`）
-    /// 在撞号的那两个 case 之间顺序不确定，D-10 允许的「优先级只用于 UI 文案排序」就失效。
-    /// `manualPause` 的 0 是 Phase 2 的值，不许被改（W-2026-10-03-14）。
+    /// 在撞号的那两个 case 之间顺序不确定，「优先级只用于 UI 文案排序」就失效。
+    /// `manualPause` 的 0 是早期定的值，不许被改。
     func testOrderValuesAreDistinctAndManualPauseStaysZero() {
         let orders = HoldReason.allCases.map(\.order)
         XCTAssertEqual(orders, [0, 1, 2, 3, 4, 5], "order 必须互不相同且升序；实际 \(orders)")
@@ -161,12 +161,12 @@ final class HoldArbiterTests: XCTestCase {
         XCTAssertEqual(sorted, orders, "Comparable 必须与 order 升序一致")
     }
 
-    /// **本 Phase 最核心的反例（D-10 / PAUSE-07）**：锁屏中退出全屏**不恢复播放**。
+    /// **最核心的反例**：锁屏中退出全屏**不恢复播放**。
     ///
-    /// 覆盖式实现（ARCHITECTURE §6.1 点名的反模式：优先级链 / 覆盖）在这一步会把
+    /// 覆盖式实现（点名的反模式：优先级链 / 覆盖）在这一步会把
     /// `holds` 直接写成「剩下的那一个」，于是用户从全屏退出来的瞬间壁纸就播了起来。
     /// veto 集合语义要求 `holds` 非空就一律不播。
-    /// 这条用例在 `<automated>` 里被注入式反向验证过 —— 把移除语义换成覆盖语义后必须转红。
+    /// 这条用例被注入式反向验证过 —— 把移除语义换成覆盖语义后必须转红。
     func testLockedThenFullscreenExitDoesNotResume() {
         target.position = 42.0
 
@@ -184,7 +184,7 @@ final class HoldArbiterTests: XCTestCase {
         XCTAssertEqual(target.seeks, [42.0], "解除锁屏才 seek，且 seek 到第一次进 hold 时的位置")
     }
 
-    /// D-15 在 6 个 reason 下不漂移：锚点只在 ∅ → 非∅ 写一次，
+    /// 在 6 个 reason 下不漂移：锚点只在 ∅ → 非∅ 写一次，
     /// 其余 5 个 reason 依次置位再**逆序**解除，锚点必须一直是 42.0。
     func testAnchorNotOverwrittenAcrossAllSixReasons() {
         target.position = 42.0

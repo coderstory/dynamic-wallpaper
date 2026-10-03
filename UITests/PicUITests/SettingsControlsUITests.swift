@@ -1,10 +1,10 @@
 import AVFoundation
 import XCTest
 
-/// 设置窗控件的交互面（Plan 05-04）。
+/// 设置窗控件的交互面。
 ///
-/// 置灰只认 `isEnabled` 与「点了没反应」；视觉变淡不算证据 —— UI-SPEC §8
-/// 明令，且一个只调 opacity 的实现会让下面三条全绿。
+/// 置灰只认 `isEnabled` 与「点了没反应」；视觉变淡不算证据 —— UI 规范明令，
+/// 且一个只调 opacity 的实现会让下面三条全绿。
 final class SettingsControlsUITests: XCTestCase {
 
     private var evidenceURL: URL!
@@ -131,14 +131,14 @@ final class SettingsControlsUITests: XCTestCase {
         }
     }
 
-    // MARK: - TEST-07 控件全景
+    // MARK: - 控件全景
 
     func testAllControlsExistAndTranscodeStaysDisabled() throws {
         _ = launchApp()
         XCTAssertTrue(app.windows.matching(NSPredicate(format: "title CONTAINS %@", "Pic 设置"))
             .firstMatch.waitForExistence(timeout: 10), "设置窗应经 --open-settings 打开")
 
-        // 默认起点（loopSingle）下这两个本就置灰，可点性归 TEST-08 判。
+        // 默认起点（loopSingle）下这两个本就置灰，可点性归下一节判。
         let conditional = ["rotation-stepper"]
         let interactive = ["rate-slider", "volume-slider", "sound-toggle", "mode-segmented",
                             "battery-toggle", "autostart-toggle", "select-button", "rescan-button"]
@@ -150,7 +150,7 @@ final class SettingsControlsUITests: XCTestCase {
         for id in interactive {
             XCTAssertTrue(el(id).isHittable, "控件 \(id) 应可点（TEST-07）")
         }
-        // Phase 5 的转码入口是 disabled 占位；enabled 即等于把没做的功能说成做了。
+        // 转码入口是 disabled 占位；enabled 即等于把没做的功能说成做了。
         XCTAssertFalse(el("transcode-open").isEnabled, "转码入口是 disabled 占位，不得可点")
 
         el("sound-toggle").tap()
@@ -158,7 +158,7 @@ final class SettingsControlsUITests: XCTestCase {
                       "点静音开关必须真的走到 applier（TEST-07/T-05-16）")
     }
 
-    // MARK: - TEST-08 两条置灰联动（以交互不生效为准）
+    // MARK: - 两条置灰联动（以交互不生效为准）
 
     func testRotationRowIgnoresTapsInSingleLoopAndRecoversInListLoop() throws {
         _ = launchApp()
@@ -206,7 +206,7 @@ final class SettingsControlsUITests: XCTestCase {
                       "可用后拖滑杆必须当场生效（TEST-08 ②）")
     }
 
-    // MARK: - TEST-09 空态
+    // MARK: - 空态
 
     func testEmptyFolderShowsVerbatimCopyAndRescanStaysEnabled() throws {
         // 空目录必须**真空**：Finder 或任何一次写目录元数据都会塞进 .DS_Store，
@@ -227,7 +227,7 @@ final class SettingsControlsUITests: XCTestCase {
         XCTAssertTrue(waitEnabled("rescan-button"), "空态下重扫必须保持可用（它是恢复路径）")
     }
 
-    // MARK: - TEST-10 菜单栏实点
+    // MARK: - 菜单栏实点
 
     func testMenuBarExposesFiveHittableItems() throws {
         _ = launchApp()
@@ -248,7 +248,7 @@ final class SettingsControlsUITests: XCTestCase {
         }
     }
 
-    // MARK: - G-04-3 回归：立即下一个在单循环下也要切
+    // MARK: - 回归：立即下一个在单循环下也要切
 
     func testNextVideoMenuItemAdvancesEvenInSingleLoopMode() throws {
         makePlayableVideos(count: 2)
@@ -270,7 +270,7 @@ final class SettingsControlsUITests: XCTestCase {
 
         let ev = waitForEvidence("PIC_MENU_ACTION=next_video")
         XCTAssertTrue(ev.contains("PIC_MENU_ACTION=next_video"), "实点菜单项必须真的走到 nextVideoNow")
-        // 装载了哪一条不进证据（T-03-02 禁文件名）。advances 计数递增是它的可 grep 代理：
+        // 装载了哪一条不进证据（禁文件名）。advances 计数递增是它的可 grep 代理：
         // 列表空时 advance() 直接 return，计数恒 0 —— 于是这一行同时证明「有列表」与「切了」。
         XCTAssertTrue(ev.contains("PIC_ROT_ADVANCES=1"),
                       "单循环下用户请求仍应推进一次（G-04-3），实际证据：\(ev)")
