@@ -106,7 +106,6 @@
 			isa = PBXGroup;
 			children = (
 				510500000000000000000105 /* SettingsComponents.swift */,
-				510500000000000000000115 /* TranscodeSection.swift */,
 				510500000000000000000106 /* SettingsView.swift */,
 				510500000000000000000110 /* SettingsSessionState.swift */,
 			);
@@ -118,6 +117,7 @@
 			children = (
 				510500000000000000000112 /* InstallPathwaysView.swift */,
 				510500000000000000000113 /* TranscodeViewModel.swift */,
+				510500000000000000000115 /* TranscodeSection.swift */,
 			);
 			path = Transcode;
 			sourceTree = "<group>";

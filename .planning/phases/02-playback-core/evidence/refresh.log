@@ -1,8 +1,0 @@
-REFRESH_RUN_MODE=swift_run DRIVER=display_link TICK_RATE=29.9
-REFRESH_RUN_MODE_DETAIL_swift_run driver=display_link tick_count=299 window=10.0 final=display_link wait_seconds=16
-REFRESH_RUN_MODE=app_bundle DRIVER=display_link TICK_RATE=30.3
-REFRESH_RUN_MODE_DETAIL_app_bundle driver=display_link tick_count=303 window=10.0 final=display_link wait_seconds=16
-REFRESH_VERDICT=display_link_available
-IMPACT_ON_PHASE3=两种形态都能拿到 display_link；Phase 3 若采用逐帧轮询（如台前调度帧差分）在开发期与打包期结论一致
-REFRESH_SESSION=unlocked
-REFRESH_NOTE=两轮各起一个进程、各等满 10 秒测量窗口；TICK_RATE 是窗口内实测 tick 数除以窗口秒数，不是估计值

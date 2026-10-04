@@ -1,4 +1,0 @@
-GATE_RERUN=blocked
-REASON=session_locked CGSSessionScreenIsLocked=1 loginwindow_pid=489
-CONSEQUENCE=门禁 GATE=A 的适用边界仍限定在锁屏会话；Phase 2 SUMMARY 必须写明「产品未在解锁会话验证过」
-SOURCE_LOG=.planning/phases/02-playback-core/evidence/gate-01-locked-session.log

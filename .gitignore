@@ -1,11 +1,29 @@
+# ── 构建产物 ──
 ffmpeg-kit-next/
 build/
 dist/
-.planning/spike/out/
-fixtures/
 .build/
+*.dmg
+
+# Xcode 用户数据（每人一份，不该进仓库）
 Pic.xcodeproj/xcuserdata/
 Pic.xcodeproj/project.xcworkspace/xcuserdata/
+xcuserdata/
+*.xcuserstate
 
-# 探针/夹具树的运行时产物（make-media-fixture-tree.sh 生成，可随时重建）
-.planning/spike/media-fixture/
+# ── 本地开发脚手架 ──
+# AI 助手的本地配置（每人路径/习惯不同）
+.claude/
+.claude.json
+# 内部规划、测试证据、设计稿 —— 不对外
+.planning/
+.gsd/
+.DS_Store
+
+# ── 测试夹具 ──
+# 运行时生成的媒体树，可由 scripts/make-media-fixture-tree.sh 重建
+fixtures/
+
+# ── 日志与临时文件 ──
+*.log
+.swiftpm/
