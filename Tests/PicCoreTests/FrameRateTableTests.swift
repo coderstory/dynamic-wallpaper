@@ -93,6 +93,28 @@ final class FrameRateTableTests: XCTestCase {
         XCTAssertNil(table.reusableEntry(for: gone), "文件不在表里 → 需要探测")
     }
 
+    /// ⚠️ 这条钉的是真实 bug：`FileManager.enumerator` 返回 `/private/var/...`，
+    /// 而调用方给的 URL 可能是 `/var/...`。直接 `==` 比 path 会永远命中不了 ——
+    /// 症状是增量扫描静默退化成全量重探，没有任何报错。
+    func testLookupTolerantToPathPrefixDifference() throws {
+        let entry = makeEntry()
+        var table = FrameRateTable(entries: [entry])
+        // macOS 临时目录在 /var/folders/... 下；enumerator 会给 /private/var/...
+        let mangled = URL(fileURLWithPath: entry.sourcePath
+            .replacingOccurrences(of: "/var/", with: "/private/var/"))
+        XCTAssertNotEqual(mangled.path, entry.sourcePath, "两个 URL 的字符串确实不同")
+        XCTAssertNotNil(table.entry(for: mangled), "规范化后必须命中同一条")
+    }
+
+    func testUpsertReplacesRowReachedByDifferentlyWrittenPath() throws {
+        var table = FrameRateTable()
+        try table.upsert(makeEntry(), to: tableURL)
+        var second = makeEntry()
+        second.sourcePath = second.sourcePath.replacingOccurrences(of: "/var/", with: "/private/var/")
+        try table.upsert(second, to: tableURL)
+        XCTAssertEqual(table.entries.count, 1, "同文件的不同路径写法必须覆盖而不是新增一行")
+    }
+
     // MARK: - 跨重启恢复
 
     /// `converting` 是活状态：app 退出时表里会留下它，读回时没有半个进程在跑，

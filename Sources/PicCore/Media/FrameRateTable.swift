@@ -77,9 +77,16 @@ public struct FrameRateTable: Codable, Equatable, Sendable {
 
     // MARK: - 查询
 
+    /// ⚠️ 路径比统一走 `standardized`：`FileManager.enumerator` 返回的是
+    /// `/private/var/...`，而调用方给的可能是 `/var/...` 或 `/Users/...`。
+    /// 直接 `==` 比 path 会永远命中不了 —— 症状是增量扫描静默退化成全量重探。
     public func entry(for source: URL) -> FrameRateEntry? {
-        entries.first { $0.sourcePath == source.path }
+        let key = Self.key(for: source)
+        return entries.first { Self.key(forPath: $0.sourcePath) == key }
     }
+
+    static func key(for url: URL) -> String { url.standardizedFileURL.path }
+    static func key(forPath path: String) -> String { URL(fileURLWithPath: path).standardizedFileURL.path }
 
     /// 增量扫描的判据：能复用就返回，省掉一次 `AVURLAsset` 打开。
     public func reusableEntry(for source: URL) -> FrameRateEntry? {
@@ -102,7 +109,7 @@ public struct FrameRateTable: Codable, Equatable, Sendable {
     // MARK: - 变更（每个口都落盘 —— 只在状态跃迁时调用，不是每 tick）
 
     public mutating func upsert(_ entry: FrameRateEntry, to url: URL = FrameRateTable.defaultURL()) throws {
-        if let index = entries.firstIndex(where: { $0.sourcePath == entry.sourcePath }) {
+        if let index = indexOf(entry.sourcePath) {
             entries[index] = entry
         } else {
             entries.append(entry)
@@ -110,9 +117,14 @@ public struct FrameRateTable: Codable, Equatable, Sendable {
         try save(to: url)
     }
 
+    private func indexOf(_ sourcePath: String) -> Int? {
+        let key = Self.key(forPath: sourcePath)
+        return entries.firstIndex { Self.key(forPath: $0.sourcePath) == key }
+    }
+
     public mutating func updateState(_ state: ProbeState, for source: URL,
                                      to url: URL = FrameRateTable.defaultURL()) throws {
-        guard let index = entries.firstIndex(where: { $0.sourcePath == source.path }) else { return }
+        guard let index = indexOf(source.path) else { return }
         entries[index].state = state
         if state == .done, let path = entries[index].derivativePath {
             entries[index].derivativeMtime = try? FileManager.default
@@ -124,8 +136,9 @@ public struct FrameRateTable: Codable, Equatable, Sendable {
     /// 丢掉源已不存在的行（片库删了文件，表里不能留孤儿）。
     public mutating func prune(keepingLiveSources livePaths: Set<String>,
                                to url: URL = FrameRateTable.defaultURL()) throws {
+        let live = Set(livePaths.map(Self.key(forPath:)))
         let before = entries.count
-        entries.removeAll { !livePaths.contains($0.sourcePath) }
+        entries.removeAll { !live.contains(Self.key(forPath: $0.sourcePath)) }
         if entries.count != before { try save(to: url) }
     }
 
