@@ -68,11 +68,21 @@ private struct MenuBarLabel: View {
     let presentSettings: () -> Void
     @Environment(\.openWindow) private var openWindow
 
+    /// 菜单栏图标 = 设计定稿的 menubar-v1（bundle 里是 menubar-v1Template{,@2x,@3x}.png，
+    /// @2x/@3x 变体由 NSImage 加载自动带上）。
+    /// ⚠️ 必须**显式 NSImage 加载**，不许「简化」回字符串名 `Image("menubar-v1Template")`：
+    /// macOS 27 实测该具名路径在 MenuBarExtra label 里解析不到散装 PNG，状态项渲染成
+    /// 18pt 全透明空槽——而 Bundle.image 层加载是好的（07-01 的加载验证因此漏过）。
+    /// 实测判据：裸 Image / Text / nsImage±onReceive = 34pt 有内容；字符串名 = 18pt 空。
+    /// isTemplate 显式置位，不押注文件名后缀自动判定。
+    private var statusIcon: NSImage {
+        let img = Bundle.main.image(forResource: "menubar-v1Template") ?? NSImage()
+        img.isTemplate = true
+        return img
+    }
+
     var body: some View {
-        // 菜单栏图标 = 设计定稿的 menubar-v1。bundle 里存的是 menubar-v1Template{,@2x,@3x}.png ——
-        // 名字带 Template 后缀时 AppKit 自动置 isTemplate，深浅色由系统适配。
-        // @2x/@3x 变体由具名查找自动带上。
-        Image("menubar-v1Template")
+        Image(nsImage: statusIcon)
             .onReceive(NotificationCenter.default.publisher(for: Notification.Name("PicOpenSettings"))) { _ in
                 presentSettings()
                 openWindow(id: "settings")
