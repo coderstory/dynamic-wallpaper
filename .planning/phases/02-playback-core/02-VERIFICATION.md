@@ -336,3 +336,23 @@ swift build -c release → Build complete!
 
 _Verified: 2026-10-03 · 独立复核（只读核对，未重跑任何 GUI 探针）_
 _Verifier: Claude (gsd-verifier)_
+
+---
+
+## ⚠ 后记：本 phase 的 `evidence/refresh.log` 已被事后覆盖（2026-10-04）
+
+本文件引用的降级证据是 `evidence/refresh.log` 里的 `DRIVER=timer_fallback_hz30` / `REFRESH_VERDICT=blocked`。
+**该文件在 2026-10-04 的某次探针复跑中被重写**，现内容为：
+
+```
+REFRESH_RUN_MODE=swift_run  DRIVER=display_link  TICK_RATE=29.9
+REFRESH_RUN_MODE=app_bundle DRIVER=display_link  TICK_RATE=30.3
+REFRESH_VERDICT=display_link_available
+```
+
+即锁屏解除后刷新回调**确实拿到了 `display_link`**（本文件末尾「一条必须写明的发现」当时诚实地记为「本机实测没能证明」）。
+
+**结论仍成立**：留给 Phase 3 的硬约束「四类系统检测必须走事件通知，禁止逐帧轮询」与本条的降级读数无关（那是 Phase 1/2 的 SwiftPM 无 bundle 场景问题，已由打包成 `.app` 解决）。
+**失效的是实测依据**：本文件引用的 `timer_fallback_hz30` 已无法在当前 evidence 文件中复现 —— 引用它的地方应改为引用 git 历史中的旧版本。
+
+同类问题：`scripts/probe-*.sh` 直连调用时会覆盖已入库 evidence（test.sh 已通过 `PIC_EVIDENCE_DIR` 重定向规避，直连调用没有）。这是本项目的既有坑，`DEBT-BACKLOG.md` 有记录。

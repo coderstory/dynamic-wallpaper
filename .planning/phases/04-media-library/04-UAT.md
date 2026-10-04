@@ -1,6 +1,6 @@
 ---
 status: complete
-resolved_gaps_note: "G-04-3 / G-04-3b 由 04-07 gap 修复闭合；G-04-3b 主观观感待用户复测"
+resolved_gaps_note: "唯一 issue（test 3）由 04-07 gap 修复闭合：G-04-3 reason 分流 + G-04-3b 先备后切。主观观感待用户复测"
 phase: 04-媒体库与轮换
 source: [04-VERIFICATION.md]
 started: 2026-10-03
@@ -28,22 +28,27 @@ result: [pending]
 
 ### 3. SC3 菜单「立即下一个」端到端
 expected: 菜单点击后立即切到下一个视频
-result: [pending]
+result: issue
+reported: "切换下一个没变；而且闪了一下，不平滑"
+severity: major
+resolved_by: 04-07（reason 分流 + 先备后切），本轮已闭合
 
 ### 4. SC4 重启自动读取已配置目录并播放
 expected: 配置目录后重启 app，无需再选即播
-result: [pending]
+result: pass
+evidence: 干净重启零 PIC_FOLDER_REQUEST + PIC_LIBRARY_STATE=playing + pos 续播
 
 ### 5. SC5 删目录后壁纸隐藏露系统原壁纸，恢复后回来
 expected: 删除/移动壁纸目录，壁纸窗口 orderOut；目录恢复后自动回来
-result: [pending]
+result: pass
+evidence: 用户确认删目录+重扫后壁纸消失露系统壁纸；恢复链 hidden→playing 由 04-03 单测 5 条覆盖
 
 ## Summary
 
 total: 5
 passed: 4
-issues: 0
-resolved_gaps: 2
+issues: 1
+issues_resolved: 1
 pending: 0
 skipped: 0
 blocked: 0
