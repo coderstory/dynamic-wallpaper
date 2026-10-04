@@ -21,7 +21,7 @@ final class TranscodeQueueTests: XCTestCase {
         var exitStatus: Int32 = 0
 
         func run(ffmpegPath: String, arguments: [String], outputTemporaryPath: String,
-                 onProgressLine: @escaping (String) -> Void) -> Int32 {
+                 onProgressLine: @escaping (String) -> Void) async -> Int32 {
             calls.append(Call(tmpPath: outputTemporaryPath, arguments: arguments))
             FileManager.default.createFile(
                 atPath: outputTemporaryPath, contents: Data("fake-payload".utf8))

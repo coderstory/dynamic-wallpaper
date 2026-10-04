@@ -29,7 +29,7 @@ final class TracerFakeRunner: TranscodeRunning {
     private(set) var calls: [String] = []
 
     func run(ffmpegPath: String, arguments: [String], outputTemporaryPath: String,
-             onProgressLine: @escaping (String) -> Void) -> Int32 {
+             onProgressLine: @escaping (String) -> Void) async -> Int32 {
         calls.append(outputTemporaryPath)
         FileManager.default.createFile(
             atPath: outputTemporaryPath, contents: Data("fake-mp4-payload".utf8))

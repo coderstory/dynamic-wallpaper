@@ -544,7 +544,7 @@ N=$(src_count 'invalidateCache' 'Sources/PicApp')
 
 # ⑤ 转码侧纯逻辑单测。转码执行侧全部是替身（FakeRunner 进程外零调用），
 #    所以这条是**零 ffmpeg** 的。队列单列一条 —— 它是执行路径的行为中枢。
-TRC_N=40
+TRC_N=41
 if swift test --package-path . --filter 'Transcode|ConvertedLibrary|ExternalToolLocator|ProgressParser' > "$TMP/trc.log" 2>&1 \
    && grep -qE "Executed ${TRC_N} tests, with 0 failures" "$TMP/trc.log"; then
   ok "Phase6 转码纯逻辑单测全绿"
@@ -558,6 +558,25 @@ if swift test --package-path . --filter TranscodeQueueTests > "$TMP/trcqueue.log
   ok "Phase6 转码队列单测全绿"
 else
   no "Phase6 转码队列单测全绿" "$(grep -E 'error:|XCTAssert.*failed' "$TMP/trcqueue.log" | head -2)"
+fi
+
+# 🔴 主 actor 冻结回归门（跨 phase 集成检查抓出的 BLOCKER）。判据：真
+#    ProcessTranscodeRunner + /bin/sh 慢桩（sleep 0.9s）跑进真队列，
+#    run 尚未返回时 percent 必须已被观察到非 nil。老七道门全用瞬时替身
+#    （FakeRunner / /bin/sh printf），同步 waitUntilExit 冻主 actor 全部躲过去
+#    —— 实测老形状这条读数恒 0，修好后约 130~170。N>0 即「run 期间送达」。
+FR_N=1
+FR_GATE="转码期间主 actor 未冻结（run 期间收到进度 N 条，非排空后补收）"
+if swift test --package-path . --filter TranscodeMainActorFreezeTests > "$TMP/trcfreeze.log" 2>&1 \
+   && grep -qE "Executed ${FR_N} tests?, with 0 failures" "$TMP/trcfreeze.log"; then
+  FR_RUN=$(grep -oE 'PIC_TRC_PROGRESS_DURING_RUN=[0-9]+' "$TMP/trcfreeze.log" | tail -1 | cut -d= -f2)
+  if [ "${FR_RUN:-0}" -ge 1 ] 2>/dev/null; then
+    ok "$FR_GATE" ; printf "     run 期间收到进度 %s 条\n" "$FR_RUN"
+  else
+    no "$FR_GATE" "run 期间进度读数 = ${FR_RUN:-<无读数>}，期望 ≥ 1（同步 waitUntilExit 的老形状实测 0）"
+  fi
+else
+  no "$FR_GATE" "$(grep -E 'error:|XCTAssert.*failed' "$TMP/trcfreeze.log" | head -2)"
 fi
 
 # ⑥ tracer 的活体 evidence（**只读**，不重跑探针）。

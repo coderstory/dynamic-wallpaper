@@ -4,10 +4,14 @@ import Foundation
 /// 转码执行队列（TRANS-03/04/06 执行侧）—— 串行 drain、预检、tmp→rename、进度。
 /// 本文件是 Transcode/ 里唯一 `import AVFoundation` 的（duration 探测）。
 public protocol TranscodeRunning: AnyObject {
-    /// 同步阻塞至进程退出，返回 `terminationStatus` 语义的退出码
+    /// 进程退出后返回 `terminationStatus` 语义的退出码
     /// （串行队列的正交写法：run 不返回，下一个 job 不开始）。
+    ///
+    /// ⚠️ 反直觉陷阱：必须是 async。持有者 `TranscodeQueue` 是 `@MainActor`，
+    /// 实现里同步 `waitUntilExit()` 会把整个 app 冻住，且 `onProgressLine` 的
+    /// `Task { @MainActor }` 跳转在阻塞期间一条都送不出去（进度条卡 0% 后跳终值）。
     func run(ffmpegPath: String, arguments: [String], outputTemporaryPath: String,
-             onProgressLine: @escaping (String) -> Void) -> Int32
+             onProgressLine: @escaping (String) -> Void) async -> Int32
 }
 
 /// job 状态机。`failed` 的 reason 是受控 token，不是自由文本（不给日志注入面）：
@@ -145,7 +149,7 @@ public final class TranscodeQueue {
         // duration 在 job 开始时取一次缓存，不逐行取（拿不到 → percent 走 nil 路径）。
         let durationSeconds = await durationProvider(source)
         var progress = ProgressParser.Accumulator()
-        let status = runner.run(
+        let status = await runner.run(
             ffmpegPath: toolPath,
             arguments: arguments,
             outputTemporaryPath: temporaryURL.path

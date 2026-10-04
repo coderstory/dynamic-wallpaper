@@ -28,7 +28,7 @@ final class ProcessTranscodeRunnerTests: XCTestCase {
 
     /// 桩链路全验证：spawn 真的发生（echo 产物落地）+ stdout 逐行喂到回调
     /// + 退出判定只认 terminationStatus。
-    func testRunnerReportsProgressLinesAndExitStatusViaShellStub() {
+    func testRunnerReportsProgressLinesAndExitStatusViaShellStub() async {
         let tmpPath = NSTemporaryDirectory() + "p6-0603-stub-" + UUID().uuidString + ".out"
         defer { try? FileManager.default.removeItem(atPath: tmpPath) }
 
@@ -38,7 +38,7 @@ final class ProcessTranscodeRunnerTests: XCTestCase {
         // 由 printf 自己解释成换行。
         let script = "printf 'frame=1\\nout_time_ms=500000\\nprogress=end\\n'; echo payload > '" + tmpPath + "'"
 
-        let status = runner.run(
+        let status = await runner.run(
             ffmpegPath: "/bin/sh",
             arguments: ["-c", script],
             outputTemporaryPath: tmpPath

@@ -13,7 +13,7 @@ public final class ProcessTranscodeRunner: TranscodeRunning {
     public init() {}
 
     public func run(ffmpegPath: String, arguments: [String], outputTemporaryPath: String,
-                    onProgressLine: @escaping (String) -> Void) -> Int32 {
+                    onProgressLine: @escaping (String) -> Void) async -> Int32 {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/nice")
         process.arguments = ["-n", "10", ffmpegPath] + arguments
@@ -37,7 +37,15 @@ public final class ProcessTranscodeRunner: TranscodeRunning {
             }
             splitter.feed(chunk)
         }
-        process.waitUntilExit()
+        // 只有这一次等待需要跳离主 actor —— readabilityHandler 本就在私有队列，
+        // 同步 waitUntilExit 会冻住 @MainActor 的调用方（TranscodeQueue），
+        // 进度回调在阻塞期间一条也送不出去。
+        await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in
+            DispatchQueue.global(qos: .utility).async {
+                process.waitUntilExit()
+                c.resume()
+            }
+        }
         handle.readabilityHandler = nil
         // 收尾 drain：handler 置 nil 后管道里可能还有未投递的字节，不读会丢尾行。
         splitter.feed(handle.readDataToEndOfFile())
