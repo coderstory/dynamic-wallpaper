@@ -75,9 +75,13 @@ private struct MenuBarLabel: View {
     /// 18pt 全透明空槽——而 Bundle.image 层加载是好的（07-01 的加载验证因此漏过）。
     /// 实测判据：裸 Image / Text / nsImage±onReceive = 34pt 有内容；字符串名 = 18pt 空。
     /// isTemplate 显式置位，不押注文件名后缀自动判定。
+    /// ⚠️ size 固定 20pt：素材画布 16pt 里 glyph 实占约 13×11pt（四周透明边距），
+    /// 按画布原大渲染在菜单栏里比系统标准图标小一圈（用户实测反馈「太小」）。
+    /// 20pt = @3x 源 48px 下采样，无画质损失；再大会顶到状态项高度上限。
     private var statusIcon: NSImage {
         let img = Bundle.main.image(forResource: "menubar-v1Template") ?? NSImage()
         img.isTemplate = true
+        img.size = NSSize(width: 20, height: 20)
         return img
     }
 
