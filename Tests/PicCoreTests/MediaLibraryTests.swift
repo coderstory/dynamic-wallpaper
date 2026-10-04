@@ -11,8 +11,8 @@ final class MediaLibraryTests: XCTestCase {
 
     /// 假探针：按文件名决定接受与否。让单测完全不碰 AVFoundation 与真实素材。
     private struct FakeAssetProbe: VideoAssetProbe {
-        func hasVideoTrack(_ url: URL) async -> Bool {
-            url.lastPathComponent != "broken.mp4"
+        func metadata(_ url: URL) async -> VideoAssetMetadata {
+            VideoAssetMetadata(hasVideoTrack: url.lastPathComponent != "broken.mp4")
         }
     }
 

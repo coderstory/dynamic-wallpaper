@@ -136,7 +136,7 @@ public final class MediaLibrary {
                 continue
             }
 
-            if await probe.hasVideoTrack(entry) {
+            if await probe.metadata(entry).hasVideoTrack {
                 items.append(VideoItem(url: entry))
             } else {
                 rejectedByProbe += 1

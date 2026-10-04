@@ -7,8 +7,8 @@ final class ConvertedLibraryTests: XCTestCase {
 
     /// 文件内自带替身（既有纪律：不跨文件引用 MediaLibraryTests 的 FakeAssetProbe）。
     private struct FakeProbe: VideoAssetProbe {
-        func hasVideoTrack(_ url: URL) async -> Bool {
-            url.lastPathComponent != "broken.mp4"
+        func metadata(_ url: URL) async -> VideoAssetMetadata {
+            VideoAssetMetadata(hasVideoTrack: url.lastPathComponent != "broken.mp4")
         }
     }
 

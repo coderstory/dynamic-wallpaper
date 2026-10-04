@@ -39,7 +39,7 @@ public final class ConvertedLibrary {
                   values.isRegularFile == true,
                   values.isSymbolicLink != true else { continue }
             guard MediaLibrary.allowedExtensions.contains(entry.pathExtension.lowercased()) else { continue }
-            if await probe.hasVideoTrack(entry) {
+            if await probe.metadata(entry).hasVideoTrack {
                 items.append(VideoItem(url: entry))
             }
         }
