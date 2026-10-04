@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 /// ffmpeg 安装途径说明（App 不内置、不下载 —— 安装是用户自己的动作）。
 ///
@@ -8,15 +9,34 @@ struct InstallPathwaysView: View {
 
     /// 装好后回窗口点它重查（新鲜化出口之一）。
     let onRecheck: () -> Void
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("安装 ffmpeg")
-                .font(mono(12.5, .semibold))
-                .foregroundStyle(Color.pFg)
-            Text("Pic 不内置、也不联网下载 ffmpeg —— 安装是你自己的动作，装好后回到本窗口点重新检测即可。")
-                .font(mono(10.5))
-                .foregroundStyle(Color.pFg.opacity(0.6))
+            HStack(alignment: .firstTextBaseline) {
+                Text("安装 ffmpeg")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.pTitle)
+                Spacer()
+                // 关闭出口：以前这个弹层只有「重新检测」，关不掉 —— 用户看��装不装
+                // 都得被迫先重查一次。加一个真关闭，另给 Esc 与窗口红绿灯兜底。
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Color.pMuted)
+                        .frame(width: 22, height: 22)
+                        .background(Circle().fill(Color.pChipBg))
+                }
+                .buttonStyle(.plain)
+                .accessibilityElement()
+                .accessibilityLabel(Text("关闭"))
+                .accessibilityIdentifier("pathways-close")
+            }
+            Text("动态壁纸不内置、也不联网下载 ffmpeg —— 安装是你自己的动作，装好后回到本窗口点重新检测即可。")
+                .font(.system(size: 11.5))
+                .foregroundStyle(Color.pMuted)
                 .fixedSize(horizontal: false, vertical: true)
 
             pathway(
@@ -43,6 +63,10 @@ struct InstallPathwaysView: View {
 
             HStack {
                 Spacer()
+                Button("关闭") { dismiss() }
+                    .buttonStyle(GlowButton())
+                    .accessibilityIdentifier("pathways-close-bottom")
+                    .keyboardShortcut(.cancelAction)
                 Button("重新检测") { onRecheck() }
                     .buttonStyle(GlowButton(primary: true))
                     .accessibilityIdentifier("pathways-recheck")
@@ -56,20 +80,25 @@ struct InstallPathwaysView: View {
     private func pathway(id: String, title: String, detail: String,
                          command: String, caveat: String) -> some View {
         VStack(alignment: .leading, spacing: 5) {
-            Text(title).font(mono(11.5, .semibold)).foregroundStyle(Color.pAccent)
-            Text(detail).font(mono(10.5)).foregroundStyle(Color.pFg.opacity(0.6))
+            Text(title)
+                .font(.system(size: 11.5, weight: .semibold))
+                .foregroundStyle(Color.pAccent)
+            Text(detail)
+                .font(.system(size: 11))
+                .foregroundStyle(Color.pMuted)
+            // 命令块保留等宽：用户要照抄，字形对齐才读得准。
             Text(command)
                 .font(mono(10.5))
-                .foregroundStyle(Color.pFg.opacity(0.9))
+                .foregroundStyle(Color.pFg)
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 8).padding(.vertical, 5)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: 6).fill(Color.pCard))
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.pSep, lineWidth: 1))
+                .background(RoundedRectangle(cornerRadius: 6).fill(Color.pChipBg))
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.pEdge, lineWidth: 1))
             Text(caveat)
-                .font(mono(10))
-                .foregroundStyle(Color.pWarn.opacity(0.85))
+                .font(.system(size: 10.5))
+                .foregroundStyle(Color.pWarnFg)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(11)

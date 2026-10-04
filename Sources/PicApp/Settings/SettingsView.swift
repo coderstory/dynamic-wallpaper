@@ -84,7 +84,7 @@ struct SettingsView: View {
     private var playTab: some View {
         VStack(spacing: Metrics.blockGap) {
             StatusBar(text: statusLine,
-                      meta: ["\(session.playableCount) 个视频", "ffmpeg \(session.ffmpegAvailable ? "就绪" : "未安装")"],
+                      meta: ["\(session.playableCount) 个视频"],
                       warn: isEmpty)
 
             SectionHead(t: "播放控制")
@@ -195,11 +195,14 @@ struct SettingsView: View {
             }
             .accessibilityIdentifier("status-paused")
 
-            StatusBar(text: ffmpegStatusText,
-                      meta: session.ffmpegAvailable ? [] : ["点击查看安装途径"],
-                      warn: !session.ffmpegAvailable)
+            // ffmpeg 状态已并入顶部状态条，不再单独占一行（同一信息显示两遍是噪音）。
+            // 这里留一个 0 尺寸的锚点：`status-ffmpeg` 这个 identifier 被 UITest 依赖，
+            // 直接删元素会让那条断言永远查无此物。文本已在顶部状态条里。
+            Color.clear
+                .frame(width: 0, height: 0)
+                .accessibilityElement()
+                .accessibilityLabel(Text("ffmpeg \(session.ffmpegAvailable ? "已就绪" : "未安装")"))
                 .accessibilityIdentifier("status-ffmpeg")
-                .onTapGesture { if !session.ffmpegAvailable { showingPathways = true } }
         }
     }
 
@@ -217,12 +220,7 @@ struct SettingsView: View {
         VStack(spacing: 0) {
             Spacer(minLength: 0)
             VStack(spacing: 4) {
-                Image("AppIcon")
-                    .resizable()
-                    .frame(width: Metrics.aboutIcon, height: Metrics.aboutIcon)
-                    .clipShape(RoundedRectangle(cornerRadius: Metrics.aboutIconRadius,
-                                                style: .continuous))
-                    .shadow(color: .black.opacity(0.16), radius: 6, y: 3)
+                AboutIcon()
                     .padding(.bottom, 9)
                 Text("动态壁纸")
                     .font(.system(size: 17, weight: .semibold))

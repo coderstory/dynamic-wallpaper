@@ -18,7 +18,7 @@ struct TranscodeSection: View {
 
     var body: some View {
         VStack(spacing: Metrics.blockGap) {
-            StatusBar(text: statusLine, meta: metaParts, warn: !isAvailable)
+            availabilityBar
 
             SectionHead(t: "待转码", badge: viewModel.jobs.isEmpty ? nil : "\(viewModel.jobs.count) 个任务")
             CompactCard {
@@ -70,23 +70,34 @@ struct TranscodeSection: View {
         }
     }
 
+    /// ffmpeg 可用性容器。**已安装时只显示一行状态，不给「安装途径」入口** ——
+    /// 装好了还摆个安装按钮会让人以为没装成功。容器本身就是未安装时的出口。
+    private var availabilityBar: some View {
+        StatusBar(text: isAvailable ? "ffmpeg 已就绪" : "ffmpeg 未安装",
+                  meta: isAvailable ? [] : ["其余壁纸功能不受影响"],
+                  warn: !isAvailable)
+            .overlay(alignment: .trailing) {
+                if !isAvailable {
+                    Button("安装途径…") { showingPathways = true }
+                        .buttonStyle(GlowButton())
+                        .accessibilityIdentifier("transcode-pathways")
+                }
+            }
+            // ⚠️ 转码并入设置窗后本区块不再有 `.onAppear` 的宿主（旧版是 TranscodeScene 的
+            // 壳在 onAppear 调 refresh + loadCandidates）。不补这里，availability 会停在
+            // 初始值 `.unavailable`，装好的 ffmpeg 也显示「未安装」。
+            .onAppear {
+                refresh()
+                viewModel.refresh()
+                viewModel.loadCandidates()
+            }
+    }
+
     // MARK: - 状态
 
     private var isAvailable: Bool {
         if case .available = viewModel.availability { return true }
         return false
-    }
-
-    private var statusLine: String {
-        if !isAvailable { return "ffmpeg 未安装" }
-        return viewModel.isRunning ? "转码中 · \(viewModel.jobs.count) 个任务" : "空闲 · \(viewModel.jobs.count) 个任务"
-    }
-
-    private var metaParts: [String] {
-        var parts: [String] = []
-        if isAvailable, viewModel.isRunning { parts.append("1 个进行中") }
-        parts.append(isAvailable ? "ffmpeg 就绪" : "其余壁纸功能不受影响")
-        return parts
     }
 
     // MARK: - 队列行
@@ -184,11 +195,6 @@ struct TranscodeSection: View {
                 .buttonStyle(GlowButton(primary: true))
                 .disabled(!canStart)
                 .accessibilityIdentifier("transcode-start")
-            if !isAvailable {
-                Button("安装途径…") { showingPathways = true }
-                    .buttonStyle(GlowButton())
-                    .accessibilityIdentifier("transcode-pathways")
-            }
             Spacer(minLength: 0)
             if viewModel.isRunning {
                 Text("转码中…")

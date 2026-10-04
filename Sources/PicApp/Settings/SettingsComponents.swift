@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import PicCore
 
 // 设置窗组件层 —— 2026-10-04 重设计。与设计稿 `.planning/design/ui-rotation-a.html` 一一对应，
@@ -96,6 +97,51 @@ enum Metrics {
     static let aboutIconRadius: CGFloat = 17 // .appicon border-radius
 }
 
+// ── 关于页图标 ──
+// ⚠️ **必须显式 NSImage 加载**，不许写 `Image("AppIcon")`：
+// macOS 的 app 图标编译成 bundle 根部的 `Pic.icns`（CFBundleIconFile = Pic），
+// 不在 Resources/ 目录里，SwiftUI 的按名查找取不到 —— 实测渲染为空白。
+// 这与 MenuBarLabel 的 menubar 图标是同一个坑（那里记着「裸 Image = 18pt 空槽」）。
+struct AboutIcon: View {
+    private let image: NSImage?
+
+    init() {
+        // 优先按 CFBundleIconFile 声明的名字找，找不到再退回 Bundle.image 层。
+        let name = Bundle.main.object(forInfoDictionaryKey: "CFBundleIconFile") as? String
+        let candidates = [name, "Pic", "AppIcon"].compactMap { $0 }
+        var found: NSImage?
+        for key in candidates {
+            // Resources/<key>.icns
+            if let url = Bundle.main.url(forResource: key, withExtension: "icns"),
+               let img = NSImage(contentsOf: url) { found = img; break }
+            // Bundle.image 层（含 @2x/@3x 变体）
+            if let img = Bundle.main.image(forResource: key) { found = img; break }
+        }
+        image = found
+    }
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(nsImage: image)
+                    .resizable()
+            } else {
+                // 取不到时给一块占位，不留空白（空白会被当成「图标丢了」）。
+                RoundedRectangle(cornerRadius: Metrics.aboutIconRadius, style: .continuous)
+                    .fill(Color.pIconBg)
+                    .overlay(
+                        Image(systemName: "play.rectangle.fill")
+                            .font(.system(size: 34))
+                            .foregroundStyle(Color.pLabel)
+                    )
+            }
+        }
+        .frame(width: Metrics.aboutIcon, height: Metrics.aboutIcon)
+        .clipShape(RoundedRectangle(cornerRadius: Metrics.aboutIconRadius, style: .continuous))
+        .shadow(color: .black.opacity(0.16), radius: 6, y: 3)
+    }
+}
+
 // ── 图标盒（.icbox）：22pt 淡蓝圆角方块，替代旧版 26pt 发光瓷砖 ──
 struct IconBox: View {
     let symbol: String
@@ -132,6 +178,10 @@ struct GlowToggle: ToggleStyle {
                 )
         }
         .buttonStyle(.plain)
+        // 自绘开关不进 AX 树的话 VoiceOver 读不到、UITest 的 `battery-toggle` 查不到
+        // （同 ChoiceGrid 处注释）。ToggleStyle 包裹后仍需显式合成。
+        .accessibilityElement()
+        .accessibilityAddTraits(.isButton)
     }
 }
 
@@ -185,18 +235,29 @@ struct GlowSlider: View {
 struct ChoiceGrid: View {
     let items: [String]
     @Binding var index: Int
-    var columns = 3
+    /// 置灰态的配色分支。
+    ///
+    /// ⚠️ 禁用**不能**靠外层 `.opacity(0.34)`：那是与卡片白底混合的，
+    /// 蓝底白字的格子降下来会变成「浅蓝底 + 几乎透明的白字」= 字看不见（实测）。
+    /// opacity 不会保住格子内部的前后景对比度，必须换配色而非降透明度。
+    @Environment(\.isEnabled) private var isEnabled
 
     var body: some View {
         HStack(spacing: Metrics.chipGap) {
             ForEach(items.indices, id: \.self) { i in
                 let on = index == i
-                let fill: Color = on ? Color.pAccent : Color.pChipBg
-                let fg: Color = on ? Color.pAccFg : Color.pMuted
-                let stroke: Color = on ? .clear : Color.pEdge
+                // 禁用态**不区分选中/未选中**：六格一律同色。
+                // 置灰时再给选中格换个色，用户会以为那是「另一种状态」而不是「不可用」——
+                // 实测反馈正是「单循环下 5 分钟 30 分钟 和别的按钮颜色不一样」。
+                // 控件此刻不可点，高亮选中项没有信息量，只有干扰。
+                let fill: Color = isEnabled ? (on ? Color.pAccent : Color.pChipBg) : Color.pSep
+                let fg: Color = isEnabled ? (on ? Color.pAccFg : Color.pMuted)
+                                         : Color.pMuted.opacity(0.75)
+                let stroke: Color = (isEnabled && !on) ? Color.pEdge : .clear
+                let weight: Font.Weight = (isEnabled && on) ? .semibold : .regular
                 Button { index = i } label: {
                     Text(items[i])
-                        .font(.system(size: 11.5, weight: on ? .semibold : .regular))
+                        .font(.system(size: 11.5, weight: weight))
                         .monospacedDigit()
                         .foregroundStyle(fg)
                         .frame(maxWidth: .infinity)
@@ -207,6 +268,15 @@ struct ChoiceGrid: View {
                                                   style: .continuous).stroke(stroke, lineWidth: 1))
                 }
                 .buttonStyle(.plain)
+                .accessibilityElement()
+                // ⚠️ 必须显式合成无障碍元素：`.buttonStyle(.plain)` 的自绘 Button
+                // 默认不进 AX 树 —— VoiceOver 读不到、XCUITest 的
+                // `app.buttons["rotation-stepper"]` 永远查无此物（实测 7 个 UITest
+                // 失败、`battery-toggle` 之类 identifier 全部落空）。
+                .accessibilityElement()
+                .accessibilityLabel(Text(items[i]))
+                .accessibilityAddTraits(on ? [.isSelected, .isButton] : .isButton)
+                .accessibilityValue(Text(isEnabled ? "已选择" : "不可用"))
             }
         }
         .frame(height: Metrics.chipMinHeight)
@@ -223,9 +293,12 @@ struct ChoiceGrid3x2: View {
             ForEach(0..<2, id: \.self) { row in
                 ChoiceGrid(items: Array(items[row * 3..<min(row * 3 + 3, items.count)]),
                            index: Binding(
-                            get: { index },
-                            set: { index = row * 3 + $0 }),
-                           columns: 3)
+                            // ⚠️ getter 必须给**行内局部索引**。写 `index`（全局）会让
+                            // 第 0 行拿全局 2 去比 0/1/2、第 1 行也拿 2 去比 —— 两行同时
+                            // 各高亮一格（实测 15 分钟和 120 分钟一起蓝）。
+                            // 全局 4/5 时两行都不匹配，一个都不高亮。
+                            get: { index - row * 3 },
+                            set: { index = row * 3 + $0 }))
             }
         }
     }
@@ -251,6 +324,7 @@ struct GlowSegmented: View {
                         .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(fill))
                 }
                 .buttonStyle(.plain)
+                .accessibilityElement()
             }
         }
         .padding(3)
@@ -293,6 +367,9 @@ struct Tile<C: View>: View {
                         .frame(maxWidth: .infinity, alignment: .trailing)
                 }
             }
+            // 置灰只调暗标签，**不**整体降 opacity —— 整体降会把控件里
+            // 「蓝底白字」的组合一起冲淡（白字叠白底 = 隐形）。控件自己按 isEnabled 换配色。
+            .opacity(disabled ? 0.55 : 1)
             control()
         }
         .frame(maxWidth: .infinity)
@@ -308,7 +385,6 @@ struct Tile<C: View>: View {
                 .stroke(Color.pEdge, lineWidth: 1)
         )
         .shadow(color: .black.opacity(0.05), radius: 1, y: 0)
-        .opacity(disabled ? 0.34 : 1)
     }
 }
 
@@ -334,6 +410,7 @@ struct TabBar: View {
                         .shadow(color: .black.opacity(shadow), radius: 1, y: 0)
                 }
                 .buttonStyle(.plain)
+                .accessibilityElement()
             }
         }
         .padding(3)
