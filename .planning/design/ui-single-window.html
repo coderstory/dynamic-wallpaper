@@ -1,0 +1,441 @@
+<title>动态壁纸 单窗四稿</title>
+<style>
+/* ── 设计计划 ──────────────────────────────────────────────
+   页面 = 中性对比台。内容 = 四套「转码并入主窗」的单窗口稿。
+   结构依据 skill 的 liquid-glass 范式：材料只给导航/容器，内容层实色。
+   字体：系统中文字栈 + 等宽（仅数值/命令）
+   ────────────────────────────────────────────────────────── */
+
+:root{
+  --ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --bg:#F4F5F7; --surface:#FFFFFF; --line:#E2E5EA; --text:#15171B; --muted:#5F636B; --chip:#ECEEF1;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --bg:#0B0C0E; --surface:#141619; --line:#25282D; --text:#E9EBEE; --muted:#9BA1A9; --chip:#1B1E22; color-scheme: dark; }
+}
+:root[data-theme="dark"]{ --bg:#0B0C0E; --surface:#141619; --line:#25282D; --text:#E9EBEE; --muted:#9BA1A9; --chip:#1B1E22; color-scheme: dark; }
+
+*{ box-sizing:border-box }
+html{ -webkit-text-size-adjust:100% }
+body{ margin:0; background:var(--bg); color:var(--text); font-family:var(--ui); font-size:15px; line-height:1.6 }
+.wrap{ max-width:1120px; margin-inline:auto; padding-inline:20px; padding-block:30px 72px; min-width:0 }
+h1{ font-size:26px; line-height:1.25; margin:0 0 10px; letter-spacing:-.01em; text-wrap:balance }
+h2{ font-size:19px; margin:0; letter-spacing:-.005em }
+.lede{ color:var(--muted); margin:0 0 20px; max-width:70ch }
+.lede b{ color:var(--text); font-weight:600 }
+.note{ background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px 18px; margin-bottom:26px; font-size:13.5px; color:var(--muted) }
+.note b{ color:var(--text); font-weight:600 }
+.note .lbl{ font-family:var(--mono); font-size:11px; color:var(--muted); display:block; margin-bottom:3px }
+.note p{ margin:0 0 10px }
+.note p:last-child{ margin:0 }
+
+nav{ position:sticky; top:env(safe-area-inset-top, 0px); z-index:5; background:var(--bg); border-bottom:1px solid var(--line); margin-bottom:8px }
+nav .inner{ max-width:1120px; margin-inline:auto; padding:10px 20px; display:flex; gap:8px; flex-wrap:wrap }
+nav a{ font-size:13.5px; color:var(--muted); text-decoration:none; padding:4px 10px; border-radius:999px; border:1px solid var(--line) }
+nav a:hover{ color:var(--text); background:var(--chip) }
+
+.dir{ padding-block:30px; border-bottom:1px solid var(--line) }
+.dir:last-of-type{ border-bottom:0 }
+.dirhead{ display:grid; gap:9px; margin-bottom:16px }
+.dirhead .top{ display:flex; align-items:baseline; gap:12px; flex-wrap:wrap }
+.num{ font-family:var(--mono); font-size:12px; color:var(--muted) }
+.tagline{ color:var(--muted); font-size:14.5px; margin:0; max-width:72ch }
+.chips{ display:flex; gap:6px; flex-wrap:wrap }
+.chip{ font-family:var(--mono); font-size:11.5px; color:var(--muted); background:var(--chip); border:1px solid var(--line); border-radius:6px; padding:2px 8px; white-space:nowrap }
+.verdict{ font-size:13.5px; color:var(--muted); margin:0 }
+.verdict b{ color:var(--text); font-weight:600 }
+.stage{ margin-inline:auto; max-width:100% }
+.cap{ font-family:var(--mono); font-size:11px; color:var(--muted); text-align:center; padding:6px 4px 0 }
+footer{ color:var(--muted); font-size:13.5px; padding-top:26px; border-top:1px solid var(--line); margin-top:8px }
+footer code{ font-family:var(--mono); font-size:12.5px; color:var(--text) }
+
+/* ══ app 稿通用 ══ */
+.win{ background:var(--win); border:1px solid var(--win-border); border-radius:var(--radius); box-shadow:var(--win-shadow);
+      color:var(--text); font-family:var(--font-text); font-size:13px; position:relative; overflow:hidden; transform-origin:top left }
+.tb{ position:relative; display:flex; align-items:center; justify-content:center; height:38px;
+     border-bottom:1px solid var(--sep); background:var(--tb-bg,transparent) }
+.tbtitle{ font-size:13px; font-weight:600; color:var(--title-fg) }
+.lights{ position:absolute; left:13px; display:flex; gap:8px }
+.lights i{ width:11px; height:11px; border-radius:50%; display:block }
+.lights .r{ background:#FF5F57 } .lights .y{ background:#FEBC2E } .lights .g{ background:#28C840 }
+
+.wbody{ padding:var(--pad); display:grid; gap:var(--gap) }
+.col{ display:grid; gap:var(--gap); min-width:0 }
+.sect{ display:flex; align-items:center; gap:8px; font-size:12px; font-weight:600; color:var(--label-fg) }
+.sect .badge{ font-family:var(--mono); font-size:10px; font-weight:400; color:var(--muted);
+              border:1px solid var(--sep); border-radius:5px; padding:0 5px }
+.card{ background:var(--card); border:1px solid var(--card-border); border-radius:var(--radius);
+       box-shadow:var(--card-shadow,none); overflow:hidden }
+.row{ display:flex; align-items:center; gap:12px; padding:var(--rowpad); border-bottom:1px solid var(--sep) }
+.row:last-child{ border-bottom:0 }
+.tile{ width:28px; height:28px; border-radius:var(--tile-r,7px); display:grid; place-items:center; flex:none;
+       background:var(--tile-bg); border:1px solid var(--tile-border); color:var(--tile-fg); box-shadow:var(--tile-shadow) }
+.tile svg{ width:15px; height:15px; display:block }
+.lb{ display:grid; gap:2px; min-width:0; flex:1 }
+.lb b{ font-size:13px; font-weight:500 }
+.sub{ font-size:11.5px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+.sub.num{ font-family:var(--mono); font-variant-numeric:tabular-nums }
+.ctl{ margin-left:auto; display:flex; align-items:center; gap:9px; flex:none }
+
+.btn{ font-size:11.5px; padding:5px 11px; border-radius:7px; border:1px solid var(--card-border);
+      color:var(--accent); white-space:nowrap; background:var(--btn-bg,transparent) }
+.btn.primary{ background:var(--accent); color:var(--on-accent); border-color:transparent; font-weight:600 }
+.seg{ display:flex; gap:2px; padding:2px; border-radius:8px; background:var(--seg-bg); border:1px solid var(--card-border) }
+.seg span{ font-size:11.5px; padding:3px 8px; border-radius:6px; color:var(--muted); white-space:nowrap }
+.seg span.on{ background:var(--accent); color:var(--on-accent); font-weight:600 }
+.step{ display:flex; align-items:center; border:1px solid var(--card-border); border-radius:8px; overflow:hidden; font-family:var(--mono) }
+.step i{ width:24px; height:24px; display:grid; place-items:center; color:var(--accent); font-style:normal; font-size:13px }
+.step b{ font-size:11.5px; font-weight:400; padding:0 10px; color:var(--accent); white-space:nowrap }
+.sld{ position:relative; width:88px; height:24px; display:flex; align-items:center }
+.sld .track{ position:absolute; left:0; right:0; height:4px; border-radius:2px; background:var(--track) }
+.sld .fill{ position:absolute; left:0; height:4px; border-radius:2px; background:var(--accent) }
+.sld .knob{ position:absolute; width:14px; height:14px; border-radius:50%; background:#fff;
+            box-shadow:0 1px 3px rgba(0,0,0,.4); transform:translateX(-50%) }
+.val{ font-family:var(--mono); font-size:11.5px; color:var(--muted); min-width:42px; text-align:right; font-variant-numeric:tabular-nums }
+.tog{ width:42px; height:24px; border-radius:12px; background:var(--track); position:relative; flex:none }
+.tog.on{ background:var(--accent) }
+.tog::after{ content:''; position:absolute; top:2.5px; left:2.5px; width:19px; height:19px; border-radius:50%;
+             background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.35) }
+.tog.on::after{ left:auto; right:2.5px }
+.prog{ height:4px; border-radius:2px; background:var(--track); overflow:hidden; flex:1 }
+.prog i{ display:block; height:100%; width:62%; background:var(--accent) }
+.cmd{ font-family:var(--mono); font-size:11px; line-height:1.55; color:var(--text); background:var(--cmd-bg);
+      border:1px solid var(--card-border); border-radius:8px; padding:9px 11px; overflow-wrap:anywhere }
+.cmdlabel{ font-size:11px; font-weight:600; color:var(--label-fg); margin-bottom:6px }
+.hint{ font-size:11px; line-height:1.6; color:var(--muted) }
+.st{ font-family:var(--mono); font-size:10.5px; color:var(--accent); white-space:nowrap }
+.st.dim{ color:var(--muted) }
+.pulse{ width:7px; height:7px; border-radius:50%; background:var(--accent); box-shadow:0 0 8px var(--accent); flex:none }
+
+/* 状态条 */
+.statusbar{ display:flex; align-items:center; gap:9px; padding:8px 12px; border-radius:var(--radius);
+            background:var(--status-bg); border:1px solid var(--card-border); font-size:12px }
+.statusbar .meta{ margin-left:auto; font-family:var(--mono); font-size:11px; color:var(--muted);
+                 font-variant-numeric:tabular-nums; display:flex; gap:9px; align-items:center }
+
+/* 队列行（转码） */
+.qrow{ display:grid; grid-template-columns:auto 1fr auto; gap:10px; align-items:center; padding:9px 12px;
+       border-bottom:1px solid var(--sep) }
+.qrow:last-child{ border-bottom:0 }
+.qrow .nm{ display:grid; gap:2px; min-width:0 }
+.qrow .nm b{ font-size:12.5px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+.qrow .rp{ width:76px }
+
+/* 侧栏（03） */
+.sidebar{ display:grid; grid-template-columns:136px 1fr }
+.sb-nav{ padding:10px 8px; display:grid; gap:2px; align-content:start; border-right:1px solid var(--sep) }
+.sb-item{ display:flex; align-items:center; gap:8px; padding:7px 9px; border-radius:7px; font-size:12.5px;
+          color:var(--muted); white-space:nowrap }
+.sb-item.on{ background:var(--sel-bg); color:var(--accent); font-weight:600 }
+.sb-item svg{ width:14px; height:14px; flex:none }
+.sb-item .n{ margin-left:auto; font-family:var(--mono); font-size:10.5px }
+.sb-main{ padding:var(--pad); display:grid; gap:var(--gap); align-content:start; min-width:0 }
+.sb-foot{ grid-column:1 / -1; display:flex; align-items:center; gap:9px; padding:8px 12px;
+          border-top:1px solid var(--sep); font-size:11.5px; color:var(--muted) }
+.sb-foot .r{ margin-left:auto; display:flex; gap:8px }
+
+/* 标签页（02 / 04 的分段切换） */
+.tabs{ display:flex; gap:2px; padding:3px; border-radius:9px; background:var(--seg-bg); border:1px solid var(--card-border) }
+.tabs span{ padding:5px 14px; border-radius:7px; font-size:12px; color:var(--muted); white-space:nowrap }
+.tabs span.on{ background:var(--card); color:var(--accent); font-weight:600; box-shadow:var(--tab-shadow,0 1px 2px rgba(0,0,0,.12)) }
+
+/* 工具行 */
+.tools{ display:flex; align-items:center; gap:9px; flex-wrap:wrap }
+.tools .r{ margin-left:auto; font-family:var(--mono); font-size:11px; color:var(--accent) }
+
+/* ══ 01 分段（深海） ══ */
+.d1{ --win:#0A1826; --win-border:rgba(90,170,240,.20); --tb-bg:rgba(76,196,245,.05);
+     --title-fg:#DCE8F4; --card:#0D2137; --card-border:rgba(90,170,240,.16); --sep:rgba(90,170,240,.16);
+     --text:#E3EDF7; --muted:#A9BDD1; --accent:#4CC4F5; --on-accent:#04202E; --label-fg:#7FD4F7;
+     --tile-bg:linear-gradient(160deg,#5AC8FA,#1668B8); --tile-border:rgba(90,190,255,.32); --tile-fg:#fff;
+     --tile-shadow:none; --track:rgba(120,180,240,.22); --seg-bg:rgba(90,190,255,.09);
+     --cmd-bg:#0D2137; --status-bg:rgba(76,196,245,.07);
+     --radius:10px; --pad:14px; --gap:13px; --rowpad:11px 13px;
+     --win-shadow:0 18px 50px rgba(0,0,0,.5);
+     --ambient:linear-gradient(180deg,rgba(76,196,245,.09),transparent);
+     --font-text:var(--ui) }
+
+/* ══ 02 侧栏（晨雾浅色） ══ */
+.d2{ --win:#F4F5F7; --win-border:rgba(0,0,0,.10); --tb-bg:rgba(255,255,255,.6);
+     --title-fg:#3A3D42; --card:#FFFFFF; --card-border:rgba(0,0,0,.07); --sep:#ECEEF1;
+     --text:#1D1D1F; --muted:#5C6065; --accent:#0A6CFF; --on-accent:#FFFFFF; --label-fg:#0B5BD6;
+     --tile-bg:#E6EFFF; --tile-border:rgba(10,108,255,.14); --tile-fg:#0A6CFF;
+     --tile-shadow:none; --track:#D9DDE2; --seg-bg:#EDEFF2; --cmd-bg:#F7F8FA;
+     --status-bg:#FFFFFF; --sel-bg:rgba(10,108,255,.10);
+     --radius:11px; --pad:16px; --gap:14px; --rowpad:11px 13px;
+     --win-shadow:0 14px 40px rgba(20,24,40,.16); --card-shadow:0 1px 2px rgba(0,0,0,.04);
+     --ambient:none; --font-text:var(--ui) }
+
+/* ══ 03 单列磁贴（深海玻璃） ══ */
+.d3{ --win:#071019; --win-border:rgba(255,255,255,.09); --tb-bg:transparent;
+     --title-fg:#E7EEF6; --card:#0E1B27; --card-border:rgba(255,255,255,.07); --sep:rgba(255,255,255,.07);
+     --text:#E7EEF6; --muted:#9FB0C2; --accent:#5AB0FF; --on-accent:#04121E; --label-fg:#79BDF5;
+     --tile-bg:rgba(90,176,255,.13); --tile-border:rgba(120,190,255,.26); --tile-fg:#8FC8FF;
+     --tile-shadow:none; --track:rgba(255,255,255,.13); --seg-bg:rgba(255,255,255,.06); --cmd-bg:#0C1722;
+     --status-bg:rgba(90,176,255,.07);
+     --radius:12px; --pad:15px; --gap:12px; --rowpad:11px 13px;
+     --win-shadow:0 22px 60px rgba(0,0,0,.55); --card-shadow:0 8px 22px rgba(0,0,0,.35);
+     --ambient:none; --font-text:var(--ui) }
+
+/* ══ 04 折叠（暗房暖黑） ══ */
+.d4{ --win:#14120F; --win-border:rgba(255,240,220,.11); --tb-bg:rgba(232,163,61,.04);
+     --title-fg:#EDE6DA; --card:#1C1916; --card-border:rgba(255,240,220,.09); --sep:rgba(255,240,220,.08);
+     --text:#EDE6DA; --muted:#A79E90; --accent:#E8A33D; --on-accent:#241703; --label-fg:#D9A45F;
+     --tile-bg:linear-gradient(160deg,#E8A33D,#A9641A); --tile-border:rgba(232,163,61,.35); --tile-fg:#241703;
+     --tile-shadow:none; --track:rgba(255,240,220,.15); --seg-bg:rgba(255,240,220,.06); --cmd-bg:#191613;
+     --status-bg:rgba(232,163,61,.06);
+     --radius:8px; --tile-r:6px; --pad:13px; --gap:11px; --rowpad:10px 13px;
+     --win-shadow:0 18px 48px rgba(0,0,0,.55);
+     --ambient:none; --font-text:var(--ui) }
+
+@media (max-width:520px){ h1{ font-size:22px } }
+@media (prefers-reduced-motion: reduce){ *{ animation:none !important; transition:none !important } }
+</style>
+
+<div class="wrap">
+  <h1>动态壁纸 · 单窗四稿</h1>
+  <p class="lede">转码不再是第二个窗口。四套都是<b>一个窗</b>：设置与转码共存，靠不同的切换机制分开。
+  下面每套画两个状态（播放页 / 转码页），你要判断的是<b>切换方式顺不顺手</b>。</p>
+
+  <div class="note">
+    <span class="lbl">skill 依据</span>
+    <p><b>结构</b>：liquid-glass 范式（skill styles.csv 标记 swiftui|appkit 兼容，明暗双模式）—— 半透明材料只给导航层和容器，内容层保持实色清晰。这是转码并入后导航的正确做法。</p>
+    <p><b>ux 域</b>：「固定元素不能随意堆叠，要预留安全间距」—— 转码队列若常驻底部，不能和状态条抢位置，各稿用不同容器隔离。</p>
+    <p><b>不采用</b>：skill color 域给壁纸类产品的配色是紫粉预设（#7C3AED / #EC4899），那是网页向的，不适合原生 macOS 工具，本轮配色由 macOS 平台惯例决定。</p>
+  </div>
+
+  <nav><div class="inner">
+    <a href="#d1">01 分段</a><a href="#d2">02 侧栏</a><a href="#d3">03 磁贴</a><a href="#d4">04 折叠</a>
+  </div></nav>
+
+  <div id="dirs"></div>
+
+  <footer>
+    四套共有：副文对比度 ≥4.5:1、命中区 ≥24px、正文 13 / 副文 11.5px、数值统一 tabular-nums、状态不只用颜色（圆点+文字双编码）。
+    选定后改<code>SettingsComponents.swift</code> / <code>SettingsView.swift</code>，转码视图改为窗内区块。
+    控件绑定、<code>accessibilityIdentifier</code>、XCUITest 契约、空态与置灰联动语义不动。
+  </footer>
+</div>
+
+<script>
+const ICON = {
+  folder:'<path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4l2 2h9A1.5 1.5 0 0 1 21 9.5v8A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/>',
+  repeat:'<path d="M17 3l3 3-3 3"/><path d="M4 11V9a3 3 0 0 1 3-3h13"/><path d="M7 21l-3-3 3-3"/><path d="M20 13v2a3 3 0 0 1-3 3H4"/>',
+  timer:'<circle cx="12" cy="13.5" r="7"/><path d="M12 10.5v3l2 2"/><path d="M9.5 3h5"/>',
+  gauge:'<path d="M4 17.5a8.5 8.5 0 1 1 16 0"/><path d="M12 17.5l3.5-4"/><circle cx="12" cy="17.5" r="1.2"/>',
+  sound:'<path d="M5 9.5v5h3.5L14 19V5L8.5 9.5z"/><path d="M17 9.5a4 4 0 0 1 0 5"/>',
+  battery:'<rect x="3" y="8" width="16" height="8.5" rx="2"/><path d="M21.5 11v2.5"/><path d="M6 11v2.5M9 11v2.5"/>',
+  power:'<path d="M12 3.5v8"/><path d="M7.6 7.2a7 7 0 1 0 8.8 0"/>',
+  swap:'<path d="M4 8.5h13l-3-3"/><path d="M20 15.5H7l3 3"/>',
+  play:'<circle cx="12" cy="12" r="8.5"/><path d="M10.4 9l5.2 3-5.2 3z" fill="currentColor" stroke="none"/>',
+  check:'<path d="M12 3.5l2.3 2.1 3.1-.3 1 3 2.8 1.5-1.2 3 1.2 3-2.8 1.5-1 3-3.1-.3L12 20.5l-2.3-2.1-3.1.3-1-3L2.8 14l1.2-3-1.2-3 2.8-1.5 1-3 3.1.3z"/><path d="M9 12.2l2.2 2.2 4-4.4" stroke-width="2"/>',
+  clock:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  done:'<circle cx="12" cy="12" r="8.5"/><path d="M8.6 12.2l2.4 2.4 4.4-4.8"/>',
+  bolt:'<path d="M13 3L5 13.5h5.5L11 21l8-10.5h-5.5z"/>',
+  film:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M8 5v14M16 5v14M3 12h18"/>',
+  gear:'<circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M21 12h-2.5M5.5 12H3M18.4 5.6l-1.8 1.8M7.4 16.6l-1.8 1.8M18.4 18.4l-1.8-1.8M7.4 7.4L5.6 5.6"/>',
+  alert:'<path d="M12 4l8.5 15h-17z"/><path d="M12 10v4"/><path d="M12 16.6v.2" stroke-width="2.2"/>'
+};
+const ic = n => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + ICON[n] + '</svg>';
+const tile = n => '<span class="tile">' + ic(n) + '</span>';
+const row = (icon, title, sub, ctl) =>
+  '<div class="row">' + tile(icon) +
+  '<span class="lb"><b>' + title + '</b>' + (sub ? '<i class="sub' + (/[/.]|·/.test(sub) ? ' num' : '') + '">' + sub + '</i>' : '') + '</span>' +
+  '<span class="ctl">' + (ctl || '') + '</span></div>';
+const sect = (t, badge) => '<div class="sect">' + t + (badge ? '<span class="badge">' + badge + '</span>' : '') + '</div>';
+const card = i => '<div class="card">' + i + '</div>';
+const seg = (items, on) => '<span class="seg">' + items.map((t,i)=>'<span class="' + (i===on?'on':'') + '">' + t + '</span>').join('') + '</span>';
+const step = v => '<span class="step"><i>‹</i><b>' + v + '</b><i>›</i></span>';
+const sld = (pct, val) =>
+  '<span class="sld"><i class="track"></i><i class="fill" style="width:' + pct + '%"></i>' +
+  '<i class="knob" style="left:' + pct + '%"></i></span><span class="val">' + val + '</span>';
+const tog = on => '<span class="tog ' + (on?'on':'') + '"></span>';
+const tb = t => '<div class="tb"><span class="lights"><i class="r"></i><i class="y"></i><i class="g"></i></span><span class="tbtitle">' + t + '</span></div>';
+
+const JOBS = [
+  { icon:'play',  name:'IMG_2041.MKV',     meta:'MKV · 1.2 GB',  state:'62%',       dim:false, pct:62 },
+  { icon:'clock', name:'holiday-2024.AVI', meta:'AVI · 820 MB',  state:'待转码',    dim:true,  pct:null },
+  { icon:'done',  name:'sunset-ride.WEBM', meta:'WEBM · 240 MB', state:'已完成',    dim:true,  pct:100 }
+];
+const qrow = j =>
+  '<div class="qrow">' + tile(j.icon) +
+  '<span class="nm"><b>' + j.name + '</b><i class="sub num">' + j.meta + '</i></span>' +
+  '<span style="display:flex;align-items:center;gap:9px;width:150px">' +
+  '<span class="prog"><i style="width:' + (j.pct != null ? j.pct : 0) + '%"></i></span>' +
+  '<i class="st ' + (j.dim?'dim':'') + '">' + j.state + '</i></span></div>';
+const CMD = '<div class="cmd">/opt/homebrew/bin/ffmpeg -y -i "/Users/you/Movies/Wallpapers/IMG_2041.MKV" -c:v libx264 -preset medium -crf 21 -c:a aac -b:a 160k "…/Converted/IMG_2041.mp4"</div>';
+const RULES = '产物输出到壁纸目录的 Converted 子文件夹 · 自动扫描的源文件转码成功后自动删除 · 手动选择的源文件保留 · 产物不会再进入待转码队列';
+const TOOLS = '<div class="tools"><span class="btn">选择目录或文件…</span><span class="btn">重新查找待转码文件</span>' +
+  '<span class="btn primary">开始转码</span><span class="r">转码中…</span></div>';
+const BADGE = '<div class="statusbar"><span class="pulse"></span><span>ffmpeg 已就绪</span>' +
+  '<span class="meta">/opt/homebrew/bin/ffmpeg</span></div>';
+const TOOLS_A = '<div class="tools"><span class="btn">选择目录或文件…</span>' +
+  '<span class="btn">重新查找待转码文件</span><span class="btn primary">开始转码</span></div>';
+
+/* 转码内容块（各稿共用，只换外层容器） */
+const transBody = (tools) =>
+  BADGE +
+  sect('待转码', '3 个任务') + card(JOBS.map(qrow).join('')) +
+  '<div><div class="cmdlabel">当前任务的命令</div>' + CMD + '</div>' +
+  '<div class="hint">' + RULES + '</div>' + tools;
+
+/* ── 01 分段切换 ── */
+function d1(page){
+  const tabs = '<div class="tabs"><span class="' + (page==='play'?'on':'') + '">播放</span>' +
+               '<span class="' + (page==='tc'?'on':'') + '">转码</span></div>';
+  const body = page === 'play'
+    ? '<div class="statusbar"><span class="pulse"></span><span>正在播放 · 列表循环</span>' +
+      '<span class="meta"><span>12 个视频</span><span>·</span><span>ffmpeg 就绪</span></span></div>' +
+      sect('壁纸来源') +
+      card(row('folder','文件夹','~/Movies/Wallpapers','<span class="btn">选择…</span>') +
+          '<div class="row" style="gap:9px"><span class="pulse"></span>' +
+          '<span style="font-family:var(--mono);font-size:18px;font-weight:600;color:var(--accent)">12</span>' +
+          '<span class="sub" style="font-size:12px">个可用视频</span>' +
+          '<span class="ctl"><span class="btn">重新扫描</span></span></div>') +
+      sect('播放') +
+      card(row('repeat','模式','', seg(['单循环','列表循环','随机'],1)) +
+          row('timer','轮换','', step('15 分钟')) +
+          row('gauge','速度','音高不变', sld(33,'1.00×')) +
+          row('sound','声音','', sld(60,'60%') + tog(true))) +
+      sect('电源') +
+      card(row('battery','电池时播放','默认开', tog(true)) +
+          row('power','开机自启','', tog(false)))
+    : transBody(TOOLS_A);
+  return '<div class="win" data-w="500">' + tb('动态壁纸') +
+  '<div class="wbody">' + tabs + body + '</div></div>';
+}
+
+/* ── 02 侧栏 ── */
+function d2(page){
+  const item = (icon, label, on, n) =>
+    '<div class="sb-item' + (on?' on':'') + '">' + ic(icon) + label + (n ? '<span class="n">' + n + '</span>' : '') + '</div>';
+  const main = page === 'play'
+    ? sect('播放') +
+      card(row('repeat','模式','', seg(['单循环','列表循环','随机'],1)) +
+          row('timer','轮换','', step('15 分钟')) +
+          row('gauge','速度','音高不变', sld(33,'1.00×')) +
+          row('sound','声音','', sld(60,'60%') + tog(true))) +
+      sect('来源') +
+      card(row('folder','文件夹','~/Movies/Wallpapers','<span class="btn">选择…</span>') +
+          '<div class="row" style="gap:9px"><span class="pulse"></span>' +
+          '<span style="font-family:var(--mono);font-size:18px;font-weight:600;color:var(--accent)">12</span>' +
+          '<span class="sub" style="font-size:12px">个可用视频</span>' +
+          '<span class="ctl"><span class="btn">重新扫描</span></span></div>') +
+      sect('系统') +
+      card(row('battery','电池时播放','默认开', tog(true)) +
+          row('power','开机自启','', tog(false)))
+    : transBody(TOOLS_A);
+  return '<div class="win" data-w="640">' + tb('动态壁纸') +
+  '<div class="sidebar">' +
+    '<div class="sb-nav">' + item('repeat','播放', page==='play') + item('folder','来源') +
+    item('bolt','系统') + item('film','转码', page==='tc', '3') + '</div>' +
+    '<div class="sb-main">' + main + '</div>' +
+    '<div class="sb-foot"><span class="pulse"></span>' +
+    (page==='play' ? '正在播放 · 12 个可用视频' : '转码中 · 3 个任务 · 1 个进行中') +
+    '<span class="r"><span class="btn">选择…</span>' +
+    (page==='play' ? '<span class="btn primary">转码 打开…</span>' : '<span class="btn primary">开始转码</span>') +
+    '</span></div>' +
+  '</div></div>';
+}
+
+/* ── 03 单列磁贴 ── */
+function d3(page){
+  const cell = (icon, label, ctl) =>
+    '<div class="card" style="padding:11px 12px 12px;display:grid;gap:8px;align-content:start">' +
+    '<span style="display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:500">' +
+    '<span class="tile" style="width:24px;height:24px;border-radius:6px"><svg style="width:13px;height:13px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + ICON[icon] + '</svg></span>' + label + '</span>' + ctl + '</div>';
+  const grid = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--gap)">' +
+    cell('repeat','模式', seg(['单循环','列表循环','随机'],1)) +
+    cell('timer','轮换', step('15 分钟')) +
+    cell('gauge','速度', sld(33,'1.00×')) +
+    cell('sound','声音', sld(60,'60%') + tog(true)) +
+    cell('battery','电池时播放', tog(true)) +
+    cell('power','开机自启', tog(false)) +
+  '</div>';
+  const tabs = '<div class="tabs"><span class="' + (page==='play'?'on':'') + '">播放</span>' +
+               '<span class="' + (page==='tc'?'on':'') + '">转码</span></div>';
+  const body = page === 'play'
+    ? '<div class="statusbar"><span class="pulse"></span><span>正在播放 · 列表循环</span>' +
+      '<span class="meta"><span>12 个视频</span><span>·</span><span>ffmpeg 就绪</span></span></div>' + grid +
+      '<div class="card" style="display:flex;align-items:center;gap:10px;padding:10px 12px;font-size:12px">' +
+      tile('folder') + '<span class="sub" style="flex:1">~/Movies/Wallpapers</span>' +
+      '<span class="btn">重新扫描</span></div>'
+    : BADGE + sect('待转码', '3 个任务') + card(JOBS.map(qrow).join('')) +
+      '<div><div class="cmdlabel">当前任务的命令</div>' + CMD + '</div>' +
+      '<div class="hint">' + RULES + '</div>' + TOOLS;
+  return '<div class="win" data-w="620">' + tb('动态壁纸') +
+  '<div class="wbody">' + tabs + body + '</div></div>';
+}
+
+/* ── 04 折叠 ── */
+function d4(page){
+  const more = t => '<div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--muted)">' +
+    '<span style="color:var(--accent)">' + (t ? '▾' : '▸') + '</span>' + t + '</div>';
+  const body = page === 'play'
+    ? '<div class="statusbar"><span class="pulse"></span><span>正在播放 · 列表循环</span>' +
+      '<span class="meta"><span>12 个视频</span><span>·</span><span>ffmpeg 就绪</span></span></div>' +
+      card(row('repeat','模式','', seg(['单循环','列表循环','随机'],1)) +
+          row('sound','声音','', sld(60,'60%') + tog(true))) +
+      more('来源与播放') +
+      card(row('folder','文件夹','~/Movies/Wallpapers','<span class="btn">选择…</span>') +
+          row('timer','轮换','', step('15 分钟')) +
+          row('gauge','速度','音高不变', sld(33,'1.00×')) +
+          '<div class="row" style="gap:9px"><span class="pulse"></span>' +
+          '<span style="font-family:var(--mono);font-size:18px;font-weight:600;color:var(--accent)">12</span>' +
+          '<span class="sub" style="font-size:12px">个可用视频</span>' +
+          '<span class="ctl"><span class="btn">重新扫描</span></span></div>') +
+      more('电源与维护') +
+      card(row('battery','电池时播放','默认开', tog(true)) +
+          row('power','开机自启','', tog(false)))
+    : '<div class="statusbar"><span class="pulse"></span><span>转码中 · 3 个任务</span>' +
+      '<span class="meta">ffmpeg 就绪</span></div>' +
+      card(JOBS.map(qrow).join('')) +
+      '<div><div class="cmdlabel">当前任务的命令</div>' + CMD + '</div>' +
+      '<div class="hint">' + RULES + '</div>' + TOOLS;
+  return '<div class="win" data-w="540">' + tb('动态壁纸') +
+  '<div class="wbody">' + body + '</div></div>';
+}
+
+const DIRS = [
+  { id:'d1', cls:'d1', name:'分段', f:d1,
+    tagline:'顶部两段切换：播放 / 转码。最轻的机制，一眼看到自己在哪页，切页只点一下。转码页把徽章、队列、命令、规则、工具全收进去。',
+    chips:['单窗','顶部两段','底 #0A1826','强调 #4CC4F5','宽 500'],
+    fit:'想要最小改动、结构最直白', cost:'两页之间来回切，看不到对方状态' },
+  { id:'d2', cls:'d2', name:'侧栏', f:d2,
+    tagline:'左侧四项导航（播放/来源/系统/转码），转码项带任务数徽标。底部状态条常驻，任何页都知道当前在播什么。材料感最强。',
+    chips:['单窗','侧栏四项','底 #F4F5F7','强调 #0A6CFF','宽 640'],
+    fit:'功能会继续增加', cost:'浅色玻璃感在深色桌面壁纸下略突兀' },
+  { id:'d3', cls:'d3', name:'磁贴', f:d3,
+    tagline:'设置项做成 2×3 磁贴网格，每个控件一格、命中区最大；转码页退回队列列表。卡片浮起阴影分层，冷调深色。',
+    chips:['单窗','磁贴网格','底 #071019','强调 #5AB0FF','宽 620'],
+    fit:'常用鼠标调参、可点区优先', cost:'窗高比 01 高，转码页与播放页密度不一致' },
+  { id:'d4', cls:'d4', name:'折叠', f:d4,
+    tagline:'转码不再是独立页 —— 它是「更多」层的第三块，和来源、维护并列，按需展开。窗口最矮，暖黑胶片调，全等宽数字。',
+    chips:['单窗','三层折叠','底 #14120F','强调 #E8A33D','宽 540'],
+    fit:'只调模式与音量，转码偶尔来', cost:'转码藏在折叠层，可发现性最差' }
+];
+
+document.getElementById('dirs').innerHTML = DIRS.map(d =>
+  '<section class="dir ' + d.cls + '" id="' + d.id + '">' +
+    '<div class="dirhead"><div class="top"><span class="num">' + d.id.toUpperCase() + '</span><h2>' + d.name + '</h2></div>' +
+    '<p class="tagline">' + d.tagline + '</p>' +
+    '<div class="chips">' + d.chips.map(c => '<span class="chip">' + c + '</span>').join('') + '</div>' +
+    '<p class="verdict"><b>适合</b> ' + d.fit + ' · <b>代价</b> ' + d.cost + '</p></div>' +
+    '<div class="stage">' + d.f('play') + '</div><div class="cap">播放页</div>' +
+    '<div class="stage" style="margin-top:14px">' + d.f('tc') + '</div><div class="cap">转码页</div>' +
+  '</section>').join('');
+
+function fit(){
+  document.querySelectorAll('.stage').forEach(stage => {
+    const win = stage.querySelector('.win');
+    if(!win) return;
+    const nat = +win.dataset.w;
+    win.style.width = nat + 'px';
+    win.style.zoom = Math.min(1, stage.clientWidth / nat);
+  });
+}
+fit();
+addEventListener('resize', fit);
+</script>

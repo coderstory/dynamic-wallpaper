@@ -1,0 +1,357 @@
+<title>轮换 A 方案 落地稿</title>
+<style>
+:root{
+  --ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --bg:#F4F5F7; --surface:#FFFFFF; --line:#E2E5EA; --text:#15171B; --muted:#5F636B; --chip:#ECEEF1;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --bg:#0B0C0E; --surface:#141619; --line:#25282D; --text:#E9EBEE; --muted:#9BA1A9; --chip:#1B1E22; color-scheme: dark; }
+}
+:root[data-theme="dark"]{ --bg:#0B0C0E; --surface:#141619; --line:#25282D; --text:#E9EBEE; --muted:#9BA1A9; --chip:#1B1E22; color-scheme: dark; }
+*{ box-sizing:border-box }
+html{ -webkit-text-size-adjust:100% }
+body{ margin:0; background:var(--bg); color:var(--text); font-family:var(--ui); font-size:15px; line-height:1.6 }
+.wrap{ max-width:1020px; margin-inline:auto; padding-inline:20px; padding-block:30px 72px; min-width:0 }
+h1{ font-size:26px; line-height:1.25; margin:0 0 10px; letter-spacing:-.01em }
+h2{ font-size:17px; margin:0 0 4px; letter-spacing:-.005em }
+h3{ font-size:13px; margin:32px 0 10px; color:var(--muted); font-weight:600 }
+.lede{ color:var(--muted); margin:0 0 20px; max-width:70ch }
+.lede b{ color:var(--text); font-weight:600 }
+.warn{ background:var(--surface); border:1px solid #E8C88A; border-radius:12px; padding:13px 17px;
+       margin-bottom:22px; font-size:13.5px; color:#6A5312 }
+.warn b{ color:#4A3906 }
+.vdesc{ font-size:13.5px; color:var(--muted); margin:0 0 12px; max-width:74ch }
+.vdesc b{ color:var(--text); font-weight:600 }
+.num{ font-family:var(--mono); font-size:11.5px; color:var(--muted) }
+.stage{ margin-inline:auto; max-width:100% }
+.cap{ font-family:var(--mono); font-size:11px; color:var(--muted); text-align:center; padding:6px 4px 0 }
+footer{ color:var(--muted); font-size:13.5px; padding-top:26px; border-top:1px solid var(--line); margin-top:34px }
+footer code{ font-family:var(--mono); font-size:12.5px; color:var(--text) }
+
+/* ══ 窗（晨雾浅色） ══ */
+.win{ background:#F4F5F7; border:1px solid rgba(0,0,0,.10); border-radius:13px;
+      box-shadow:0 16px 44px rgba(20,24,40,.16); font-family:var(--ui); font-size:13px;
+      position:relative; overflow:hidden; transform-origin:top left; color:#1D1D1F }
+.tb{ position:relative; display:flex; align-items:center; justify-content:center; height:38px;
+     border-bottom:1px solid #ECEEF1; background:rgba(255,255,255,.6) }
+.tbtitle{ font-size:13px; font-weight:600; color:#3A3D42 }
+.lights{ position:absolute; left:13px; display:flex; gap:8px }
+.lights i{ width:11px; height:11px; border-radius:50%; display:block }
+.lights .r{ background:#FF5F57 } .lights .y{ background:#FEBC2E } .lights .g{ background:#28C840 }
+.wbody{ padding:16px; display:grid; gap:14px }
+/* TAB 行 + 右侧说明：告诉用户转码已并入本窗口，不再是第二个窗 */
+.tabrow{ display:flex; align-items:center; gap:12px }
+.tabnote{ font-size:11px; color:#5C6065; display:flex; align-items:center; gap:5px }
+.tabnote svg{ width:13px; height:13px; flex:none; fill:none; stroke:currentColor; stroke-width:1.7;
+              stroke-linecap:round; stroke-linejoin:round }
+.tabs{ display:flex; gap:3px; padding:3px; border-radius:10px; background:#E9EBEF; border:1px solid #ECEEF1 }
+.tabs span{ padding:6px 20px; border-radius:8px; font-size:12.5px; color:#5C6065 }
+.tabs span.on{ background:#fff; color:#0A6CFF; font-weight:600; box-shadow:0 1px 2px rgba(0,0,0,.10) }
+.statusbar{ display:flex; align-items:center; gap:9px; padding:9px 12px; border-radius:10px;
+            background:#fff; border:1px solid rgba(0,0,0,.07); font-size:12px }
+.statusbar .meta{ margin-left:auto; font-family:var(--mono); font-size:11px; color:#5C6065;
+                 font-variant-numeric:tabular-nums; display:flex; gap:9px; align-items:center }
+.pulse{ width:7px; height:7px; border-radius:50%; background:#0A6CFF; box-shadow:0 0 7px rgba(10,108,255,.55); flex:none }
+.pulse.warn{ background:#E8A33D; box-shadow:0 0 7px rgba(232,163,61,.5) }
+.sect{ display:flex; align-items:baseline; gap:9px; font-size:12px; font-weight:600; color:#0B5BD6 }
+.sect .badge{ font-family:var(--mono); font-size:10px; font-weight:400; color:#5C6065;
+              border:1px solid #ECEEF1; border-radius:5px; padding:1px 5px }
+
+.grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px }
+/* 磁贴：内容整体垂直居中。磁贴被 grid 拉伸到等高时，
+   若用 grid-template-rows:auto 1fr + align-self:center，多余高度会被 1fr 行吃掉，
+   居中失效（实测 padT 35.1 / padB 11.7）。改为 flex 列 + justify-content:center，
+   标签与控件作为一个整体居中，剩余空间平均分在上下。 */
+.t{ background:#fff; border:1px solid rgba(0,0,0,.07); border-radius:11px;
+    padding:11px 13px 12px; display:flex; flex-direction:column; justify-content:center; gap:9px;
+    box-shadow:0 1px 2px rgba(0,0,0,.05) }
+.t .lab{ display:flex; align-items:center; gap:7px; font-size:11.5px; font-weight:500;
+         color:#5C6065; flex:none }
+.t .lab .ic{ width:15px; height:15px; color:#0B5BD6; flex:none }
+.t .lab .hintx{ margin-left:auto; font-weight:400; font-size:10.5px; opacity:.8 }
+.ic{ fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round }
+
+/* 置灰：整卡降到 34%（UI-SPEC §6 置灰而非隐藏） */
+.t.off{ opacity:.34 }
+
+.chips{ display:grid; grid-template-columns:repeat(3,1fr); gap:5px }
+.chips span{ display:grid; place-items:center; padding:8px 2px; border-radius:7px; font-size:11.5px;
+             color:#5C6065; background:#F7F8FA; border:1px solid rgba(0,0,0,.07); white-space:nowrap;
+             font-variant-numeric:tabular-nums; min-height:32px }
+.chips span.on{ background:#0A6CFF; color:#fff; border-color:transparent; font-weight:600 }
+
+/* 分段控件（模式）也用同一档位语汇 */
+.seg{ display:grid; grid-template-columns:repeat(3,1fr); gap:3px; padding:3px; border-radius:9px;
+      background:#EDEFF2; border:1px solid rgba(0,0,0,.07) }
+.seg span{ text-align:center; font-size:11.5px; padding:7px 4px; border-radius:7px; color:#5C6065;
+           min-height:32px; display:grid; place-items:center }
+.seg span.on{ background:#0A6CFF; color:#fff; font-weight:600 }
+
+/* 滑杆：轨道定宽基准，两条轨道右端才能对齐（声音多了开关/数值，不能让滑杆被挤窄） */
+.srow{ display:flex; align-items:center; gap:11px }
+.sld{ position:relative; height:26px; display:flex; align-items:center; flex:0 0 128px }
+.sld .track{ position:absolute; left:0; right:0; height:5px; border-radius:3px; background:#D9DDE2 }
+.sld .fill{ position:absolute; left:0; height:5px; border-radius:3px; background:#0A6CFF }
+.sld .knob{ position:absolute; width:15px; height:15px; border-radius:50%; background:#fff;
+            box-shadow:0 1px 4px rgba(0,0,0,.45); transform:translateX(-50%) }
+.val{ font-family:var(--mono); font-size:12px; color:#1D1D1F; font-variant-numeric:tabular-nums;
+      flex:0 0 46px; text-align:right }
+/* 声音行的开关右对齐，与磁贴右内边距齐平 */
+.srow .tog{ margin-left:auto }
+.tog{ width:42px; height:24px; border-radius:12px; background:#D9DDE2; position:relative; flex:none }
+.tog.on{ background:#0A6CFF }
+.tog::after{ content:''; position:absolute; top:2.5px; left:2.5px; width:19px; height:19px;
+             border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.35) }
+.tog.on::after{ left:auto; right:2.5px }
+
+/* 关于页：窗口给确定高度，内容垂直居中。
+   走 flex 而非 grid —— grid 行高自适应时 align-content 没有多余空间可分（实测 空白 上166/下36），
+   flex 的 justify-content:center 直接把内容组推到正中，不依赖行高计算。 */
+/* 关于页：窗口给确定高度，内容垂直居中。
+   /* 关于页：窗口给确定高度，内容垂直居中。
+   .wbody 是 grid，两行：tabrow(auto) + about(1fr)，行间有 14px gap。
+   实测 align-content:center 在此仍偏下 46px（gap 未计入 1fr 行的可用高度），
+   故 about 内部改用 padding-top 补齐那半段 gap，视觉居中。
+   数值 = gap/2 + (可用高 − 内容高)/2 − 已有 padding-top，随文案长度变化，落地时按实测调。 */
+/* 关于页：窗口给确定高度，内容垂直居中。
+   .wbody 是 grid 两行（tabrow auto + about 1fr）；about 用 grid-row:2 落位，
+   内部 flex + justify-content:center 居中。用 flex 而非 grid+align-content：
+   后者在 grid 子项里会因行高分配把内容顶偏（实测差 36–52px，且随文案行数漂移）。
+   padding-top 曾被用来手补这个偏差，是错的做法 —— 换文案就得重调。 */
+.wbody.about-win{ min-height:340px; grid-template-rows:auto minmax(0,1fr) }
+.about{ display:flex; flex-direction:column; grid-row:2; align-items:center;
+        justify-content:center; gap:4px; padding:0; text-align:center; min-height:0 }
+.appicon{ width:76px; height:76px; border-radius:17px; box-shadow:0 6px 18px rgba(0,0,0,.16);
+          margin-bottom:9px; flex:none }
+.aname{ font-size:17px; font-weight:600; letter-spacing:-.01em }
+/* 一句话介绍：比名称弱一档，宽度限住避免一行拉太长 */
+.adesc{ font-size:12.5px; color:#5C6065; margin-top:3px; text-align:center }
+.aver{ font-family:var(--mono); font-size:11.5px; color:#5C6065; font-variant-numeric:tabular-nums }
+
+/* 紧凑卡 */
+.compact{ background:#fff; border:1px solid rgba(0,0,0,.07); border-radius:11px; overflow:hidden }
+.crow{ display:flex; align-items:center; gap:11px; padding:10px 13px; border-bottom:1px solid #ECEEF1 }
+.crow:last-child{ border-bottom:0 }
+.crow .lab{ font-size:12.5px; flex:1; min-width:0 }
+.crow .lab i{ display:block; font-style:normal; font-size:11px; color:#5C6065; font-family:var(--mono);
+              white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px }
+.crow .r{ margin-left:auto; display:flex; align-items:center; gap:8px; flex:none }
+.icbox{ width:22px; height:22px; border-radius:6px; display:grid; place-items:center; flex:none;
+        background:#E6EFFF; color:#0B5BD6 }
+.icbox svg{ width:12px; height:12px }
+.icbox.warn{ background:#FDF0D8; color:#8A5E12 }
+.btn{ font-size:11.5px; padding:5px 11px; border-radius:7px; border:1px solid rgba(0,0,0,.10); color:#0A6CFF; white-space:nowrap }
+.btn.primary{ background:#0A6CFF; color:#fff; border-color:transparent; font-weight:600 }
+.count{ font-family:var(--mono); font-size:17px; font-weight:600; color:#0A6CFF; font-variant-numeric:tabular-nums }
+.count.warn{ color:#B0740F }
+.empty{ font-size:11.5px; color:#5C6065; line-height:1.55; padding:2px 0 0 }
+
+/* 转码队列 */
+.qrow{ display:grid; grid-template-columns:1fr 148px; gap:12px; align-items:center; padding:10px 13px;
+       border-bottom:1px solid #ECEEF1 }
+.qrow:last-child{ border-bottom:0 }
+.qrow .nm b{ font-size:12.5px; font-weight:500 }
+.qrow .nm i{ display:block; font-style:normal; font-size:11px; color:#5C6065;
+             font-family:var(--mono); font-variant-numeric:tabular-nums; margin-top:2px }
+.prog{ height:4px; border-radius:2px; background:#D9DDE2; overflow:hidden; flex:1 }
+.prog i{ display:block; height:100%; background:#0A6CFF }
+.st{ font-family:var(--mono); font-size:10.5px; color:#0A6CFF; white-space:nowrap; min-width:44px; text-align:right }
+.st.dim{ color:#5C6065 }
+.cmd{ font-family:var(--mono); font-size:11px; line-height:1.55; color:#1D1D1F; background:#F7F8FA;
+      border:1px solid rgba(0,0,0,.07); border-radius:9px; padding:9px 11px; overflow-wrap:anywhere }
+.cmdlabel{ font-size:11px; font-weight:600; color:#0B5BD6; margin-bottom:6px }
+.hint{ font-size:11px; line-height:1.6; color:#5C6065 }
+.tools{ display:flex; align-items:center; gap:9px; flex-wrap:wrap }
+.tools .r{ margin-left:auto; font-family:var(--mono); font-size:11px; color:#0A6CFF }
+
+@media (max-width:520px){ h1{ font-size:22px } .grid{ grid-template-columns:1fr } }
+@media (prefers-reduced-motion: reduce){ *{ animation:none !important; transition:none !important } }
+</style>
+
+<div class="wrap">
+  <h1>轮换 A 方案 · 落地稿</h1>
+  <p class="lede">档位铺开 3×2 已定。这稿确认三件事：<b>窗口宽仍是 780</b>（XCUITest 钉死 ±1.5）、
+  <b>空态</b>（0 个可用视频的警告文案）、<b>置灰联动</b>（单循环→轮换整卡变灰）在这版磁贴里没被撑破。</p>
+
+  <div class="warn">
+    <b>一个待你定的取舍</b>：档位铺开后「模式」磁贴和「轮换」磁贴一样高，但模式是 1 行、轮换是 2 行 ——
+    同一行里两个磁贴底边不齐。这是 A 方案的固有代价。我把模式也改成 3×2 网格（同款档位语汇）让两边对齐，
+    下方给的是对齐版；如果你更想保留模式的分段控件形态，下面另有不对齐版。
+  </div>
+
+  <h3>播放页 · 正常态</h3>
+  <div class="stage" id="s1"></div>
+  <div class="cap">宽 780 · 顶部 TAB 在「播放」</div>
+
+  <h3>播放页 · 置灰联动（模式 = 单循环）</h3>
+  <p class="vdesc">「轮换」整卡降到 34%，交互禁用 —— <b>置灰而非隐藏</b>（UI-SPEC §6：隐藏会让人怀疑自己记错了）。
+  注意 3×2 档位格在置灰态下仍可辨认，用户知道「这里有控制，只是不该用」。</p>
+  <div class="stage" id="s2"></div>
+  <div class="cap">置灰态</div>
+
+  <h3>播放页 · 空态（0 个可用视频）</h3>
+  <p class="vdesc">计数转警告色、图标盒换警告配色，副行是 UI-SPEC §6 的硬需求文案 ——
+  「没有可播视频就露出系统壁纸」是产品决策，界面必须说清楚，否则用户会盯着没动静的桌面猜。</p>
+  <div class="stage" id="s3"></div>
+  <div class="cap">空态</div>
+
+  <h3>转码页</h3>
+  <p class="vdesc">同一窗口、顶部 TAB 切过来。转码不再是第二个窗。</p>
+  <div class="stage" id="s4"></div>
+  <div class="cap">宽 780 · 顶部 TAB 在「转码」</div>
+
+  <h3>关于页</h3>
+  <p class="vdesc">第三个 TAB。图标用仓库里已定稿的 app 图标（<code>.planning/design/assets/icon_128x128.png</code>，
+  UI-SPEC §12「概念 C 桌面层」暖白+橙），不是临时画的占位。内容是用户真正会查的三样：版本、依赖状态、数据在哪。</p>
+  <div class="stage" id="s5"></div>
+  <div class="cap">宽 780 · 顶部 TAB 在「关于」</div>
+
+  <footer>
+    落地时 <code>GlowStepper</code> 换成新的档位网格控件，<code>SettingsPresentation.rotationChoicesMinutes</code> 的值表和
+    <code>rotationLabel</code> 换算不动 —— 六档标签直接复用它，不新增分支。
+    绑定、<code>accessibilityIdentifier</code>（含 <code>rotation-stepper</code>）、XCUITest 契约、空态与置灰语义均不变。
+  </footer>
+</div>
+
+<script>
+const ICON = {
+  folder:'<path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4l2 2h9A1.5 1.5 0 0 1 21 9.5v8A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5z"/>',
+  repeat:'<path d="M17 3l3 3-3 3"/><path d="M4 11V9a3 3 0 0 1 3-3h13"/><path d="M7 21l-3-3 3-3"/><path d="M20 13v2a3 3 0 0 1-3 3H4"/>',
+  timer:'<circle cx="12" cy="13.5" r="7"/><path d="M12 10.5v3l2 2"/><path d="M9.5 3h5"/>',
+  gauge:'<path d="M4 17.5a8.5 8.5 0 1 1 16 0"/><path d="M12 17.5l3.5-4"/><circle cx="12" cy="17.5" r="1.2"/>',
+  sound:'<path d="M5 9.5v5h3.5L14 19V5L8.5 9.5z"/><path d="M17 9.5a4 4 0 0 1 0 5"/>',
+  battery:'<rect x="3" y="8" width="16" height="8.5" rx="2"/><path d="M21.5 11v2.5"/><path d="M6 11v2.5M9 11v2.5"/>',
+  power:'<path d="M12 3.5v8"/><path d="M7.6 7.2a7 7 0 1 0 8.8 0"/>',
+  play:'<circle cx="12" cy="12" r="8.5"/><path d="M10.4 9l5.2 3-5.2 3z" fill="currentColor" stroke="none"/>',
+  clock:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  done:'<circle cx="12" cy="12" r="8.5"/><path d="M8.6 12.2l2.4 2.4 4.4-4.8"/>',
+  alert:'<path d="M12 4l8.5 15h-17z"/><path d="M12 10v4"/><path d="M12 16.6v.2" stroke-width="2.2"/>',
+  film:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M8 5v14M16 5v14M3 12h18"/>',
+  info:'<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5"/><path d="M12 7.8v.2" stroke-width="2.2"/>'
+};
+const svg = (n,cls) => '<svg class="'+(cls||'')+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+ICON[n]+'</svg>';
+const tb = t => '<div class="tb"><span class="lights"><i class="r"></i><i class="y"></i><i class="g"></i></span><span class="tbtitle">'+t+'</span></div>';
+const tabs = on => '<div class="tabrow">' +
+  '<div class="tabs">' +
+  '<span class="'+(on==='play'?'on':'')+'">播放</span>' +
+  '<span class="'+(on==='tc'?'on':'')+'">转码</span>' +
+  '<span class="'+(on==='about'?'on':'')+'">关于</span></div>' +
+  (on==='about' ? '' : '<span class="tabnote">' + svg('info') + '转码已并入本窗口，不再单独开窗</span>') +
+  '</div>';
+const sect = (t,b) => '<div class="sect">'+t+(b?'<span class="badge">'+b+'</span>':'')+'</div>';
+const T = (cls,icon,lab,ctl,hint) =>
+  '<div class="t '+cls+'"><span class="lab">'+svg(icon,'ic')+lab+
+  (hint?'<span class="hintx">'+hint+'</span>':'')+'</span>'+ctl+'</div>';
+const tog = on => '<span class="tog '+(on?'on':'')+'"></span>';
+const btn = (t,p) => '<span class="btn'+(p?' primary':'')+'">'+t+'</span>';
+const icbox = (n,w) => '<span class="icbox'+(w?' warn':'')+'">'+svg(n)+'</span>';
+const crow = (icon,lab,sub,r,w) =>
+  '<div class="crow">'+icbox(icon,w)+'<span class="lab">'+lab+(sub?'<i>'+sub+'</i>':'')+'</span><span class="r">'+r+'</span></div>';
+
+/* 真值表 SettingsPresentation.rotationChoicesMinutes = [5,10,15,30,60,120]
+   标签复用 rotationLabel 同款规则：>=60 → N 小时 */
+const MIN = [5,10,15,30,60,120];
+const rlabel = m => m >= 60 ? (m/60)+' 小时' : m+' 分钟';
+/* 置灰由父卡 .t.off 的 opacity 统一负责（UI-SPEC §6：置灰 + 禁交互，不是只调透明度） */
+const rchips = on => '<div class="chips">' +
+  MIN.map((m,i)=>'<span class="'+(i===on?'on':'')+'">'+rlabel(m)+'</span>').join('')+'</div>';
+const MODE = ['单循环','列表循环','随机'];
+const mseg = on => '<div class="seg">'+MODE.map((t,i)=>'<span class="'+(i===on?'on':'')+'">'+t+'</span>').join('')+'</div>';
+/* 模式：只 3 个档位，不占满第二行 —— 与轮换磁贴的底边不齐靠磁贴自身拉伸补偿，
+   不塞占位格（塞说明文字或空位都是噪音）。 */
+const mgrid = on => '<div class="chips" style="grid-template-columns:repeat(3,1fr)">' +
+  MODE.map((t,i)=>'<span class="'+(i===on?'on':'')+'">'+t+'</span>').join('') + '</div>';
+
+const sld = (pct,val) =>
+  '<div class="srow"><span class="sld"><i class="track"></i><i class="fill" style="width:'+pct+'%"></i>' +
+  '<i class="knob" style="left:'+pct+'%"></i></span><span class="val">'+val+'</span></div>';
+const sldTog = (pct,val,on) =>
+  '<div class="srow"><span class="sld"><i class="track"></i><i class="fill" style="width:'+pct+'%"></i>' +
+  '<i class="knob" style="left:'+pct+'%"></i></span><span class="val">'+val+'</span>'+tog(on)+'</div>';
+
+const EMPTY_BODY = '没找到能播的文件。壁纸已隐藏，桌面显示的是系统原壁纸。';
+
+function playPage(o){
+  o = o || {};
+  const modeOn = o.modeOn != null ? o.modeOn : 1;
+  const rotOff = !!o.rotOff;
+  const empty = !!o.empty;
+  return tb('动态壁纸') + '<div class="wbody">' + tabs('play') +
+    '<div class="statusbar">' +
+      (empty ? '<span class="pulse warn"></span><span>已暂停 · 没有可播文件</span>'
+             : '<span class="pulse"></span><span>正在播放 · '+MODE[modeOn]+'</span>') +
+      '<span class="meta"><span>'+(empty?'0':'12')+' 个视频</span><span>·</span><span>ffmpeg 就绪</span></span></div>' +
+    sect('播放控制') +
+    '<div class="grid">' +
+      T('','repeat','模式', mgrid(modeOn)) +
+      T(rotOff?'off':'','timer','轮换', rchips(o.rotOn != null ? o.rotOn : 2)) +
+      T('','gauge','速度', sld(33,'1.00×'), '音高不变') +
+      T('','sound','声音', sldTog(60,'60%',true)) +
+    '</div>' +
+    sect('来源与系统') +
+    '<div class="compact">' +
+      crow('folder','壁纸文件夹','~/Movies/Wallpapers', btn('选择…')+btn('重新扫描')) +
+      (empty
+        ? crow('alert','可用视频', EMPTY_BODY, '<span class="count warn">0</span>', true)
+        : crow('film','可用视频', null, '<span class="count">12</span>')) +
+      crow('battery','电池时播放', null, tog(true)) +
+      crow('power','开机自启', null, tog(false)) +
+    '</div>' +
+  '</div>';
+}
+
+const JOBS = [
+  { icon:'play',  name:'IMG_2041.MKV',     meta:'MKV · 1.2 GB', state:'62%',    dim:false, pct:62 },
+  { icon:'clock', name:'holiday-2024.AVI', meta:'AVI · 820 MB', state:'待转码', dim:true,  pct:null },
+  { icon:'done',  name:'sunset-ride.WEBM', meta:'WEBM · 240 MB',state:'已完成', dim:true,  pct:100 }
+];
+const CMD = '/opt/homebrew/bin/ffmpeg -y -i "/Users/you/Movies/Wallpapers/IMG_2041.MKV" -c:v libx264 -preset medium -crf 21 -c:a aac -b:a 160k "…/Converted/IMG_2041.mp4"';
+const RULES = '产物输出到壁纸目录的 Converted 子文件夹 · 自动扫描的源文件转码成功后自动删除 · 手动选择的源文件保留 · 产物不会再进入待转码队列';
+function tcPage(){
+  return tb('动态壁纸') + '<div class="wbody">' + tabs('tc') +
+    '<div class="statusbar"><span class="pulse"></span><span>转码中 · 3 个任务</span>' +
+    '<span class="meta"><span>1 个进行中</span><span>·</span><span>ffmpeg 就绪</span></span></div>' +
+    sect('待转码','3 个任务') +
+    '<div class="compact">' + JOBS.map(j =>
+      '<div class="qrow"><span class="nm"><b>'+j.name+'</b><i>'+j.meta+'</i></span>' +
+      '<span style="display:flex;align-items:center;gap:10px"><span class="prog"><i style="width:'+(j.pct!=null?j.pct:0)+'%"></i></span>' +
+      '<i class="st '+(j.dim?'dim':'')+'">'+j.state+'</i></span></div>').join('') + '</div>' +
+    '<div><div class="cmdlabel">当前任务的命令</div><div class="cmd">'+CMD+'</div></div>' +
+    '<div class="hint">'+RULES+'</div>' +
+    '<div class="tools">'+btn('选择目录或文件…')+btn('重新查找待转码文件')+btn('开始转码',true)+
+    '<span class="r">转码中…</span></div>' +
+  '</div>';
+}
+
+/* 关于页：只留标识与版本。用户查得到的最基本事实，不堆功能清单。 */
+function aboutPage(){
+  return tb('动态壁纸') + '<div class="wbody about-win">' + tabs('about') +
+    '<div class="about">' +
+      '<img class="appicon" src="assets/icon_128x128.png" alt="">' +
+      '<div class="aname">动态壁纸</div>' +
+      '<div class="aver">版本 1.0</div>' +
+      '<div class="adesc">用视频当动态壁纸</div>' +
+    '</div>' +
+  '</div>';
+}
+
+const W = 780;
+document.getElementById('s1').innerHTML = '<div class="win" data-w="'+W+'">'+playPage()+'</div>';
+document.getElementById('s2').innerHTML = '<div class="win" data-w="'+W+'">'+playPage({modeOn:0, rotOff:true})+'</div>';
+document.getElementById('s3').innerHTML = '<div class="win" data-w="'+W+'">'+playPage({empty:true})+'</div>';
+document.getElementById('s4').innerHTML = '<div class="win" data-w="'+W+'">'+tcPage()+'</div>';
+document.getElementById('s5').innerHTML = '<div class="win" data-w="'+W+'">'+aboutPage()+'</div>';
+
+function fit(){
+  document.querySelectorAll('.stage').forEach(s => {
+    const w = s.querySelector('.win'); if(!w) return;
+    const nat = +w.dataset.w;
+    w.style.width = nat+'px';
+    w.style.zoom = Math.min(1, s.clientWidth/nat);
+  });
+}
+fit();
+addEventListener('resize', fit);
+</script>
