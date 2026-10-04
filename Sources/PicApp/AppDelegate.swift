@@ -282,6 +282,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 靠开窗时的旧读数就是陈旧值欺骗。
     func refreshFFmpegAvailability() {
         ffmpegAvailability = ffmpegLocator.locate()
+        // 会话态回填（设置窗卡片读这里，可观察 → 刷新即重渲染）。
+        sessionState.ffmpegAvailable = ffmpegIsAvailable
         // 只打 token 不打路径：路径只进窗口徽章。
         emit("PIC_FFMPEG=\(ffmpegIsAvailable ? "available" : "unavailable")")
     }

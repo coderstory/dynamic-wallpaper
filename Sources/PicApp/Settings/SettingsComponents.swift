@@ -138,7 +138,9 @@ struct GlowStepper: View {
     let values: [Int]
     var body: some View {
         HStack(spacing: 0) {
-            stepBtn("chevron.up", -1)
+            // 水平排布配左右箭头（◀ 小 ▶ 大）—— 原先 ▲▼ 竖排箭头放在横排里，
+            // 「上=更小」反直觉且顶到最大档时点着没反应，被当成坏了。
+            stepBtn("chevron.left", -1)
             // 「N 小时 / N 分钟」的换算是 SettingsPresentation 的唯一来源（视图里不出现第二份）。
             Text(SettingsPresentation.rotationLabel(minutes: values[index]))
                 .font(mono(11.5)).foregroundStyle(Color.pAccent)
@@ -146,7 +148,7 @@ struct GlowStepper: View {
                 .background(Color(red: 90/255, green: 190/255, blue: 255/255).opacity(0.05))
                 .overlay(Rectangle().frame(height: 1).foregroundStyle(Color.pSep), alignment: .top)
                 .overlay(Rectangle().frame(height: 1).foregroundStyle(Color.pSep), alignment: .bottom)
-            stepBtn("chevron.down", 1)
+            stepBtn("chevron.right", 1)
         }
     }
     func stepBtn(_ s: String, _ d: Int) -> some View {

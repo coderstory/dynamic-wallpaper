@@ -21,8 +21,6 @@ struct SettingsView: View {
     let reapplyBatteryHold: () -> Void
     /// 「开机自启」的行为侧 —— 与上面同一条装配通道，经 PicApp 注入。
     let setLaunchAtLogin: (Bool) -> Void
-    /// 转码窗的 ffmpeg 判定读数（单一真相源：与窗口徽章同一个 locator）。
-    let ffmpegAvailable: () -> Bool
     /// 「打开…」的条件分派：注入 `openWindow` 动作，可用则开窗返回 true。
     let openTranscode: ((() -> Void) -> Bool)
     /// 安装途径弹层里的「重新检测」——重查并回填最新读数（新鲜化出口）。
@@ -39,18 +37,29 @@ struct SettingsView: View {
     @State private var breathe = false
 
     var body: some View {
-        HStack(alignment: .top, spacing: 14) {
-            leftColumn
-                .frame(maxWidth: .infinity, alignment: .leading)
-            rightColumn
-                .frame(maxWidth: .infinity, alignment: .leading)
+        VStack(spacing: 0) {
+            // 自绘标题行（windowStyle(.hiddenTitleBar) 下唯一的「标题栏」—— 深蓝底白字，
+            // 左侧红绿灯由系统浮在上面）。文字内容是 UI-SPEC §7 的硬要求，逐字保留。
+            Text("Pic 设置")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.pFg)
+                .frame(maxWidth: .infinity)
+                .padding(.top, 10).padding(.bottom, 8)
+                .contentShape(Rectangle())
+            HStack(alignment: .top, spacing: 14) {
+                leftColumn
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                rightColumn
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.horizontal, 14).padding(.bottom, 14)
         }
-        .padding(14)
-        // 宽 780 / min 680，两个数只从 SettingsPresentation 读。
+        // 高随内容撑，不写死（UI-SPEC §13 坑 2）。max 系列让内容填满窗口任意尺寸 ——
+        // 背景（深色）盖住整个窗口，状态恢复把窗口撑大时不再露出系统白底。
         .frame(minWidth: SettingsPresentation.windowMinWidth,
-               idealWidth: SettingsPresentation.windowWidth)
-        // 高随内容撑，不写死（UI-SPEC §13 坑 2）。
-        .fixedSize(horizontal: false, vertical: true)
+               idealWidth: SettingsPresentation.windowWidth,
+               maxWidth: .infinity, maxHeight: .infinity,
+               alignment: .topLeading)
         .background(
             ZStack {
                 Color.pBg
@@ -59,7 +68,12 @@ struct SettingsView: View {
                 RadialGradient(colors: [Color(red: 30/255, green: 120/255, blue: 220/255).opacity(breathe ? 0.30 : 0.18), Color.clear],
                                center: .init(x: 0.88, y: 0.96), startRadius: 0, endRadius: 300)
             }
+            // 深入安全区：fullSizeContentView 下标题栏底下露的也是这块深蓝，而不是系统窗底色。
+            .ignoresSafeArea()
         )
+        // 深色外观由 SwiftUI 管理（窗口外观、标题文字颜色跟着走），不手动碰 win.appearance ——
+        // 手设会被 SwiftUI 的环境传播改回去。
+        .preferredColorScheme(.dark)
         .onAppear(perform: seedAndObserve)
         .sheet(isPresented: $showingPathways) {
             InstallPathwaysView(onRecheck: { _ = refreshFFmpeg() })
@@ -129,7 +143,7 @@ struct SettingsView: View {
                         Text("\(SettingsPresentation.volumePercent(store.volume))%").font(mono(11.5))
                             .foregroundStyle(Color.pFg.opacity(0.75)).frame(width: 42, alignment: .trailing)
                             .accessibilityIdentifier("volume-value")
-                        Toggle("", isOn: isMuted).toggleStyle(GlowToggle()).labelsHidden()
+                        Toggle("", isOn: soundOn).toggleStyle(GlowToggle()).labelsHidden()
                             .accessibilityIdentifier("sound-toggle")
                     }
                 }
@@ -155,11 +169,6 @@ struct SettingsView: View {
 
             SectionHead(t: "维护").padding(.top, 4)
             Card {
-                // 纯展示行：可点的重扫只留来源卡计数行一处，避免两个入口语义漂移。
-                Row(symbol: "arrow.triangle.2.circlepath", title: "重新扫描",
-                    sub: lastScanLabel ?? "本会话未扫描") {
-                    Text("").frame(width: 0)
-                }
                 Row(symbol: "arrow.left.arrow.right", title: "转码",
                     sub: "MKV / AVI → MP4", hairline: false) {
                     // ⚠️ 不可用时**只**调 opacity（UI-SPEC §6 的置灰视觉），绝不用 .disabled(true) ——
@@ -170,9 +179,9 @@ struct SettingsView: View {
                         }
                     }
                         .buttonStyle(GlowButton(primary: true))
-                        .opacity(ffmpegAvailable() ? 1 : 0.34)
-                        .help(ffmpegAvailable() ? "打开转码窗口"
-                                                : "未检测到 ffmpeg —— 点击查看安装途径")
+                        .opacity(session.ffmpegAvailable ? 1 : 0.34)
+                        .help(session.ffmpegAvailable ? "打开转码窗口"
+                                                      : "未检测到 ffmpeg —— 点击查看安装途径")
                         .accessibilityIdentifier("transcode-open")
                 }
             }
@@ -187,7 +196,7 @@ struct SettingsView: View {
                 }
                 .accessibilityIdentifier("status-paused")
                 Row(symbol: "checkmark.seal.fill", title: "ffmpeg",
-                    sub: FFmpegAvailability.label(available: ffmpegAvailable()), hairline: false) {
+                    sub: FFmpegAvailability.label(available: session.ffmpegAvailable), hairline: false) {
                     Text("").frame(width: 0)
                 }
                 .accessibilityIdentifier("status-ffmpeg")
@@ -240,16 +249,12 @@ struct SettingsView: View {
         SettingsPresentation.joinedReasons(arbiter.decision.activeReasons)
     }
 
-    /// ffmpeg 可用性由 AppDelegate 持有的同一个 locator 给出（单一真相源）——
-    /// 视图不再自己扫 PATH，两处判定漂成两套真相的坑因此消除。
+    /// ffmpeg 可用性读数来自 session（AppDelegate.refreshFFmpegAvailability 回填，可观察）——
+    /// 视图不再自己扫 PATH，也不直读 AppDelegate 的非观察量（假死卡片的坑）。
     private func ffmpegStatusLine() {
-        let available = ffmpegAvailable()
+        let available = session.ffmpegAvailable
         WallpaperWindowController.emit(
             "PIC_FFMPEG available=\(available ? 1 : 0) label=\(FFmpegAvailability.label(available: available))")
-    }
-
-    private var lastScanLabel: String? {
-        session.lastScanDate.map { "上次扫描 " + $0.formatted(.dateTime.hour().minute()) }
     }
 
     // MARK: - 真绑定（每个写入口都是 store → applier → persist）
@@ -282,11 +287,13 @@ struct SettingsView: View {
             set: { store.volume = SettingsPresentation.volumeFromPercent(Int($0.rounded())) })
     }
 
-    private var isMuted: Binding<Bool> {
+    /// 「声音」开关（勾 = 有声，不勾 = 禁音 —— 用户语义）。store 键仍是 isMuted（持久化
+    /// 语义不变），视图这一侧做一次取反，别处不许再出现第二份取反。
+    private var soundOn: Binding<Bool> {
         Binding(
-            get: { store.isMuted },
+            get: { !store.isMuted },
             set: {
-                store.isMuted = $0
+                store.isMuted = !$0
                 applier.applyMuted()
                 store.persist()
             })
@@ -319,21 +326,31 @@ struct SettingsView: View {
 
     private func seedAndObserve() {
         rateDrag = Double(store.rate)
+        // 开窗即重查 ffmpeg（用户中途装上的不必重启；回填 session → 卡片当场刷新）。
+        refreshFFmpeg()
         // 呼吸动画只在窗口内容出现时启动（UI-SPEC §6 动画红线），关窗即停。
         if !reduceMotion {
             withAnimation(.easeInOut(duration: 10).repeatForever(autoreverses: true)) { breathe = true }
         }
-        emitWindowGeometry()
+        applyWindowChrome()
         ffmpegStatusLine()
     }
 
-    /// 几何探针：窗口出现后打一行 `PIC_SETTINGS_WINDOW`，经 `PIC_EVIDENCE_FILE` mirror 进证据
-    /// 文件（XCUITest/探针 → 可 grep 证据的桥）。延迟半秒等 SwiftUI 把 Window 装进 NSApp.windows。
-    private func emitWindowGeometry() {
+    /// 窗口补充设置：hiddenTitleBar 窗口默认不可拖 —— 开 isMovableByWindowBackground
+    /// 让自绘标题行/空白区可以拖窗。0.5 秒后 SwiftUI 才把 Window 装进 NSApp.windows
+    /// （几何探针同一时序），此刻设置一次即可（该属性不在 SwiftUI 场景配置里，不会被改回）。
+    private func applyWindowChrome() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             guard let win = NSApp.windows.first(where: { $0.title == "Pic 设置" }) else { return }
-            WallpaperWindowController.emit(
-                "PIC_SETTINGS_WINDOW width=\(Int(win.frame.width.rounded())) minWidth=\(Int(win.contentMinSize.width.rounded()))")
+            win.isMovableByWindowBackground = true
+            emitWindowGeometry(win)
         }
+    }
+
+    /// 几何探针：窗口出现后打一行 `PIC_SETTINGS_WINDOW`，经 `PIC_EVIDENCE_FILE` mirror 进证据
+    /// 文件（XCUITest/探针 → 可 grep 证据的桥）。
+    private func emitWindowGeometry(_ win: NSWindow) {
+        WallpaperWindowController.emit(
+            "PIC_SETTINGS_WINDOW width=\(Int(win.frame.width.rounded())) minWidth=\(Int(win.contentMinSize.width.rounded()))")
     }
 }

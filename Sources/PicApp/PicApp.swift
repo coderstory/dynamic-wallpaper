@@ -23,7 +23,6 @@ struct PicApp: App {
                          rescanLibrary: { appDelegate.rescanLibrary() },
                          reapplyBatteryHold: { appDelegate.reapplyBatteryHold() },
                          setLaunchAtLogin: { appDelegate.setLaunchAtLogin($0) },
-                         ffmpegAvailable: { appDelegate.ffmpegIsAvailable },
                          openTranscode: { appDelegate.openTranscodeWindow($0) },
                          refreshFFmpeg: {
                              appDelegate.refreshFFmpegAvailability()
@@ -38,6 +37,11 @@ struct PicApp: App {
         }
         // 宽 780 只是初始值（真实宽度由 minWidth/idealWidth 撑），高由内容撑。
         .defaultSize(width: SettingsPresentation.windowWidth, height: 420)
+        // 原生标题栏在 macOS 27 上不吃 backgroundColor/透明化（实测被 SwiftUI 改回灰）。
+        // 「蓝色标题栏」用 hiddenTitleBar + 内容自绘标题行实现；NSWindow.title 仍是
+        // 「Pic 设置」（Mission Control / 几何探针按它找窗），拖动走
+        // isMovableByWindowBackground（SettingsView.applyWindowChrome 里开）。
+        .windowStyle(.hiddenTitleBar)
 
         MenuBarExtra {
             MenuContentView(
@@ -75,13 +79,12 @@ private struct MenuBarLabel: View {
     /// 18pt 全透明空槽——而 Bundle.image 层加载是好的（07-01 的加载验证因此漏过）。
     /// 实测判据：裸 Image / Text / nsImage±onReceive = 34pt 有内容；字符串名 = 18pt 空。
     /// isTemplate 显式置位，不押注文件名后缀自动判定。
-    /// ⚠️ size 固定 20pt：素材画布 16pt 里 glyph 实占约 13×11pt（四周透明边距），
-    /// 按画布原大渲染在菜单栏里比系统标准图标小一圈（用户实测反馈「太小」）。
-    /// 20pt = @3x 源 48px 下采样，无画质损失；再大会顶到状态项高度上限。
+    /// ⚠️ size 固定 22pt：素材（2026-10-04 重制）画布 20pt、glyph 满幅约 17.6×15.4pt、
+    /// 线条约 3.3pt —— 用户两轮实测反馈「太小 / 线条太细」。@3x 源 60px 下采样，无画质损失。
     private var statusIcon: NSImage {
         let img = Bundle.main.image(forResource: "menubar-v1Template") ?? NSImage()
         img.isTemplate = true
-        img.size = NSSize(width: 20, height: 20)
+        img.size = NSSize(width: 22, height: 22)
         return img
     }
 

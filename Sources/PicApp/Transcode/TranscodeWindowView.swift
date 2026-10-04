@@ -23,8 +23,11 @@ struct TranscodeWindowView: View {
             toolbar
         }
         .padding(14)
-        .frame(minWidth: 520, idealWidth: 640)
-        .fixedSize(horizontal: false, vertical: true)
+        // max 系列让深色背景填满窗口任意尺寸 —— 内容紧贴高度时，状态恢复把窗口撑大
+        // 会露出大片系统默认白底（用户报「大白的空白」）。
+        .frame(minWidth: 520, idealWidth: 640,
+               maxWidth: .infinity, maxHeight: .infinity,
+               alignment: .topLeading)
         .background(
             ZStack {
                 Color.pBg

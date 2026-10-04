@@ -15,6 +15,10 @@ final class SettingsSessionState {
     var lastScanDate: Date?
     /// 防重入：扫描期间三个入口一起置灰。
     var isScanning = false
+    /// ffmpeg 可用性读数（AppDelegate.refreshFFmpegAvailability 的唯一回填点）。
+    /// ⚠️ 必须走这里而不是让视图直读 AppDelegate：直读的 Bool 不是可观察状态，
+    /// 刷新后卡片不重渲染 —— 「启动时显示未安装、装了也不变」的假死就是它。
+    var ffmpegAvailable = false
 
     /// 协调器状态变更的**唯一**写入口（AppDelegate 的 onStateChange handler 调）。
     func update(state: LibraryState) {
