@@ -8,7 +8,7 @@ requires:
   - phase: 05-settings
     provides: "设置窗全部控件与 accessibilityIdentifier、SettingsApplier 六条证据行、PIC_SETTINGS_BOOT 回读锚点、菜单栏 5 项模型"
 provides:
-  - "11 条 XCUITest：控件全景 / 两条置灰以交互不生效为准 / 空态逐字 / 菜单实点 / 拖速度闭环 / 立即下一个回归"
+  - "10 条 XCUITest：控件全景 / 两条置灰以交互不生效为准 / 空态逐字 / 菜单实点 / 拖速度闭环 / 立即下一个回归"
   - "run-uitests.sh 的 Skipped 计数与「每条 skip 必须有 W 陪跑」非零退出守卫"
   - "test.sh Phase 5 常驻门禁 7 条（分层 / 单点 / 零执行 / 零残留 / W 编号唯一）"
   - "SC-4 听音等人工项在 STATE.md Deferred Verification 与 W-2026-10-03-33 的双记账"
@@ -40,7 +40,7 @@ key-files:
 key-decisions:
   - "G-04-3 回归单列一条用例而非并进 TEST-10 —— 用户指令「每个测试钉住一条契约」，两条契约塞一条测试会让任一回归都定位不到"
   - "G-04-3 的「装载的视频 URL 变化」用 PIC_ROT_ADVANCES 计数递增代理 —— T-03-02 禁文件名进证据，给证据行加 URL 会破隐私红线"
-  - "W-2026-10-03-34 单独立条覆盖「11 条一条没跑」—— skip 是测试跑起来才有的，锁屏挡住时没有 skip 记录可循"
+  - "W-2026-10-03-34 单独立条覆盖「10 条一条没跑」—— skip 是测试跑起来才有的，锁屏挡住时没有 skip 记录可循"
   - "Phase 5 门禁的 7 个数字全部先数现状再写死（0/0/0/1文件/1/1/0/0）"
   - "src_count 的路径守卫 -d 改 -e：单文件门（FFmpegAvailability）否则恒返 -1 判红"
 
@@ -56,7 +56,7 @@ coverage:
     requirement: TEST-07
     verification:
       - kind: automated_ui
-        ref: "UITests/PicUITests/SettingsControlsUITests.swift#testAllControlsExistAndTranscodeStaysDisabled"
+        ref: "UITests/PicUITests/SettingsControlsUITests.swift#testAllControlsExistAndTranscodeStaysTappableWhenDimmed"
         status: unknown
     human_judgment: true
     rationale: "会话锁屏（evidence/uitest.log 的 SCREEN_LOCKED=1），该用例从未执行。只证明测试目标编译通过（XCODEBUILD_BUILD_RC=0）。见 W-2026-10-03-34"
@@ -136,7 +136,7 @@ status: complete
 
 # Phase 05 Plan 04: XCUITest 全套 + test.sh Phase 5 门禁
 
-**11 条 XCUITest 交付但因会话锁屏一条未跑（编译通过已证），并把「没跑过」做成结构性不可能静默通过：run-uitests.sh 现在数 Skipped 并逐条回 W 登记簿核对；test.sh 从 64 条门增到 71 条**
+**10 条 XCUITest 交付但因会话锁屏一条未跑（编译通过已证），并把「没跑过」做成结构性不可能静默通过：run-uitests.sh 现在数 Skipped 并逐条回 W 登记簿核对；test.sh 从 64 条门增到 71 条**
 
 ## Performance
 
@@ -151,7 +151,7 @@ status: complete
 | 交付物 | 真跑过吗 | 证据 |
 |---|---|---|
 | XCUITest **测试目标编译** | ✅ 跑过 | `evidence/uitest.log` 的 `XCODEBUILD_BUILD_RC=0` |
-| XCUITest **11 条用例本身** | ❌ **一条都没跑** | `SCREEN_LOCKED=1` → `UITEST_STATUS=blocked reason=screen_locked`，日志里没有任何 `Test Case` 行 |
+| XCUITest **10 条用例本身** | ❌ **一条都没跑** | `SCREEN_LOCKED=1` → `UITEST_STATUS=blocked reason=screen_locked`，日志里没有任何 `Test Case` 行 |
 | `swift build` / `swift test` | ✅ 跑过 | 190 tests, 0 failures |
 | `bash test.sh`（含新增 7 条门） | ✅ 跑过 | 通过 71 失败 0 跳过 5（基线 64，+7） |
 | SC-4 听音（0.5×/2× 人声） | ❌ 原理上自动化不了 | W-2026-10-03-33 |
@@ -161,9 +161,13 @@ status: complete
 
 ## Accomplishments
 
-- **11 条 XCUITest** 交付：`SettingsControlsUITests` 6 条（控件全景 / 两条置灰 / 空态 / 菜单实点 /
-  立即下一个回归）+ `SettingsWindowUITests` 追加的拖速度闭环。置灰断言全部走
-  `isEnabled` + 证据行「点了没反应」，`opacity` 在测试文件里剥注释后计数为 0。
+- **10 条 XCUITest 全套**（`SettingsWindowUITests` 4 + `SettingsControlsUITests` 6）；本 plan
+  新交付其中 7 条 —— `SettingsControlsUITests` 6 条（控件全景 / 两条置灰 / 空态 / 菜单实点 /
+  立即下一个回归）+ `SettingsWindowUITests` 的拖速度闭环。置灰断言全部走
+  `isEnabled` + 证据行「点了没反应」，测试逻辑里零处基于视觉变淡的判据（`opacity`
+  只出现在注释与失败文案里）。
+  ⚠️ 控件全景那条的转码断言按 Phase 6 `9d18a81` 改了方向：入口**永不禁用**，
+  ffmpeg 缺失时只用 opacity 0.34 置灰（旧断言 `isEnabled == false` 解锁后重跑必红）。
 - **挖出并修掉 05-03 遗留的 pbxproj 缺陷**：`SettingsSessionState.swift` 从未登记进
   `project.pbxproj`，SwiftPM 自动发现让 `swift build/test` 全绿，xcodebuild 却编不过 ——
   这正是 05-01 那份 `bundle identifier for PicApp couldn't be read` 读数背后的真凶。
@@ -201,7 +205,7 @@ status: complete
 2. **「装载的视频 URL 变化」用 `PIC_ROT_ADVANCES` 计数递增代理**。T-03-02 禁文件名进任何
    证据行；给 `nextVideoNow()` 的证据行加 URL 会破隐私红线。计数递增同时证明「列表非空」
    与「切了一次」——`advance()` 在空列表时直接 return，计数恒 0。
-3. **W-2026-10-03-34 单独立条**覆盖「11 条一条没跑」。skip 是测试跑起来之后才可能有的记录，
+3. **W-2026-10-03-34 单独立条**覆盖「10 条一条没跑」。skip 是测试跑起来之后才可能有的记录，
    锁屏把测试进程挡在启动之前时没有任何 skip 痕迹可循，不单立条目会让读 SUMMARY 的人
    误以为「只差菜单栏那一项」。
 4. **Phase 5 门禁的数字全部先数现状再写死**（0 / 0 / 0 / 1 文件 / 1 / 1 / 0），
@@ -286,7 +290,7 @@ None — no external service configuration required.
 - **Phase 5 的自动化收口完成**：`test.sh` 71 条门全绿、`swift test` 190 项全绿、
   Phase 5 的分层/单点/零执行/零残留/W 唯一五条不变量已成为每次校验都重验的常驻门。
 - **解锁会话后第一件事**：重跑 `bash scripts/run-uitests.sh`，期望 `UITEST_STATUS=passed`
-  且 11 条全过。任何 skip 都会带出 `UITEST_SKIPPED=` 与对应 W 号；W 号没登记则运行器
+  且 10 条全过。任何 skip 都会带出 `UITEST_SKIPPED=` 与对应 W 号；W 号没登记则运行器
   非零退出，那正是 W-31/32/34 存在的意义。
 - **SC-4 听音（W-33）需要真人**，且必须用**含人声**的素材 —— 纯音乐/无人声不算。
 - **对 Phase 6/7 的移交**：`test.sh` 的 Phase 5 段是追加式分节，revert 即回到 Phase 4 门禁面；

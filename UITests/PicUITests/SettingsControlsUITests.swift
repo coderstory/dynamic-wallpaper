@@ -5,18 +5,43 @@ import XCTest
 ///
 /// 置灰只认 `isEnabled` 与「点了没反应」；视觉变淡不算证据 —— UI 规范明令，
 /// 且一个只调 opacity 的实现会让下面三条全绿。
+/// ⚠️ 唯一例外是转码入口：它**故意**永不禁用（Phase 6 SC#1）—— 置灰只用 opacity，
+/// `.disabled(true)` 会把点击吃掉，三条安装途径就永远弹不出来。见下面那条用例。
 final class SettingsControlsUITests: XCTestCase {
 
     private var evidenceURL: URL!
     private var sourceDir: URL!
 
-    // SettingsStore.persist() 一次写全 7 键，跨用例串味会让「默认静音=false /
+    // SettingsStore.persist() 一次写全键，跨用例串味会让「默认静音=false /
     // 默认单循环」这类起点假红。两端各清一次：跑前清、跑后清（不留给用户机器）。
-    private static let storeKeys = ["sourceFolderPath", "rate", "volume", "muted",
-                                    "playMode", "rotationInterval", "pauseOnBattery"]
+    // ⚠️ 键清单从 SettingsStore.Key 的源码里抽，不在测试里写死 —— Phase 7 的 launchAtLogin
+    // 就是硬编码 7 键时漏掉的那一个；漏清一个键不会红，只会静默带着上一条的起点跑。
+    private static let storeKeys: [String] = {
+        let src = URL(fileURLWithPath: #filePath)          // …/UITests/PicUITests/本文件
+            .deletingLastPathComponent()                    // PicUITests/
+            .deletingLastPathComponent()                    // UITests/
+            .deletingLastPathComponent()                    // 仓库根
+            .appendingPathComponent("Sources/PicCore/State/SettingsStore.swift")
+        guard let text = try? String(contentsOf: src, encoding: .utf8),
+              let open = text.range(of: "public enum Key {"),
+              let close = text.range(of: "\n    }", range: open.upperBound..<text.endIndex)
+        else { return [] }
+        // 取**值**不取常量名：`static let rate = "playbackRate"` 那种改名不该把清理清单带歪。
+        return text[open.upperBound..<close.lowerBound]
+            .split(separator: "\n")
+            .compactMap { line -> String? in
+                guard let q = line.firstIndex(of: "\""),
+                      let end = line[line.index(after: q)...].firstIndex(of: "\"")
+                else { return nil }
+                return String(line[line.index(after: q)..<end])
+            }
+    }()
 
     override func setUpWithError() throws {
         continueAfterFailure = false
+        // 抽不出清单 = 一个键都没清，起点会带着上一条漂。当场红，别等断言背锅。
+        XCTAssertFalse(Self.storeKeys.isEmpty,
+                       "从 SettingsStore.Key 抽不出键清单，clearStoreDefaults 形同虚设")
         clearStoreDefaults()
         let base = FileManager.default.temporaryDirectory
             .appendingPathComponent("pic-uitest-\(UUID().uuidString)", isDirectory: true)
@@ -133,12 +158,13 @@ final class SettingsControlsUITests: XCTestCase {
 
     // MARK: - 控件全景
 
-    func testAllControlsExistAndTranscodeStaysDisabled() throws {
+    func testAllControlsExistAndTranscodeStaysTappableWhenDimmed() throws {
         _ = launchApp()
         XCTAssertTrue(app.windows.matching(NSPredicate(format: "title CONTAINS %@", "Pic 设置"))
             .firstMatch.waitForExistence(timeout: 10), "设置窗应经 --open-settings 打开")
 
-        // 默认起点（loopSingle）下这两个本就置灰，可点性归下一节判。
+        // 默认起点（loopSingle）下轮换整行是**真**置灰，可点性归下一节判；转码入口相反，
+        // 只视觉置灰、仍可点 —— 两者都不进 interactive 清单，本用例末尾各判各的。
         let conditional = ["rotation-stepper"]
         let interactive = ["rate-slider", "volume-slider", "sound-toggle", "mode-segmented",
                             "battery-toggle", "autostart-toggle", "select-button", "rescan-button"]
@@ -150,8 +176,14 @@ final class SettingsControlsUITests: XCTestCase {
         for id in interactive {
             XCTAssertTrue(el(id).isHittable, "控件 \(id) 应可点（TEST-07）")
         }
-        // 转码入口是 disabled 占位；enabled 即等于把没做的功能说成做了。
-        XCTAssertFalse(el("transcode-open").isEnabled, "转码入口是 disabled 占位，不得可点")
+        // 转码入口**永不禁用**：ffmpeg 缺失时只用 opacity 0.34 表达置灰（Phase 6 SC#1），
+        // 点击必须仍然被接住 —— 点不动就等于没给安装途径。
+        // ⚠️ 判据只钉可观测的那一面：opacity 在 a11y 树上没有任何可观测形态，XCUITest
+        // 拿不到，别在这里加「变淡」类断言；置灰视觉的契约归 SettingsView.swift 的
+        // .opacity 与 UI-SPEC §6。本文件里 isEnabled == false 就是「点击被吃掉」的唯一红信号。
+        XCTAssertTrue(el("transcode-open").isEnabled,
+                      "转码入口必须保持可点（TEST-07）：ffmpeg 缺失时只用 opacity 置灰，"
+                      + "`.disabled(true)` 会吃掉点击，三条安装途径就永远弹不出来")
 
         el("sound-toggle").tap()
         XCTAssertTrue(waitForEvidence("PIC_SETTINGS_APPLY key=muted").contains("key=muted"),

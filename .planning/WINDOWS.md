@@ -547,7 +547,7 @@
 
 ### W-2026-10-03-34 · unrun-verify · Phase 5 / Plan 05-04
 
-- **描述**：**05-04 的 11 条 XCUITest 一条都没跑过 —— 会话全程锁屏，测试进程从未启动。**
+- **描述**：**05-04 的 10 条 XCUITest 一条都没跑过 —— 会话全程锁屏，测试进程从未启动。**
   本条覆盖 TEST-07 / TEST-08 ① / TEST-08 ② / TEST-09 / G-04-3 / SC-4 拖动这六个面，
   它们没有各自的 skip 记录（skip 是测试跑起来之后才可能有的），所以必须单独立一条，
   否则读 SUMMARY 的人会以为「只差菜单栏那一项」。
@@ -565,7 +565,7 @@
   的穷举用例，以及视图上同时给了 `.disabled(...)` 与 `.opacity(...)`），
   但「点不动」这件事本会话无人验证过。
 - **解开条件**：解锁会话后重跑 `bash scripts/run-uitests.sh`，期望读到
-  `UITEST_STATUS=passed` 且 11 条全部 passed；任何 skip 都必须在
+  `UITEST_STATUS=passed` 且 10 条全部 passed；任何 skip 都必须在
   `evidence/uitest.log` 的 `UITEST_SKIPPED=` 行与对应 W 条目里找得到，否则运行器非 0 退出。
 - **status**：open
 
