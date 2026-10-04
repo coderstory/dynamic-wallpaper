@@ -59,13 +59,24 @@ final class MenuBarModelTests: XCTestCase {
 
     // MARK: - 标签数量
 
-    func testLabelsHaveExactlyFiveEntriesInEveryState() {
+    func testLabelsHaveExactlySixEntriesInEveryState() {
         for isPaused in [false, true] {
             let labels = MenuBarModel.labels(isPaused: isPaused)
             XCTAssertEqual(labels.count, MenuItemID.allCases.count,
                            "菜单项数量必须恒等于 MenuItemID.allCases")
-            XCTAssertEqual(labels.count, 5, "本 Phase 起共五项菜单（Phase 2 三项 + Phase 4 新增两项）")
-            XCTAssertEqual(Set(labels).count, labels.count, "五项文案不得重复")
+            XCTAssertEqual(labels.count, 6, "共六项菜单（Phase 2 三项 + Phase 4 两项 + 删除当前壁纸）")
+            XCTAssertEqual(Set(labels).count, labels.count, "六项文案不得重复")
+        }
+    }
+
+    /// 「删除当前壁纸」的文案纪律：不得带文件名 / 扩展名 / 路径。
+    /// 删的是「正在播的那个」—— 语义由动作说清，不靠文件名指认。
+    func testDeleteCurrentLabelNeverNamesAFile() {
+        for isPaused in [false, true] {
+            let label = MenuBarModel.label(for: .deleteCurrent, isPaused: isPaused)
+            XCTAssertFalse(label.contains(Self.sentinelFilename), "删除项文案泄露了文件名：\(label)")
+            XCTAssertFalse(label.lowercased().contains(".mp4"), "删除项文案泄露了扩展名：\(label)")
+            XCTAssertFalse(label.contains(Self.fakeFolder), "删除项文案泄露了目录：\(label)")
         }
     }
 
@@ -198,9 +209,27 @@ final class MenuBarModelTests: XCTestCase {
 
     // MARK: - 枚举本身的形状
 
-    func testMenuItemIDsAreExactlyTheFiveFixedItems() {
+    func testMenuItemIDsAreExactlyTheSixFixedItems() {
         XCTAssertEqual(MenuItemID.allCases,
-                       [.pauseResume, .nextVideo, .rescanFolder, .openSettings, .quit],
-                       "五项菜单，顺序冻结：新增项插在 openSettings 之前、quit 保持最后（分隔线规则依赖它）")
+                       [.pauseResume, .nextVideo, .deleteCurrent, .rescanFolder, .openSettings, .quit],
+                       "六项菜单，顺序冻结：新增项插在 openSettings 之前、quit 保持最后（分隔线规则依赖它）")
+    }
+
+    /// 「删除当前壁纸」不得经由菜单模型直连播放端 —— 与 nextVideo 同款纪律：
+    /// 切片与删文件都是 AppDelegate 的活，模型只转交意图。
+    func testDeleteCurrentGoesOnlyThroughInjectedClosure() {
+        for isPaused in [false, true] {
+            let target = SpyTarget()
+            let arbiter = HoldArbiter(target: target)
+            var deletes = 0
+            MenuBarModel.perform(.deleteCurrent, isPaused: isPaused,
+                                 store: makeStore(), arbiter: arbiter,
+                                 quit: {},
+                                 deleteCurrent: { deletes += 1 })
+            XCTAssertEqual(deletes, 1, "删除当前壁纸必须走注入的闭包")
+            XCTAssertEqual(target.applies.count, 0, "删除当前壁纸不得把决策推给播放端")
+            XCTAssertEqual(arbiter.decision.shouldPlay, true,
+                           "删除当前壁纸不得改动播放状态")
+        }
     }
 }

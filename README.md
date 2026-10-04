@@ -4,7 +4,9 @@
 
 原生 Swift + SwiftUI，零第三方依赖。
 
-![菜单栏常驻](https://img.shields.io/badge/menu%20bar-LSUIElement-informational)
+![设置窗口](docs/screenshot-settings.png)
+
+菜单栏常驻，关窗不退出。全屏 / 锁屏 / 熄屏 / 电池供电时自动让路。
 
 ## 特性
 

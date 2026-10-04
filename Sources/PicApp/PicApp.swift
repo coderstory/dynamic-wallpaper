@@ -51,7 +51,8 @@ struct PicApp: App {
                 terminate: { appDelegate.terminateApp() },
                 presentSettings: { appDelegate.presentSettingsWindow() },
                 nextVideo: { appDelegate.nextVideoNow() },
-                rescanFolder: { appDelegate.rescanFolderNow() }
+                rescanFolder: { appDelegate.rescanFolderNow() },
+                deleteCurrent: { appDelegate.deleteCurrentWallpaperNow() }
             )
             .environment(appDelegate.store)
             .environment(appDelegate.arbiter)

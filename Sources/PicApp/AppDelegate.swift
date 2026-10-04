@@ -621,6 +621,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         emit("PIC_ROT_ADVANCES=\(rotation.advances.count)")
     }
 
+    /// 「删除当前壁纸」的行为侧：**先切下一个，再把刚才在播的那个移进废纸篓**。
+    ///
+    /// ⚠️ **顺序不可调换**。反了会删掉正在播的文件 —— 播放器还挂着它的句柄，
+    /// 表现是「桌面定格 + 下一轮扫描才发现少了一个」。所以这里先把 url 存成局部常量，
+    /// 再 advance，**最后**才动手删。
+    ///
+    /// 用废纸篓（`trashItem`）而非 `removeItem`：误删可从访达恢复，
+    /// 删壁纸这种不可逆动作必须留退路。
+    ///
+    /// 删完必须失效扫描缓存 —— 否则清单里还留着那个已不存在的路径，
+    /// 下次轮换会反复装载失败。
+    func deleteCurrentWallpaperNow() {
+        emit("PIC_MENU_ACTION=delete_current")
+
+        // ① 先记住「删谁」—— advance 之后 router.current 就换成下一个了。
+        guard let victim = router.current?.url else {
+            emit("PIC_DELETE_SKIPPED=no_current")
+            return
+        }
+        // ② 再切下一个。轮换器持有 items 快照，切片发生在这一句。
+        rotation.advanceNow()
+
+        // ③ 最后才动文件。
+        do {
+            try FileManager.default.trashItem(at: victim, resultingItemURL: nil)
+            emit("PIC_DELETE_OK name=\(victim.lastPathComponent)")
+        } catch {
+            // 移入废纸篓失败（权限 / 文件已被外部移动 / 卷只读）——不动清单，
+            // 下次扫描自然会收敛。发信号让 evidence 可追。
+            emit("PIC_DELETE_FAIL name=\(victim.lastPathComponent) err=\(error.localizedDescription)")
+            return
+        }
+
+        // ④ 清单里那条路径已失效 —— 显式失效 + 重扫，否则下次轮换会装载不存在的文件。
+        library.invalidateCache()
+        Task { await rescanAndApply() }
+    }
+
     /// 「重新扫描」的唯一落点（菜单与设置窗共用）：显式失效缓存再重扫 ——
     /// 不失效的话菜单项会看起来「点了没反应」。单次 Task 串行：连点不会并发扫两遍；
     /// 每次点击都打一行读数，重复点击在 evidence 里可数。

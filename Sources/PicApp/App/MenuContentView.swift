@@ -32,13 +32,19 @@ struct MenuContentView: View {
     /// 「重新扫描文件夹」的动作。同上，只调模型。
     private let rescanFolder: () -> Void
 
+    /// 「删除当前壁纸」的动作（AppDelegate 的 `deleteCurrentWallpaperNow`：
+    /// 先切下一个，再把刚才在播的移进废纸篓）。顺序在那一侧保证。
+    private let deleteCurrent: () -> Void
+
     init(terminate: @escaping () -> Void, presentSettings: @escaping () -> Void,
          nextVideo: @escaping () -> Void = {},
-         rescanFolder: @escaping () -> Void = {}) {
+         rescanFolder: @escaping () -> Void = {},
+         deleteCurrent: @escaping () -> Void = {}) {
         self.terminate = terminate
         self.presentSettings = presentSettings
         self.nextVideo = nextVideo
         self.rescanFolder = rescanFolder
+        self.deleteCurrent = deleteCurrent
     }
 
     var body: some View {
@@ -64,6 +70,10 @@ struct MenuContentView: View {
             // 同上：失效缓存与重扫是 AppDelegate 的活，菜单只转交意图。
             MenuBarModel.perform(id, isPaused: isPaused, store: store, arbiter: arbiter,
                                  quit: terminate, rescanFolder: rescanFolder)
+        case .deleteCurrent:
+            // 「先切下一个再删旧的」整个语义在 AppDelegate 那一侧，菜单只转交意图。
+            MenuBarModel.perform(id, isPaused: isPaused, store: store, arbiter: arbiter,
+                                 quit: terminate, deleteCurrent: deleteCurrent)
         case .openSettings:
             // PicCore 不依赖 AppKit 的全局应用对象，所以窗口这一侧由调用方处理。
             MenuBarModel.perform(id, isPaused: isPaused, store: store, arbiter: arbiter, quit: terminate)
