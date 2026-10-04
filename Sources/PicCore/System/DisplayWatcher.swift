@@ -69,7 +69,7 @@ public protocol DisplayReconfigurationHook: AnyObject {
 
 /// C 函数指针带不了 Swift 上下文 → 一张全局表把 C 回调转回闭包。
 private let reconfigTableLock = NSLock()
-private var reconfigHandlers: [() -> Void] = []
+private nonisolated(unsafe) var reconfigHandlers: [() -> Void] = []
 
 /// C ABI 的回调（`@convention(c)`，不能捕获上下文）。
 private let reconfigTrampoline: CGDisplayReconfigurationCallBack = { _, _, _ in

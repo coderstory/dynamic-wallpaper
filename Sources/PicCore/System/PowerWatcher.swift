@@ -205,7 +205,7 @@ public final class PowerWatcher {
 /// `IOPSNotificationCreateRunLoopSource` 的注册本来就是进程级的（同一个 run loop source），
 /// 一张单槽表正好对上真实语义。与重配置表同形。
 private let powerCallbackLock = NSLock()
-private var powerHandlers: [(Bool) -> Void] = []
+private nonisolated(unsafe) var powerHandlers: [(Bool) -> Void] = []
 
 /// C ABI 的回调（形参是 `void *context`）。
 ///

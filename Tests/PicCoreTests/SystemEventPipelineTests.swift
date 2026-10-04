@@ -53,14 +53,16 @@ final class SystemEventPipelineTests: XCTestCase {
         target.position = 42.0
         let arbiter = HoldArbiter(target: target)
 
-        var deliveries: [Bool] = []
+        let deliveries = DeliveryLog()
         watcher.start { locked in
-            deliveries.append(locked)
-            arbiter.set(.screenLocked, active: locked)
+            MainActor.assumeIsolated {
+                deliveries.append(locked)
+                arbiter.set(.screenLocked, active: locked)
+            }
         }
 
         // 未投递任何通知：回调必须**当场**发生一次，且参数是当前真实状态。
-        XCTAssertEqual(deliveries, [true], "start() 返回前必须同步回调一次 currentLockState()")
+        XCTAssertEqual(deliveries.flags, [true], "start() 返回前必须同步回调一次 currentLockState()")
         XCTAssertEqual(arbiter.decision.holds, [.screenLocked], "订阅前已锁屏 → start 后 holds 立即含 screenLocked")
         XCTAssertFalse(arbiter.decision.shouldPlay)
         XCTAssertTrue(watcher.isRunning)
@@ -81,13 +83,15 @@ final class SystemEventPipelineTests: XCTestCase {
         let target = RecordingTarget()
         let arbiter = HoldArbiter(target: target)
 
-        var deliveries: [Bool] = []
+        let deliveries = DeliveryLog()
         watcher.start { locked in
-            deliveries.append(locked)
-            arbiter.set(.screenLocked, active: locked)
+            MainActor.assumeIsolated {
+                deliveries.append(locked)
+                arbiter.set(.screenLocked, active: locked)
+            }
         }
 
-        XCTAssertEqual(deliveries, [false])
+        XCTAssertEqual(deliveries.flags, [false])
         XCTAssertEqual(arbiter.decision.holds, [], "未锁屏不得产生任何 hold")
         XCTAssertTrue(arbiter.decision.shouldPlay)
         XCTAssertEqual(target.applies, [], "空集变化不发 apply（幂等，ARCHITECTURE §6.4 不变式 4）")
@@ -134,7 +138,7 @@ final class SystemEventPipelineTests: XCTestCase {
         target.position = 42.0
         let arbiter = HoldArbiter(target: target)
 
-        watcher.start { locked in arbiter.set(.screenLocked, active: locked) }
+        watcher.start { locked in MainActor.assumeIsolated { arbiter.set(.screenLocked, active: locked) } }
         XCTAssertEqual(arbiter.decision.holds, [.screenLocked], "同步回调已置位")
 
         // 幂等：重复置位不重复打扰播放端。
@@ -149,7 +153,7 @@ final class SystemEventPipelineTests: XCTestCase {
             names: names,
             sessionReader: { ["CGSSessionScreenIsLocked": 0] }
         )
-        watcher2.start { locked in arbiter.set(.screenLocked, active: locked) }
+        watcher2.start { locked in MainActor.assumeIsolated { arbiter.set(.screenLocked, active: locked) } }
         XCTAssertEqual(arbiter.decision.holds, [], "解除后 holds 清空")
         XCTAssertTrue(arbiter.decision.shouldPlay)
         XCTAssertEqual(target.seeks, [42.0], "解除后从暂停时的位置续播（PAUSE-06）")
@@ -168,12 +172,14 @@ final class SystemEventPipelineTests: XCTestCase {
         let target = RecordingTarget()
         let arbiter = HoldArbiter(target: target)
 
-        var deliveries = 0
+        let deliveries = DeliveryLog()
         watcher.start { locked in
-            deliveries += 1
-            arbiter.set(.screenLocked, active: locked)
+            MainActor.assumeIsolated {
+                deliveries.append(locked)
+                arbiter.set(.screenLocked, active: locked)
+            }
         }
-        XCTAssertEqual(deliveries, 1, "start 的同步回调")
+        XCTAssertEqual(deliveries.count, 1, "start 的同步回调")
         XCTAssertTrue(watcher.isRunning)
 
         watcher.stop()
@@ -182,7 +188,7 @@ final class SystemEventPipelineTests: XCTestCase {
         center.post(name: Notification.Name(names.unlocked), object: nil)
         spinMainRunLoop(seconds: 0.4)
 
-        XCTAssertEqual(deliveries, 1, "stop() 之后不得再收到通知")
+        XCTAssertEqual(deliveries.count, 1, "stop() 之后不得再收到通知")
         XCTAssertEqual(arbiter.decision.holds, [.screenLocked], "stop 不得改变已有状态")
     }
 
@@ -198,17 +204,19 @@ final class SystemEventPipelineTests: XCTestCase {
         let target = RecordingTarget()
         let arbiter = HoldArbiter(target: target)
 
-        var deliveries = 0
+        let deliveries = DeliveryLog()
         watcher.start { locked in
-            deliveries += 1
-            arbiter.set(.screenLocked, active: locked)
+            MainActor.assumeIsolated {
+                deliveries.append(locked)
+                arbiter.set(.screenLocked, active: locked)
+            }
         }
-        watcher.start { _ in deliveries += 100 }   // 第二次必须被 isRunning 挡掉
-        XCTAssertEqual(deliveries, 1, "重复 start() 不再同步回调，也不接管回调")
+        watcher.start { _ in MainActor.assumeIsolated { deliveries.bump(by: 100) } }
+        XCTAssertEqual(deliveries.count, 1, "重复 start() 不再同步回调，也不接管回调")
 
         center.post(name: Notification.Name(names.locked), object: nil)
         spinMainRunLoop(seconds: 0.4)
-        XCTAssertEqual(deliveries, 2, "只有第一次 start 的那个回调仍然活着")
+        XCTAssertEqual(deliveries.count, 2, "只有第一次 start 的那个回调仍然活着")
 
         watcher.stop()
     }
@@ -223,5 +231,21 @@ final class SystemEventPipelineTests: XCTestCase {
         XCTAssertEqual(1 << all.count, 64, "幂集组数；实际 \(1 << all.count)")
         XCTAssertEqual(all.map(\.order), [0, 1, 2, 3, 4, 5], "order 必须互不相同且升序")
         XCTAssertEqual(HoldReason.manualPause.order, 0, "Phase 2 的值，一个字不改")
+    }
+}
+
+/// `@Sendable` 回调不能可变捕获局部 var —— 收尾计数走这个主 actor 盒。
+@MainActor
+private final class DeliveryLog {
+    private(set) var flags: [Bool] = []
+    private(set) var count = 0
+
+    func append(_ value: Bool) {
+        flags.append(value)
+        count += 1
+    }
+
+    func bump(by delta: Int) {
+        count += delta
     }
 }

@@ -63,7 +63,7 @@ public final class LockWatcher {
     ///
     /// 顺序固定为「先注册后读值」：反过来会漏掉读值与注册之间发生的那次跃迁。
     /// 重复调用是幂等的。
-    public func start(onChange: @escaping (Bool) -> Void) {
+    public func start(onChange: @escaping @Sendable (Bool) -> Void) {
         guard !isRunning else { return }
 
         let lockedToken = center.addObserver(

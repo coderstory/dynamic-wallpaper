@@ -12,6 +12,7 @@ final class PlaybackRouterTests: XCTestCase {
     // MARK: - 文件内替身（不跨文件引用别的测试类的 helper）
 
     /// 记录式装载端：只记 URL 的个数与顺序。
+    @MainActor
     final class RecordingLoader: VideoLoading {
         private(set) var loaded: [URL] = []
 

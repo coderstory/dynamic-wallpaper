@@ -22,8 +22,8 @@
 
 | | |
 |---|---|
-| 系统 | macOS 15 或更高 |
-| 工具链 | Swift 6（Xcode 16+） |
+| 系统 | macOS 27 |
+| 工具链 | Swift 6（Xcode 27） |
 | 依赖 | 无。`swift build` 不触网 |
 | 转码（可选） | 需要 `ffmpeg` 在 PATH 里。不需要转码可不装 |
 

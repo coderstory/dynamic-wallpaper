@@ -150,7 +150,7 @@ public final class FullscreenDetector {
 
     /// 注册三个观察者，然后**同步**跑一次重算 —— 与 `LockWatcher` 同一形状：
     /// 本会话屏幕一直锁着，没有任何 Space / 应用跃迁可等。
-    public func start(onChange: @escaping (Bool) -> Void) {
+    public func start(onChange: @escaping @Sendable (Bool) -> Void) {
         guard !isRunning else { return }
 
         let space = Notification.Name(NSWorkspace.activeSpaceDidChangeNotification.rawValue)

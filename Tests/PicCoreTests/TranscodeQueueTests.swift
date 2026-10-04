@@ -11,7 +11,7 @@ final class TranscodeQueueTests: XCTestCase {
     // MARK: - 文件内替身（不跨文件引用别的测试类的 helper）
 
     /// 记录式 runner：按 tmpPath 真写几字节 .tmp，再返回配置好的退出码。
-    final class FakeRunner: TranscodeRunning {
+    final class FakeRunner: TranscodeRunning, @unchecked Sendable {
         struct Call {
             let tmpPath: String
             let arguments: [String]
@@ -21,7 +21,7 @@ final class TranscodeQueueTests: XCTestCase {
         var exitStatus: Int32 = 0
 
         func run(ffmpegPath: String, arguments: [String], outputTemporaryPath: String,
-                 onProgressLine: @escaping (String) -> Void) async -> Int32 {
+                 onProgressLine: @escaping @Sendable (String) -> Void) async -> Int32 {
             calls.append(Call(tmpPath: outputTemporaryPath, arguments: arguments))
             FileManager.default.createFile(
                 atPath: outputTemporaryPath, contents: Data("fake-payload".utf8))

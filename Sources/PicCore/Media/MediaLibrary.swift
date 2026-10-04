@@ -27,8 +27,8 @@ public final class MediaLibrary {
     public static let allowedExtensions: Set<String> = ["mp4", "mov", "m4v"]
 
     /// 转码产物目录名。该目录被**整棵排除**，且比对是目录名**精确匹配**
-    ///（converted-lower 不在排除之列）。
-    public static let excludedDirectoryName = "Converted"
+    ///（converted-lower 不在排除之列）。nonisolated：后台队列的非隔离上下文要引用它。
+    nonisolated public static let excludedDirectoryName = "Converted"
 
     private let probe: any VideoAssetProbe
     private let entryCap: Int

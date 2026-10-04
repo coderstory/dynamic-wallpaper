@@ -244,7 +244,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // 四根线都只做「信号 → arbiter.set(_:active:)」的固定映射，不解析任何字符串。
         fullscreenDetector.start { [arbiter] isFullscreen in
-            arbiter.set(.fullscreen, active: isFullscreen)
+            MainActor.assumeIsolated { arbiter.set(.fullscreen, active: isFullscreen) }
         }
         displayWatcher.start { [arbiter] signals in
             arbiter.set(.displayAsleep, active: signals.displayAsleep)
@@ -254,7 +254,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             MainActor.assumeIsolated { self?.recordPowerState(isOnBattery) }
         }
         lockWatcher.start { [arbiter] isLocked in
-            arbiter.set(.screenLocked, active: isLocked)
+            MainActor.assumeIsolated { arbiter.set(.screenLocked, active: isLocked) }
         }
     }
 

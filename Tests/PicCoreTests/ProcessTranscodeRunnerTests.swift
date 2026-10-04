@@ -9,7 +9,7 @@ import XCTest
 final class ProcessTranscodeRunnerTests: XCTestCase {
 
     /// 线程安全收集盒：onProgressLine 来自 readabilityHandler 的后台队列。
-    private final class LineBox {
+    private final class LineBox: @unchecked Sendable {
         private let lock = NSLock()
         private var lines: [String] = []
 

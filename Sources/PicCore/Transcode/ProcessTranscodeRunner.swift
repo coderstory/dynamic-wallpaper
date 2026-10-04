@@ -13,7 +13,7 @@ public final class ProcessTranscodeRunner: TranscodeRunning {
     public init() {}
 
     public func run(ffmpegPath: String, arguments: [String], outputTemporaryPath: String,
-                    onProgressLine: @escaping (String) -> Void) async -> Int32 {
+                    onProgressLine: @escaping @Sendable (String) -> Void) async -> Int32 {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/nice")
         process.arguments = ["-n", "10", ffmpegPath] + arguments
@@ -54,8 +54,9 @@ public final class ProcessTranscodeRunner: TranscodeRunning {
 }
 
 /// 行切分器：readabilityHandler（后台队列）与收尾 drain（调用线程）两个来源，
-/// NSLock 串行化；残行留在 buffer，不丢半行。
-private final class LineSplitter {
+/// NSLock 串行化；残行留在 buffer，不丢半行。`@unchecked Sendable`：要进
+/// `@Sendable` 的 readabilityHandler，buffer 的写入全在 `feed()` 的锁内。
+private final class LineSplitter: @unchecked Sendable {
     private let lock = NSLock()
     private var buffer = Data()
     private let emit: (String) -> Void

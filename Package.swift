@@ -5,7 +5,10 @@ import PackageDescription
 // 本 Phase 零第三方依赖（下方包级依赖列表为空），swift build 不触网。
 let package = Package(
     name: "Pic",
-    platforms: [.macOS(.v15)],
+    // 只支持 macOS 27。PackageDescription 6.0 的 .macOS(.v27) 是 unavailable
+    // （最高只到 .v15），字符串重载能过且 dump 出 "27.0"。
+    // 这行是交付产物的真实下限 —— build.sh 走 swift build，不走 xcodebuild。
+    platforms: [.macOS("27.0")],
     products: [
         .executable(name: "Pic", targets: ["PicApp"]),
         .library(name: "PicCore", targets: ["PicCore"]),
@@ -14,9 +17,7 @@ let package = Package(
     targets: [
         .target(
             name: "PicCore",
-            // Swift 6 语言模式会把 @MainActor + NSObject + SwiftUI 组合报成并发错误。
-            // Phase 1 已实跑验证 v5 形状：swift build + swift test 全绿。
-            swiftSettings: [.swiftLanguageMode(.v5)]
+            swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .executableTarget(
             name: "PicApp",
@@ -27,7 +28,7 @@ let package = Package(
             // 刻意**不**改成 resources: 那样它会同时被复制进 Pic_PicApp.bundle/Info.plist，
             // 两处同名 plist 比一处更难排查。
             exclude: ["Resources/Info.plist"],
-            swiftSettings: [.swiftLanguageMode(.v5)]
+            swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
             name: "PicCoreTests",
@@ -35,7 +36,7 @@ let package = Package(
             // 测试框架锁死为 XCTest：swift test 的汇总串是
             // "Executed N tests, with 0 failures"，Swift Testing 打的是另一种串。
             // SwiftPM 对 XCTest 无需额外声明，测试文件里 import XCTest 即被自动发现。
-            swiftSettings: [.swiftLanguageMode(.v5)]
+            swiftSettings: [.swiftLanguageMode(.v6)]
         ),
     ]
 )

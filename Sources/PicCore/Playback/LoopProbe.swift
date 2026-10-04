@@ -168,9 +168,9 @@ public final class LoopProbe {
             .AVPlayerItemFailedToPlayToEndTime,
         ]
         for name in watched {
-            tokens.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] note in
+            tokens.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated {
-                    switch note.name {
+                    switch name {
                     case .AVPlayerItemDidPlayToEndTime: self?.endedCount += 1
                     case .AVPlayerItemPlaybackStalled: self?.stalledCount += 1
                     default: self?.failedCount += 1

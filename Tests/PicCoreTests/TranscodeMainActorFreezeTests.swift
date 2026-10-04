@@ -17,7 +17,7 @@ final class TranscodeMainActorFreezeTests: XCTestCase {
         init(script: String) { self.script = script }
 
         func run(ffmpegPath: String, arguments: [String], outputTemporaryPath: String,
-                 onProgressLine: @escaping (String) -> Void) async -> Int32 {
+                 onProgressLine: @escaping @Sendable (String) -> Void) async -> Int32 {
             await ProcessTranscodeRunner().run(
                 ffmpegPath: "/bin/sh", arguments: ["-c", script, outputTemporaryPath],
                 outputTemporaryPath: outputTemporaryPath, onProgressLine: onProgressLine)

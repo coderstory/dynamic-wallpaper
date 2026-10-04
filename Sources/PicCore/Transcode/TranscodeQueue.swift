@@ -3,7 +3,7 @@ import Foundation
 
 /// 转码执行队列（TRANS-03/04/06 执行侧）—— 串行 drain、预检、tmp→rename、进度。
 /// 本文件是 Transcode/ 里唯一 `import AVFoundation` 的（duration 探测）。
-public protocol TranscodeRunning: AnyObject {
+public protocol TranscodeRunning: AnyObject, Sendable {
     /// 进程退出后返回 `terminationStatus` 语义的退出码
     /// （串行队列的正交写法：run 不返回，下一个 job 不开始）。
     ///
@@ -11,7 +11,7 @@ public protocol TranscodeRunning: AnyObject {
     /// 实现里同步 `waitUntilExit()` 会把整个 app 冻住，且 `onProgressLine` 的
     /// `Task { @MainActor }` 跳转在阻塞期间一条都送不出去（进度条卡 0% 后跳终值）。
     func run(ffmpegPath: String, arguments: [String], outputTemporaryPath: String,
-             onProgressLine: @escaping (String) -> Void) async -> Int32
+             onProgressLine: @escaping @Sendable (String) -> Void) async -> Int32
 }
 
 /// job 状态机。`failed` 的 reason 是受控 token，不是自由文本（不给日志注入面）：
@@ -154,7 +154,7 @@ public final class TranscodeQueue {
         let arguments = TranscodeCommand.arguments(input: source, output: temporaryURL)
         // duration 在 job 开始时取一次缓存，不逐行取（拿不到 → percent 走 nil 路径）。
         let durationSeconds = await durationProvider(source)
-        var progress = ProgressParser.Accumulator()
+        let progress = ProgressState()
         let status = await runner.run(
             ffmpegPath: toolPath,
             arguments: arguments,
@@ -163,9 +163,7 @@ public final class TranscodeQueue {
             Task { @MainActor in
                 // 增量解析：只吃新到的这一行，状态留在累加器里 ——
                 // 旧写法把整段历史 `+=` 进来再全量重解析，1 小时转码 = 数万行 → O(n²)。
-                let snapshot = progress.consume(line)
-                self.jobs[index].percent = ProgressParser.percent(
-                    snapshot: snapshot, durationSeconds: durationSeconds)
+                self.jobs[index].percent = progress.consume(line, durationSeconds: durationSeconds)
                 self.onJobsChanged?()
             }
         }
@@ -207,5 +205,17 @@ public final class TranscodeQueue {
     private func currentToolPath() -> String {
         if case .available(let path) = availability() { return path }
         return "ffmpeg"
+    }
+}
+
+/// 进度累加器的 `@MainActor` 壳 —— `onProgressLine` 是 `@Sendable`，不能可变捕获
+/// `Accumulator`；所有读写都在 `Task { @MainActor }` 里，圈进主 actor 即可。
+@MainActor
+private final class ProgressState {
+    private var accumulator = ProgressParser.Accumulator()
+
+    func consume(_ line: String, durationSeconds: Double?) -> Double? {
+        ProgressParser.percent(
+            snapshot: accumulator.consume(line), durationSeconds: durationSeconds)
     }
 }
