@@ -266,6 +266,9 @@ struct ChoiceGrid: View {
                                                      style: .continuous).fill(fill))
                         .overlay(RoundedRectangle(cornerRadius: Metrics.chipRadius,
                                                   style: .continuous).stroke(stroke, lineWidth: 1))
+                        // ⚠️ 必须显式 contentShape：不给的话 SwiftUI 按「渲染出来的内容」
+                        // 判定命中区，标签只有文字可点、四周 padding 点不动。
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityElement()
@@ -322,6 +325,7 @@ struct GlowSegmented: View {
                         .frame(maxWidth: .infinity)
                         .frame(height: 28)
                         .background(RoundedRectangle(cornerRadius: 7, style: .continuous).fill(fill))
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityElement()
@@ -408,6 +412,8 @@ struct TabBar: View {
                         .padding(.vertical, 6)
                         .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(fill))
                         .shadow(color: .black.opacity(shadow), radius: 1, y: 0)
+                        // ⚠️ 同上：没 contentShape 时只有文字可点
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityElement()
