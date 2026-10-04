@@ -640,10 +640,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             emit("PIC_DELETE_SKIPPED=no_current")
             return
         }
-        // ② 再切下一个。轮换器持有 items 快照，切片发生在这一句。
+        // ② 二次确认。放在这里而不是菜单侧：菜单只是转交意图，确认是这道门的语义本体，
+        //    任何调用方（将来若加快捷键）都必须过它。
+        guard confirmTrashWallpaper(victim) else {
+            emit("PIC_DELETE_CANCELLED name=\(victim.lastPathComponent)")
+            return
+        }
+        // ③ 再切下一个。轮换器持有 items 快照，切片发生在这一句。
         rotation.advanceNow()
 
-        // ③ 最后才动文件。
+        // ④ 最后才动文件。
         do {
             try FileManager.default.trashItem(at: victim, resultingItemURL: nil)
             emit("PIC_DELETE_OK name=\(victim.lastPathComponent)")
@@ -654,9 +660,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
-        // ④ 清单里那条路径已失效 —— 显式失效 + 重扫，否则下次轮换会装载不存在的文件。
+        // ⑤ 清单里那条路径已失效 —— 显式失效 + 重扫，否则下次轮换会装载不存在的文件。
         library.invalidateCache()
         Task { await rescanAndApply() }
+    }
+
+    /// 删除前的二次确认。`NSAlert` 而非 SwiftUI sheet：菜单是 `MenuBarExtra`，
+    /// 弹层挂不上去，而 app 常态是 `.accessory`（无 Dock 图标）—— 所以临时提策略、
+    /// 弹完恢复，与 `presentSettingsWindow` 同一套做法。
+    ///
+    /// 按钮刻意不给「删除」当默认（`alertStyle = .warning` 时首按钮才是默认），
+    /// 回车 = 取消：误按回车不该删文件。
+    private func confirmTrashWallpaper(_ url: URL) -> Bool {
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+        defer { NSApp.setActivationPolicy(.accessory) }
+
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "删除当前壁纸？"
+        alert.informativeText = "「\(url.lastPathComponent)」将移入废纸篓，播放会切到下一个。"
+        alert.addButton(withTitle: "移到废纸篓")
+        alert.addButton(withTitle: "取消")
+        return alert.runModal() == .alertFirstButtonReturn
     }
 
     /// 「重新扫描」的唯一落点（菜单与设置窗共用）：显式失效缓存再重扫 ——

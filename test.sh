@@ -555,20 +555,28 @@ N=$(src_count 'invalidateCache' 'Sources/PicApp')
 
 # ⑤ 转码侧纯逻辑单测。转码执行侧全部是替身（FakeRunner 进程外零调用），
 #    所以这条是**零 ffmpeg** 的。队列单列一条 —— 它是执行路径的行为中枢。
-TRC_N=41
-if swift test --package-path . --filter 'Transcode|ConvertedLibrary|ExternalToolLocator|ProgressParser' > "$TMP/trc.log" 2>&1 \
-   && grep -qE "Executed ${TRC_N} tests, with 0 failures" "$TMP/trc.log"; then
+#    ⚠️ 门禁取**下限**不取等号：等号每加一个测试就得同步改这里，漏改就红（实测已发生两次）。
+#    下限仍能挡住「filter 匹配到 0 个测试」这个真正的空跑（那会输出 Executed 0 tests）。
+TRC_MIN=41
+TRC_GOT=$(swift test --package-path . --filter 'Transcode|ConvertedLibrary|ExternalToolLocator|ProgressParser' 2>&1 \
+          | grep -oE 'Executed [0-9]+ tests?, with [0-9]+ failures' | tail -1)
+TRC_N=$(echo "$TRC_GOT" | grep -oE '[0-9]+' | head -1)
+TRC_FAIL=$(echo "$TRC_GOT" | grep -oE 'with [0-9]+ failures' | grep -oE '[0-9]+')
+if [ "${TRC_FAIL:-1}" = "0" ] && [ "${TRC_N:-0}" -ge "$TRC_MIN" ] 2>/dev/null; then
   ok "Phase6 转码纯逻辑单测全绿"
 else
-  no "Phase6 转码纯逻辑单测全绿" "$(grep -E 'error:|XCTAssert.*failed' "$TMP/trc.log" | head -2)"
+  no "Phase6 转码纯逻辑单测全绿" "实跑 $TRC_GOT，期望 ≥ $TRC_MIN 个且 0 失败"
 fi
 
-TQ_N=6
-if swift test --package-path . --filter TranscodeQueueTests > "$TMP/trcqueue.log" 2>&1 \
-   && grep -qE "Executed ${TQ_N} tests, with 0 failures" "$TMP/trcqueue.log"; then
+TQ_MIN=6
+TQ_GOT=$(swift test --package-path . --filter TranscodeQueueTests 2>&1 \
+         | grep -oE 'Executed [0-9]+ tests?, with [0-9]+ failures' | tail -1)
+TQ_N=$(echo "$TQ_GOT" | grep -oE '[0-9]+' | head -1)
+TQ_FAIL=$(echo "$TQ_GOT" | grep -oE 'with [0-9]+ failures' | grep -oE '[0-9]+')
+if [ "${TQ_FAIL:-1}" = "0" ] && [ "${TQ_N:-0}" -ge "$TQ_MIN" ] 2>/dev/null; then
   ok "Phase6 转码队列单测全绿"
 else
-  no "Phase6 转码队列单测全绿" "$(grep -E 'error:|XCTAssert.*failed' "$TMP/trcqueue.log" | head -2)"
+  no "Phase6 转码队列单测全绿" "实跑 $TQ_GOT，期望 ≥ $TQ_MIN 个且 0 失败"
 fi
 
 # 🔴 主 actor 冻结回归门（跨 phase 集成检查抓出的 BLOCKER）。判据：真

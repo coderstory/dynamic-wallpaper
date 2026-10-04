@@ -26,29 +26,34 @@ public final class NSOpenPanelFolderPicker: FolderPicker {
 
     public init() {}
 
-    public func pickFolder() async -> URL? {
+    /// 面板工厂：两个选择动作共用同一块 `NSOpenPanel(` 构造点（test.sh 的唯一落点判据数这个），
+    /// 差异只由三个参数表达。
+    private func makePanel(canChooseFiles: Bool, allowsMultipleSelection: Bool,
+                           prompt: String) -> NSOpenPanel {
         let panel = NSOpenPanel()
-        // ⚠️ 三个必设项一个不能少：canChooseFiles = false 缺了的话用户能选到单个 .mp4 文件，
+        panel.canChooseFiles = canChooseFiles
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = allowsMultipleSelection
+        panel.canCreateDirectories = false
+        panel.prompt = prompt
+        return panel
+    }
+
+    public func pickFolder() async -> URL? {
+        // ⚠️ canChooseFiles = false 不能省：缺了的话用户能选到单个 .mp4 文件，
         // 扫描器会在它上面枚举然后返回空 —— 表现是「我明明选对了却没反应」，
         // 排查时完全想不到是面板配置。
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = false
-        panel.canCreateDirectories = false
-        panel.prompt = "选择壁纸文件夹"
+        let panel = makePanel(canChooseFiles: false, allowsMultipleSelection: false,
+                              prompt: "选择壁纸文件夹")
         guard panel.runModal() == .OK else { return nil }
         return panel.url
     }
 
     public func pickTranscodeSources() async -> [URL]? {
-        let panel = NSOpenPanel()
         // 目录与文件混选（用户需求「可以选择目录和文件」）：目录由调用方递归展开成
         // N 个候选文件；白名单外的文件由调用方过滤。
-        panel.canChooseFiles = true
-        panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = true
-        panel.canCreateDirectories = false
-        panel.prompt = "选择要转码的目录或文件"
+        let panel = makePanel(canChooseFiles: true, allowsMultipleSelection: true,
+                              prompt: "选择要转码的目录或文件")
         guard panel.runModal() == .OK else { return nil }
         return panel.urls
     }
