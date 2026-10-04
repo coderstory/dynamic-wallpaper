@@ -67,6 +67,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         loader: PlayerLoadingAdapter(player: player, arbiter: arbiter)
     )
 
+    /// 转码视图模型。2026-10-04 起转码并入设置窗（第二个 TAB），不再有独立 scene，
+    /// 所以持有者从 `TranscodeScene` 的壳挪到这里 —— `@StateObject` 只能挂 View，
+    /// 而 viewModel 的生命周期必须跟着 AppDelegate（否则窗口一开一关就重建、队列状态丢失）。
+    lazy var transcodeViewModel = TranscodeViewModel(
+        queue: transcodeQueue,
+        locator: transcodeLocator,
+        wallpaperRootProvider: { [weak self] in self?.store.resolvedFolderURL() },
+        sourcePicker: picker
+    )
+
     /// 开机自启的唯一写入口。
     ///
     /// ⚠️ 必须**强持有** —— emit 闭包捕获了 `self` 的 `emit(_:)`，让它随用随建会出现「实例被回收后闭包仍活着」的窗口。

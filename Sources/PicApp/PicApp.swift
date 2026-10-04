@@ -10,6 +10,10 @@ import PicCore
 ///     `Settings` 场景：⌘, 语义由 MenuContentView 的 keyboardShortcut 补齐。
 ///     窗口标题「动态壁纸」为 2026-10-04 用户拍板（原「Pic 设置」，UI-SPEC §7 的旧要求被此决定取代）。
 ///
+/// ⚠️ 2026-10-04 起**只有这一个窗口**。转码不再是独立 `TranscodeScene`，
+/// 改为设置窗内的第二个 TAB（`SettingsView.transcodeTab` → `TranscodeSection`），
+/// 理由见 `.planning/design/ui-single-window.html` 的四稿对照。
+///
 /// ⚠️ 激活策略是 AppDelegate 的唯一职责，视图这一侧只调它提供的两个方法 ——
 /// 策略切换散落在多处是点名的 DoS 面（漏恢复就会永久留下 Dock 图标）。
 @main
@@ -22,7 +26,7 @@ struct PicApp: App {
                          rescanLibrary: { appDelegate.rescanLibrary() },
                          reapplyBatteryHold: { appDelegate.reapplyBatteryHold() },
                          setLaunchAtLogin: { appDelegate.setLaunchAtLogin($0) },
-                         openTranscode: { appDelegate.openTranscodeWindow($0) },
+                         transcodeViewModel: appDelegate.transcodeViewModel,
                          refreshFFmpeg: {
                              appDelegate.refreshFFmpegAvailability()
                              return appDelegate.ffmpegIsAvailable
@@ -35,7 +39,7 @@ struct PicApp: App {
                 .onDisappear { appDelegate.hideSettingsAndRestorePolicy() }
         }
         // 宽 780 只是初始值（真实宽度由 minWidth/idealWidth 撑），高由内容撑。
-        .defaultSize(width: SettingsPresentation.windowWidth, height: 420)
+        .defaultSize(width: SettingsPresentation.windowWidth, height: 480)
         // 原生标题栏在 macOS 27 上不吃 backgroundColor/透明化（实测被 SwiftUI 改回灰）。
         // 「蓝色标题栏」用 hiddenTitleBar + 内容自绘标题行实现；NSWindow.title 仍是
         // 「动态壁纸」（Mission Control / 几何探针按它找窗），拖动走
@@ -57,14 +61,6 @@ struct PicApp: App {
         //（presentSettingsWindow + openWindow）。
             MenuBarLabel(presentSettings: { appDelegate.presentSettingsWindow() })
         }
-
-        // 转码窗。全 app 唯一出现列表的地方；开窗动作由设置窗「维护」行的
-        // `openWindow(id:)` 触发 —— 与设置窗同一套开窗机制。源选择面板复用
-        // appDelegate.picker 同一实例（全仓唯一 NSOpenPanel seam）。
-        TranscodeScene(queue: appDelegate.transcodeQueue,
-                       locator: appDelegate.transcodeLocator,
-                       wallpaperRootProvider: { appDelegate.store.resolvedFolderURL() },
-                       sourcePicker: appDelegate.picker)
     }
 }
 

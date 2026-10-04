@@ -12,12 +12,11 @@
 		510500000000000000000303 /* FolderPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510500000000000000000103 /* FolderPicker.swift */; };
 		510500000000000000000304 /* MenuContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510500000000000000000104 /* MenuContentView.swift */; };
 		510500000000000000000305 /* SettingsComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510500000000000000000105 /* SettingsComponents.swift */; };
+		510500000000000000000315 /* TranscodeSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510500000000000000000115 /* TranscodeSection.swift */; };
 		510500000000000000000306 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510500000000000000000106 /* SettingsView.swift */; };
 		510500000000000000000310 /* SettingsSessionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510500000000000000000110 /* SettingsSessionState.swift */; };
-		510500000000000000000311 /* TranscodeWindowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510500000000000000000111 /* TranscodeWindowView.swift */; };
 		510500000000000000000312 /* InstallPathwaysView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510500000000000000000112 /* InstallPathwaysView.swift */; };
 		510500000000000000000313 /* TranscodeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510500000000000000000113 /* TranscodeViewModel.swift */; };
-		510500000000000000000314 /* TranscodeScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510500000000000000000114 /* TranscodeScene.swift */; };
 		510500000000000000000307 /* SettingsWindowUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510500000000000000000107 /* SettingsWindowUITests.swift */; };
 		510500000000000000000309 /* SettingsControlsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510500000000000000000109 /* SettingsControlsUITests.swift */; };
 		510500000000000000000308 /* PicCore in Frameworks */ = {isa = PBXBuildFile; productRef = 510500000000000000000702 /* PicCore */; };
@@ -39,12 +38,11 @@
 		510500000000000000000103 /* FolderPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderPicker.swift; sourceTree = "<group>"; };
 		510500000000000000000104 /* MenuContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuContentView.swift; sourceTree = "<group>"; };
 		510500000000000000000105 /* SettingsComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsComponents.swift; sourceTree = "<group>"; };
+		510500000000000000000115 /* TranscodeSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscodeSection.swift; sourceTree = "<group>"; };
 		510500000000000000000106 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		510500000000000000000110 /* SettingsSessionState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSessionState.swift; sourceTree = "<group>"; };
-		510500000000000000000111 /* TranscodeWindowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscodeWindowView.swift; sourceTree = "<group>"; };
 		510500000000000000000112 /* InstallPathwaysView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstallPathwaysView.swift; sourceTree = "<group>"; };
 		510500000000000000000113 /* TranscodeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscodeViewModel.swift; sourceTree = "<group>"; };
-		510500000000000000000114 /* TranscodeScene.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscodeScene.swift; sourceTree = "<group>"; };
 		510500000000000000000107 /* SettingsWindowUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowUITests.swift; sourceTree = "<group>"; };
 		510500000000000000000109 /* SettingsControlsUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsControlsUITests.swift; sourceTree = "<group>"; };
 		510500000000000000000108 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -108,6 +106,7 @@
 			isa = PBXGroup;
 			children = (
 				510500000000000000000105 /* SettingsComponents.swift */,
+				510500000000000000000115 /* TranscodeSection.swift */,
 				510500000000000000000106 /* SettingsView.swift */,
 				510500000000000000000110 /* SettingsSessionState.swift */,
 			);
@@ -117,10 +116,8 @@
 		51050000000000000000000A /* Transcode */ = {
 			isa = PBXGroup;
 			children = (
-				510500000000000000000111 /* TranscodeWindowView.swift */,
 				510500000000000000000112 /* InstallPathwaysView.swift */,
 				510500000000000000000113 /* TranscodeViewModel.swift */,
-				510500000000000000000114 /* TranscodeScene.swift */,
 			);
 			path = Transcode;
 			sourceTree = "<group>";
@@ -237,12 +234,11 @@
 				510500000000000000000303 /* FolderPicker.swift in Sources */,
 				510500000000000000000304 /* MenuContentView.swift in Sources */,
 				510500000000000000000305 /* SettingsComponents.swift in Sources */,
+				510500000000000000000315 /* TranscodeSection.swift in Sources */,
 				510500000000000000000306 /* SettingsView.swift in Sources */,
 				510500000000000000000310 /* SettingsSessionState.swift in Sources */,
-				510500000000000000000311 /* TranscodeWindowView.swift in Sources */,
 				510500000000000000000312 /* InstallPathwaysView.swift in Sources */,
 				510500000000000000000313 /* TranscodeViewModel.swift in Sources */,
-				510500000000000000000314 /* TranscodeScene.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

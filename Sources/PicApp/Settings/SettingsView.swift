@@ -2,12 +2,17 @@ import SwiftUI
 import AppKit
 import PicCore
 
-/// 设置窗主体（UI-SPEC §7 双列：左来源/播放，右电源与系统/维护/运行状态）。
+/// 设置窗主体 —— 2026-10-04 重设计。与设计稿 `.planning/design/ui-rotation-a.html` 一一对应。
 ///
-/// 六个可调项**全部**是真绑定：每个控件的写入口经 `store.<键> = …` →
-/// `SettingsApplier.apply*()`（当场生效）→ `store.persist()` —— 窗口内没有任何「渲染假数据」
-/// 的 `@State`（速度行的拖动暂态除外，它每次变更都直通 store）。量纲换算全部走
-/// `SettingsPresentation`，视图里不出现第二份。
+/// 布局：**顶部 TAB（播放 / 转码 / 关于）+ 磁贴网格 + 紧凑卡**，单窗口。
+/// 转码不再是独立 scene（原 `TranscodeScene`），改为本窗内的第二个 TAB。
+///
+/// 不变量（与旧版相同，改动不得破坏）：
+///   - 六个可调项全部真绑定：`store.<键> = …` → `SettingsApplier.apply*()`（当场生效）→ `store.persist()`
+///   - 窗口内没有「渲染假数据」的 `@State`（速度滑杆拖动暂态除外，每次变更直通 store）
+///   - 量纲换算全部走 `SettingsPresentation`，视图里不出现第二份
+///   - 14 个 `accessibilityIdentifier` 被 XCUITest 依赖，一个都不能少
+///   - 空态文案与置灰联动是 UI-SPEC §6 硬需求，语义不变
 struct SettingsView: View {
     @Environment(SettingsStore.self) private var store
     @Environment(SettingsApplier.self) private var applier
@@ -19,99 +24,89 @@ struct SettingsView: View {
     let requestFolder: () -> Void
     let rescanLibrary: () -> Void
     let reapplyBatteryHold: () -> Void
-    /// 「开机自启」的行为侧 —— 与上面同一条装配通道，经 PicApp 注入。
     let setLaunchAtLogin: (Bool) -> Void
-    /// 「打开…」的条件分派：注入 `openWindow` 动作，可用则开窗返回 true。
-    let openTranscode: ((() -> Void) -> Bool)
-    /// 安装途径弹层里的「重新检测」——重查并回填最新读数（新鲜化出口）。
+    /// 转码视图模型 —— 转码并入本窗后由 PicApp 注入。
+    let transcodeViewModel: TranscodeViewModel
+    /// 安装途径弹层的「重新检测」——重查并回填最新读数（新鲜化出口）。
     let refreshFFmpeg: () -> Bool
 
-    @Environment(\.openWindow) private var openWindow
     /// ffmpeg 不可用时的安装途径弹层（置灰之外还得给出途径）。
     @State private var showingPathways = false
 
     // ── 唯一保留的 @State（都不是「渲染假数据」）──
     // 速度滑杆的拖动暂态（每次 onChanged 直通 store + applier）。
     @State private var rateDrag: Double = 1.0
-    // 开机自启：真绑定 store —— 不持久化的话用户拨开的开关重启即丢。
-    @State private var breathe = false
+    // 顶部 TAB：0 播放 / 1 转码 / 2 关于。
+    @State private var tab: Int = 0
+
+    private static let tabTitles = ["播放", "转码", "关于"]
 
     var body: some View {
         VStack(spacing: 0) {
-            // 自绘标题行（windowStyle(.hiddenTitleBar) 下唯一的「标题栏」—— 深蓝底白字，
-            // 左侧红绿灯由系统浮在上面）。文字逐字 = 「动态壁纸」（2026-10-04 用户改名）。
+            // 自绘标题行（windowStyle(.hiddenTitleBar) 下唯一的「标题栏」）。
+            // 文字逐字 = 「动态壁纸」（2026-10-04 用户改名）。
             Text("动态壁纸")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Color.pFg)
+                .foregroundStyle(Color.pTitle)
                 .frame(maxWidth: .infinity)
                 .padding(.top, 10).padding(.bottom, 8)
                 .contentShape(Rectangle())
-            HStack(alignment: .top, spacing: 14) {
-                leftColumn
+            VStack(spacing: Metrics.blockGap) {
+                TabBar(items: Self.tabTitles, index: $tab)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                rightColumn
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityIdentifier("main-tabs")
+                Group {
+                    switch tab {
+                    case 1: transcodeTab
+                    case 2: aboutTab
+                    default: playTab
+                    }
+                }
+                .frame(maxWidth: .infinity)
             }
-            .padding(.horizontal, 14).padding(.bottom, 14)
+            .padding(.horizontal, Metrics.winPadding)
+            .padding(.bottom, Metrics.winPadding)
         }
-        // 高随内容撑，不写死（UI-SPEC §13 坑 2）。max 系列让内容填满窗口任意尺寸 ——
-        // 背景（深色）盖住整个窗口，状态恢复把窗口撑大时不再露出系统白底。
         .frame(minWidth: SettingsPresentation.windowMinWidth,
-               idealWidth: SettingsPresentation.windowWidth,
+               idealWidth: Metrics.windowWidth,
                maxWidth: .infinity, maxHeight: .infinity,
                alignment: .topLeading)
-        .background(
-            ZStack {
-                Color.pBg
-                LinearGradient(colors: [Color(red: 76/255, green: 196/255, blue: 245/255).opacity(breathe ? 0.14 : 0.07), Color.clear],
-                               startPoint: .top, endPoint: .center)
-                RadialGradient(colors: [Color(red: 30/255, green: 120/255, blue: 220/255).opacity(breathe ? 0.30 : 0.18), Color.clear],
-                               center: .init(x: 0.88, y: 0.96), startRadius: 0, endRadius: 300)
-            }
-            // 深入安全区：fullSizeContentView 下标题栏底下露的也是这块深蓝，而不是系统窗底色。
-            .ignoresSafeArea()
-        )
-        // 深色外观由 SwiftUI 管理（窗口外观、标题文字颜色跟着走），不手动碰 win.appearance ——
-        // 手设会被 SwiftUI 的环境传播改回去。
-        .preferredColorScheme(.dark)
+        .background(Color.pBg.ignoresSafeArea())
+        .preferredColorScheme(.light)
         .onAppear(perform: seedAndObserve)
         .sheet(isPresented: $showingPathways) {
             InstallPathwaysView(onRecheck: { _ = refreshFFmpeg() })
         }
     }
 
-    // MARK: - 左列
+    // MARK: - TAB 1 · 播放
 
-    private var leftColumn: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            SectionHead(t: "壁纸来源")
-            Card {
-                Row(symbol: "folder.fill", title: "文件夹",
-                    sub: store.sourceFolder.isEmpty ? "未设置" : store.sourceFolder) {
-                    Button("选择…") { requestFolder() }.buttonStyle(GlowButton())
-                        .disabled(session.isScanning)
-                        .accessibilityIdentifier("select-button")
-                }
-                countRow
-            }
+    private var playTab: some View {
+        VStack(spacing: Metrics.blockGap) {
+            StatusBar(text: statusLine,
+                      meta: ["\(session.playableCount) 个视频", "ffmpeg \(session.ffmpegAvailable ? "就绪" : "未安装")"],
+                      warn: isEmpty)
 
-            SectionHead(t: "播放").padding(.top, 4)
-            Card {
-                Row(symbol: "repeat", title: "模式") {
+            SectionHead(t: "播放控制")
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: Metrics.gridGap),
+                                GridItem(.flexible(), spacing: Metrics.gridGap)],
+                      spacing: Metrics.gridGap) {
+                Tile(symbol: "repeat", title: "模式") {
                     GlowSegmented(items: PlayMode.allCases.map(SettingsPresentation.playModeLabel),
                                    index: modeIndex)
                         .accessibilityIdentifier("mode-segmented")
                 }
-                // 置灰联动①：单循环下整行不可交互 + 视觉变淡。
-                Row(symbol: "timer", title: "轮换") {
-                    GlowStepper(index: rotationIndex,
-                                values: SettingsPresentation.rotationChoicesMinutes)
+                // 置灰联动①：单循环下整块置灰 + 禁交互（UI-SPEC §6 置灰而非隐藏）。
+                Tile(symbol: "timer", title: "轮换",
+                     disabled: !SettingsPresentation.rotationControlsEnabled(playMode: store.playMode)) {
+                    ChoiceGrid3x2(items: SettingsPresentation.rotationChoicesMinutes
+                                    .map(SettingsPresentation.rotationLabel(minutes:)),
+                                   index: rotationIndex)
+                        .disabled(!SettingsPresentation.rotationControlsEnabled(playMode: store.playMode))
+                        .accessibilityIdentifier("rotation-stepper")
                 }
-                .disabled(!SettingsPresentation.rotationControlsEnabled(playMode: store.playMode))
-                .opacity(SettingsPresentation.rotationControlsEnabled(playMode: store.playMode) ? 1 : 0.34)
-                .accessibilityIdentifier("rotation-stepper")
-                Row(symbol: "gauge.with.dots.needle.67percent", title: "速度", sub: "音高不变") {
-                    HStack(spacing: 9) {
+                Tile(symbol: "gauge.with.dots.needle.67percent", title: "速度", hint: "音高不变") {
+                    HStack(spacing: 11) {
                         GlowSlider(value: $rateDrag, range: 0.5...2, onChanged: {
                             store.rate = Float(rateDrag)
                             applier.applyRate()
@@ -120,15 +115,15 @@ struct SettingsView: View {
                         })
                         .accessibilityIdentifier("rate-slider")
                         Text(SettingsPresentation.rateLabel(store.rate))
-                            .font(mono(11.5))
-                            .foregroundStyle(Color.pFg.opacity(0.75))
-                            .frame(width: 42, alignment: .trailing)
+                            .font(.system(size: 12))
+                            .monospacedDigit()
+                            .foregroundStyle(Color.pFg)
+                            .frame(width: Metrics.valueWidth, alignment: .trailing)
                             .accessibilityIdentifier("rate-value")
                     }
                 }
-                Row(symbol: "speaker.wave.2.fill", title: "声音", hairline: false) {
-                    HStack(spacing: 9) {
-                        // 置灰联动②：静音时滑杆不可交互 + 视觉变淡。
+                Tile(symbol: "speaker.wave.2.fill", title: "声音") {
+                    HStack(spacing: 11) {
                         GlowSlider(value: volumePercent, range: 0...100, onChanged: {
                             store.volume = SettingsPresentation.volumeFromPercent(
                                 SettingsPresentation.volumePercent(store.volume))
@@ -137,118 +132,140 @@ struct SettingsView: View {
                             store.persist()
                         })
                         .disabled(!SettingsPresentation.volumeControlsEnabled(isMuted: store.isMuted))
-                        .opacity(SettingsPresentation.volumeControlsEnabled(isMuted: store.isMuted) ? 1 : 0.34)
                         .accessibilityIdentifier("volume-slider")
-                        Text("\(SettingsPresentation.volumePercent(store.volume))%").font(mono(11.5))
-                            .foregroundStyle(Color.pFg.opacity(0.75)).frame(width: 42, alignment: .trailing)
+                        Text("\(SettingsPresentation.volumePercent(store.volume))%")
+                            .font(.system(size: 12))
+                            .monospacedDigit()
+                            .foregroundStyle(Color.pFg)
+                            .frame(width: Metrics.valueWidth, alignment: .trailing)
                             .accessibilityIdentifier("volume-value")
+                        // 置灰联动②：静音时滑杆不可交互 + 视觉变淡。
+                        .opacity(SettingsPresentation.volumeControlsEnabled(isMuted: store.isMuted) ? 1 : 0.34)
                         Toggle("", isOn: soundOn).toggleStyle(GlowToggle()).labelsHidden()
                             .accessibilityIdentifier("sound-toggle")
                     }
                 }
             }
-        }
-    }
 
-    // MARK: - 右列
+            SectionHead(t: "来源与系统")
+            CompactCard {
+                CompactRow(symbol: "folder.fill", title: "壁纸文件夹",
+                           sub: store.sourceFolder.isEmpty ? "未设置" : store.sourceFolder) {
+                    Button("选择…") { requestFolder() }.buttonStyle(GlowButton())
+                        .disabled(session.isScanning)
+                        .accessibilityIdentifier("select-button")
+                    Button("重新扫描") { rescanLibrary() }.buttonStyle(GlowButton())
+                        .disabled(session.isScanning)
+                        .accessibilityIdentifier("rescan-button")
+                }
+                .background(Color.pSep, alignment: .bottom)
 
-    private var rightColumn: some View {        VStack(alignment: .leading, spacing: 12) {
-            SectionHead(t: "电源与系统")
-            Card {
-                Row(symbol: "battery.75", title: "电池时播放", sub: "默认开") {
+                if isEmpty {
+                    // 空态：数字转警告色 + 图标盒换警告配色（UI-SPEC §6 硬需求）。
+                    CompactRow(symbol: "exclamationmark.triangle.fill", title: "可用视频",
+                               sub: SettingsPresentation.emptyStateBody, warn: true) {
+                        Text("0")
+                            .font(.system(size: Metrics.countFont, weight: .semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(Color.pWarnFg)
+                            .accessibilityIdentifier("count-value")
+                    }
+                    .background(Color.pSep, alignment: .bottom)
+                } else {
+                    CompactRow(symbol: "film", title: "可用视频") {
+                        Text("\(session.playableCount)")
+                            .font(.system(size: Metrics.countFont, weight: .semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(Color.pAccent)
+                            .accessibilityIdentifier("count-value")
+                    }
+                    .background(Color.pSep, alignment: .bottom)
+                }
+
+                CompactRow(symbol: "battery.75", title: "电池时播放") {
                     Toggle("", isOn: playOnBattery).toggleStyle(GlowToggle()).labelsHidden()
                         .accessibilityIdentifier("battery-toggle")
                 }
-                Row(symbol: "power", title: "开机自启", hairline: false) {
+                .background(Color.pSep, alignment: .bottom)
+
+                CompactRow(symbol: "power", title: "开机自启") {
                     Toggle("", isOn: launchAtLogin).toggleStyle(GlowToggle()).labelsHidden()
                         .accessibilityIdentifier("autostart-toggle")
                 }
             }
+            .accessibilityIdentifier("status-paused")
 
-            SectionHead(t: "维护").padding(.top, 4)
-            Card {
-                Row(symbol: "arrow.left.arrow.right", title: "转码",
-                    sub: "MKV / AVI → MP4", hairline: false) {
-                    // ⚠️ 不可用时**只**调 opacity（UI-SPEC §6 的置灰视觉），绝不用 .disabled(true) ——
-                    // 那会吃掉点击，三途径说明就永远弹不出来（置灰 + 给途径，必须同时成立）。
-                    Button("打开…") {
-                        if !openTranscode({ openWindow(id: TranscodeScene.windowID) }) {
-                            showingPathways = true
-                        }
-                    }
-                        .buttonStyle(GlowButton(primary: true))
-                        .opacity(session.ffmpegAvailable ? 1 : 0.34)
-                        .help(session.ffmpegAvailable ? "打开转码窗口"
-                                                      : "未检测到 ffmpeg —— 点击查看安装途径")
-                        .accessibilityIdentifier("transcode-open")
-                }
-            }
-
-            SectionHead(t: "运行状态").padding(.top, 4)
-            Card {
-                Row(symbol: running ? "play.circle.fill" : "pause.circle.fill",
-                    title: running ? SettingsPresentation.playbackRunningTitle
-                                   : SettingsPresentation.playbackPausedTitle,
-                    sub: joinedReasons.isEmpty ? nil : joinedReasons) {
-                    Text("").frame(width: 0)
-                }
-                .accessibilityIdentifier("status-paused")
-                Row(symbol: "checkmark.seal.fill", title: "ffmpeg",
-                    sub: FFmpegAvailability.label(available: session.ffmpegAvailable), hairline: false) {
-                    Text("").frame(width: 0)
-                }
+            StatusBar(text: ffmpegStatusText,
+                      meta: session.ffmpegAvailable ? [] : ["点击查看安装途径"],
+                      warn: !session.ffmpegAvailable)
                 .accessibilityIdentifier("status-ffmpeg")
-            }
+                .onTapGesture { if !session.ffmpegAvailable { showingPathways = true } }
         }
     }
 
-    // MARK: - 来源卡计数行（空态皮）
+    // MARK: - TAB 2 · 转码（原独立窗口内容，改为窗内区块）
+
+    private var transcodeTab: some View {
+        TranscodeSection(viewModel: transcodeViewModel,
+                         showingPathways: $showingPathways,
+                         refresh: { _ = refreshFFmpeg() })
+    }
+
+    // MARK: - TAB 3 · 关于
+
+    private var aboutTab: some View {
+        VStack(spacing: 0) {
+            Spacer(minLength: 0)
+            VStack(spacing: 4) {
+                Image("AppIcon")
+                    .resizable()
+                    .frame(width: Metrics.aboutIcon, height: Metrics.aboutIcon)
+                    .clipShape(RoundedRectangle(cornerRadius: Metrics.aboutIconRadius,
+                                                style: .continuous))
+                    .shadow(color: .black.opacity(0.16), radius: 6, y: 3)
+                    .padding(.bottom, 9)
+                Text("动态壁纸")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Color.pFg)
+                Text(appVersion)
+                    .font(mono(11.5))
+                    .foregroundStyle(Color.pMuted)
+                Text("用视频当动态壁纸")
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(Color.pMuted)
+                    .padding(.top, 3)
+            }
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, minHeight: Metrics.aboutMinHeight)
+    }
+
+    /// 版本号取自 bundle，不硬编码 —— 改版本号时关于页自动跟随。
+    private var appVersion: String {
+        let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
+        return "版本 \(v ?? "1.0")"
+    }
+
+    // MARK: - 状态读数
 
     private var isEmpty: Bool {
         session.lastLibraryState.map(SettingsPresentation.isEmptyState) ?? false
     }
 
-    private var countRow: some View {
-        HStack(spacing: 12) {
-            if isEmpty {
-                Tile(symbol: "exclamationmark", warn: true)
-            } else {
-                Circle().fill(Color.pAccent).frame(width: 6, height: 6)
-                    .shadow(color: Color.pGlow, radius: 4)
-                    .frame(width: 26)
-            }
-            VStack(alignment: .leading, spacing: 1) {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text("\(session.playableCount)").font(mono(20, .semibold))
-                        .foregroundStyle(isEmpty ? Color.pWarn : Color.pAccent)
-                        .shadow(color: isEmpty ? Color.pWarnGlow : Color.pGlow, radius: 7)
-                    Text("个可用视频").font(mono(11.5)).foregroundStyle(Color.pFg.opacity(0.6))
-                }
-                if isEmpty {
-                    Text(SettingsPresentation.emptyStateBody).font(mono(10.5))
-                        .foregroundStyle(Color.pFg.opacity(0.6))
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            Spacer(minLength: 12)
-            // 空态下**保持可用**：它是恢复路径，置灰等于把用户锁在坏掉的屏幕上。
-            Button("重新扫描") { rescanLibrary() }.buttonStyle(GlowButton())
-                .disabled(session.isScanning)
-                .accessibilityIdentifier("rescan-button")
-        }
-        .padding(.horizontal, 13).frame(minHeight: 42)
-    }
-
-    // MARK: - 运行状态卡读数
-
     private var running: Bool { arbiter.decision.shouldPlay }
 
-    private var joinedReasons: String {
-        SettingsPresentation.joinedReasons(arbiter.decision.activeReasons)
+    /// 状态条主文案。空态优先说「暂停 + 原因」，正常态说在播什么。
+    private var statusLine: String {
+        if isEmpty { return "已暂停 · 没有可播文件" }
+        return "正在播放 · \(SettingsPresentation.playModeLabel(store.playMode))"
     }
 
-    /// ffmpeg 可用性读数来自 session（AppDelegate.refreshFFmpegAvailability 回填，可观察）——
-    /// 视图不再自己扫 PATH，也不直读 AppDelegate 的非观察量（假死卡片的坑）。
+    private var ffmpegStatusText: String {
+        session.ffmpegAvailable
+            ? "ffmpeg 已就绪"
+            : "ffmpeg 未安装 · 转码不可用"
+    }
+
     private func ffmpegStatusLine() {
         let available = session.ffmpegAvailable
         WallpaperWindowController.emit(
@@ -329,10 +346,6 @@ struct SettingsView: View {
         rateDrag = Double(store.rate)
         // 开窗即重查 ffmpeg（用户中途装上的不必重启；回填 session → 卡片当场刷新）。
         refreshFFmpeg()
-        // 呼吸动画只在窗口内容出现时启动（UI-SPEC §6 动画红线），关窗即停。
-        if !reduceMotion {
-            withAnimation(.easeInOut(duration: 10).repeatForever(autoreverses: true)) { breathe = true }
-        }
         applyWindowChrome()
         ffmpegStatusLine()
     }
