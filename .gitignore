@@ -27,3 +27,6 @@ fixtures/
 # ── 日志与临时文件 ──
 *.log
 .swiftpm/
+
+# 随手截的图（正式用的放 docs/）
+截屏*.png
