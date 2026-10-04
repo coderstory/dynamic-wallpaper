@@ -1,5 +1,493 @@
 PBXPROJ_LINT=ok
 FRAME_STATE_CLEAR=ok
 XCODEBUILD_BUILD_RC=0
-SCREEN_LOCKED=1
-UITEST_STATUS=blocked reason=screen_locked
+SCREEN_LOCKED=0
+SCREEN_CAPTURE_AUTHORIZED=1
+UITEST_TEST_RC=1
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -project Pic.xcodeproj -scheme Pic -destination platform=macOS CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual test-without-building
+
+Build settings from command line:
+    CODE_SIGN_IDENTITY = -
+    CODE_SIGN_STYLE = Manual
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  Pic: /Users/coderstory/dev/pic @ local
+
+2026-10-04 14:11:28.726722+0800 PicUITests-Runner[82107:12756055] [Default] Running tests...
+Test Suite 'All tests' started at 2026-10-04 14:11:32.760.
+Test Suite 'PicUITests.xctest' started at 2026-10-04 14:11:32.760.
+Test Suite 'SettingsControlsUITests' started at 2026-10-04 14:11:32.761.
+Test Case '-[PicUITests.SettingsControlsUITests testAllControlsExistAndTranscodeStaysTappableWhenDimmed]' started.
+    t =     0.00s Start Test at 2026-10-04 14:11:32.761
+    t =     0.27s Set Up
+    t =     0.83s Open com.local.pic
+    t =     0.84s     Launch com.local.pic
+2026-10-04 14:11:33.962 xcodebuild[82101:12755974] [MT] IDELaunchParametersSnapshot: debugger version lookup failed for path '<nil>': noURL
+2026-10-04 14:11:33.962 xcodebuild[82101:12755974] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.69s         Wait for accessibility to load
+    t =     1.84s         Setting up automation session
+    t =     1.86s         Wait for com.local.pic to idle
+    t =     1.87s Waiting 10.0s for Window (First Match) to exist
+    t =     2.90s     Checking `Expect predicate `existsNoRetry == 1` for object Window (First Match)`
+    t =     2.91s         Checking existence of `Window (First Match)`
+    t =     2.93s Waiting 5.0s for "rate-slider" Any to exist
+    t =     3.95s     Checking `Expect predicate `existsNoRetry == 1` for object "rate-slider" Any`
+    t =     3.96s         Checking existence of `"rate-slider" Any`
+    t =     4.04s Waiting 5.0s for "volume-slider" Any to exist
+    t =     5.06s     Checking `Expect predicate `existsNoRetry == 1` for object "volume-slider" Any`
+    t =     5.06s         Checking existence of `"volume-slider" Any`
+    t =     5.10s Waiting 5.0s for "sound-toggle" Any to exist
+    t =     6.12s     Checking `Expect predicate `existsNoRetry == 1` for object "sound-toggle" Any`
+    t =     6.12s         Checking existence of `"sound-toggle" Any`
+    t =     6.16s Waiting 5.0s for "mode-segmented" Any to exist
+    t =     7.19s     Checking `Expect predicate `existsNoRetry == 1` for object "mode-segmented" Any`
+    t =     7.19s         Checking existence of `"mode-segmented" Any`
+    t =     7.21s Waiting 5.0s for "battery-toggle" Any to exist
+    t =     8.24s     Checking `Expect predicate `existsNoRetry == 1` for object "battery-toggle" Any`
+    t =     8.24s         Checking existence of `"battery-toggle" Any`
+    t =     8.26s Waiting 5.0s for "autostart-toggle" Any to exist
+    t =     9.29s     Checking `Expect predicate `existsNoRetry == 1` for object "autostart-toggle" Any`
+    t =     9.29s         Checking existence of `"autostart-toggle" Any`
+    t =     9.31s Waiting 5.0s for "select-button" Any to exist
+    t =    10.34s     Checking `Expect predicate `existsNoRetry == 1` for object "select-button" Any`
+    t =    10.34s         Checking existence of `"select-button" Any`
+    t =    10.36s Waiting 5.0s for "rescan-button" Any to exist
+    t =    11.42s     Checking `Expect predicate `existsNoRetry == 1` for object "rescan-button" Any`
+    t =    11.42s         Checking existence of `"rescan-button" Any`
+/Users/coderstory/dev/pic/UITests/PicUITests/SettingsControlsUITests.swift:174: error: -[PicUITests.SettingsControlsUITests testAllControlsExistAndTranscodeStaysTappableWhenDimmed] : Failed to get matching snapshots: Lost connection to the application (pid 82122). (Underlying Error: 无法与帮助程序通信。. 请再次尝试执行你的操作。如果失败，请退出并重启应用程序，然后重试。. The connection to service created from an endpoint was invalidated: Failed to check-in, peer may have been unloaded: mach_error=10000003.)
+    t =    11.59s         Capturing element debug description
+    t =    11.60s Tear Down
+Test Case '-[PicUITests.SettingsControlsUITests testAllControlsExistAndTranscodeStaysTappableWhenDimmed]' failed (12.272 seconds).
+Test Case '-[PicUITests.SettingsControlsUITests testEmptyFolderShowsVerbatimCopyAndRescanStaysEnabled]' started.
+    t =     0.00s Start Test at 2026-10-04 14:11:45.034
+    t =     0.08s Set Up
+    t =     0.62s     Open com.local.pic
+    t =     0.62s         Launch com.local.pic
+    t =     0.62s             Terminate com.local.pic:82122
+/Users/coderstory/dev/pic/UITests/PicUITests/SettingsControlsUITests.swift:81: error: -[PicUITests.SettingsControlsUITests testEmptyFolderShowsVerbatimCopyAndRescanStaysEnabled] : Failed to terminate com.local.pic:82122: Failed to terminate com.local.pic:0
+    t =    60.65s Tear Down
+Test Case '-[PicUITests.SettingsControlsUITests testEmptyFolderShowsVerbatimCopyAndRescanStaysEnabled]' failed (61.282 seconds).
+Test Case '-[PicUITests.SettingsControlsUITests testMenuBarExposesFiveHittableItems]' started.
+    t =     0.00s Start Test at 2026-10-04 14:12:46.317
+    t =     0.10s Set Up
+    t =     0.65s                 Open com.local.pic
+    t =     0.65s                     Launch com.local.pic
+2026-10-04 14:12:46.969 xcodebuild[82101:12755974] [MT] IDELaunchParametersSnapshot: debugger version lookup failed for path '<nil>': noURL
+2026-10-04 14:12:46.969 xcodebuild[82101:12755974] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.08s                         Wait for accessibility to load
+    t =     1.18s                         Setting up automation session
+    t =     1.19s                         Wait for com.local.pic to idle
+    t =     1.20s                 Waiting 10.0s for StatusItem (First Match) to exist
+    t =     2.23s                     Checking `Expect predicate `existsNoRetry == 1` for object StatusItem (First Match)`
+    t =     2.23s                         Checking existence of `StatusItem (First Match)`
+    t =     2.25s                 Click StatusItem (First Match)
+    t =     2.25s                     Wait for com.local.pic to idle
+    t =     2.25s                     Find the StatusItem (First Match)
+    t =     2.27s                     Check for interrupting elements affecting StatusItem
+    t =     2.28s                     Synthesize event
+    t =     2.78s                     Wait for com.local.pic to idle
+    t =     2.79s                 Waiting 5.0s for MenuItem (First Match) to exist
+    t =     3.81s                     Checking `Expect predicate `existsNoRetry == 1` for object MenuItem (First Match)`
+    t =     3.82s                         Checking existence of `MenuItem (First Match)`
+    t =     3.93s                         Capturing element debug description
+    t =     4.86s                     Checking `Expect predicate `existsNoRetry == 1` for object MenuItem (First Match)`
+    t =     4.87s                         Checking existence of `MenuItem (First Match)`
+    t =     4.93s                         Capturing element debug description
+    t =     5.86s                     Checking `Expect predicate `existsNoRetry == 1` for object MenuItem (First Match)`
+    t =     5.87s                         Checking existence of `MenuItem (First Match)`
+    t =     5.92s                         Capturing element debug description
+    t =     6.85s                     Checking `Expect predicate `existsNoRetry == 1` for object MenuItem (First Match)`
+    t =     6.85s                         Checking existence of `MenuItem (First Match)`
+    t =     6.90s                         Capturing element debug description
+    t =     7.79s                     Checking `Expect predicate `existsNoRetry == 1` for object MenuItem (First Match)`
+    t =     7.79s                         Checking existence of `MenuItem (First Match)`
+    t =     7.84s                         Capturing element debug description
+    t =     7.85s                     Checking existence of `MenuItem (First Match)`
+    t =     7.88s                 Collecting debug information to assist test failure triage
+    t =     7.88s                     Requesting snapshot of accessibility hierarchy for app with pid 82472
+/Users/coderstory/dev/pic/UITests/PicUITests/SettingsControlsUITests.swift:278: error: -[PicUITests.SettingsControlsUITests testMenuBarExposesFiveHittableItems] : XCTAssertTrue failed - 菜单应有「暂停」项（TEST-10）
+    t =     7.95s Tear Down
+Test Case '-[PicUITests.SettingsControlsUITests testMenuBarExposesFiveHittableItems]' failed (8.573 seconds).
+Test Case '-[PicUITests.SettingsControlsUITests testNextVideoMenuItemAdvancesEvenInSingleLoopMode]' started.
+    t =     0.00s Start Test at 2026-10-04 14:12:54.890
+    t =     0.11s Set Up
+2026-10-04 14:12:55.621721+0800 PicUITests-Runner[82107:12756219] [Security] __delegate_identifier__:Performance Diagnostics__:::____message__:This method should not be called on the main thread as it may lead to UI unresponsiveness.
+2026-10-04 14:12:55.622702+0800 PicUITests-Runner[82107:12756219] [Security] __delegate_identifier__:Performance Diagnostics__:::____message__:This method should not be called on the main thread as it may lead to UI unresponsiveness.
+2026-10-04 14:12:55.625666+0800 PicUITests-Runner[82107:12756219] [Security] __delegate_identifier__:Performance Diagnostics__:::____message__:This method should not be called on the main thread as it may lead to UI unresponsiveness.
+2026-10-04 14:12:55.626101+0800 PicUITests-Runner[82107:12756219] [Security] __delegate_identifier__:Performance Diagnostics__:::____message__:This method should not be called on the main thread as it may lead to UI unresponsiveness.
+2026-10-04 14:12:55.755423+0800 PicUITests-Runner[82107:12756219] [Security] __delegate_identifier__:Performance Diagnostics__:::____message__:This method should not be called on the main thread as it may lead to UI unresponsiveness.
+2026-10-04 14:12:55.755796+0800 PicUITests-Runner[82107:12756219] [Security] __delegate_identifier__:Performance Diagnostics__:::____message__:This method should not be called on the main thread as it may lead to UI unresponsiveness.
+2026-10-04 14:12:55.758563+0800 PicUITests-Runner[82107:12756219] [Security] __delegate_identifier__:Performance Diagnostics__:::____message__:This method should not be called on the main thread as it may lead to UI unresponsiveness.
+2026-10-04 14:12:55.758886+0800 PicUITests-Runner[82107:12756219] [Security] __delegate_identifier__:Performance Diagnostics__:::____message__:This method should not be called on the main thread as it may lead to UI unresponsiveness.
+2026-10-04 14:12:55.760375+0800 PicUITests-Runner[82107:12756219] [Security] __delegate_identifier__:Performance Diagnostics__:::____message__:This method should not be called on the main thread as it may lead to UI unresponsiveness.
+2026-10-04 14:12:55.760641+0800 PicUITests-Runner[82107:12756219] [Security] __delegate_identifier__:Performance Diagnostics__:::____message__:This method should not be called on the main thread as it may lead to UI unresponsiveness.
+2026-10-04 14:12:55.762830+0800 PicUITests-Runner[82107:12756219] [Security] __delegate_identifier__:Performance Diagnostics__:::____message__:This method should not be called on the main thread as it may lead to UI unresponsiveness.
+2026-10-04 14:12:55.763081+0800 PicUITests-Runner[82107:12756219] [Security] __delegate_identifier__:Performance Diagnostics__:::____message__:This method should not be called on the main thread as it may lead to UI unresponsiveness.
+2026-10-04 14:12:55.766351+0800 PicUITests-Runner[82107:12756219] [Security] __delegate_identifier__:Performance Diagnostics__:::____message__:This method should not be called on the main thread as it may lead to UI unresponsiveness.
+2026-10-04 14:12:55.766601+0800 PicUITests-Runner[82107:12756219] [Security] __delegate_identifier__:Performance Diagnostics__:::____message__:This method should not be called on the main thread as it may lead to UI unresponsiveness.
+2026-10-04 14:12:55.770148+0800 PicUITests-Runner[82107:12756219] [Security] __delegate_identifier__:Performance Diagnostics__:::____message__:This method should not be called on the main thread as it may lead to UI unresponsiveness.
+2026-10-04 14:12:55.770414+0800 PicUITests-Runner[82107:12756219] [Security] __delegate_identifier__:Performance Diagnostics__:::____message__:This method should not be called on the main thread as it may lead to UI unresponsiveness.
+2026-10-04 14:12:55.774074+0800 PicUITests-Runner[82107:12756219] [Security] __delegate_identifier__:Performance Diagnostics__:::____message__:This method should not be called on the main thread as it may lead to UI unresponsiveness.
+2026-10-04 14:12:55.774321+0800 PicUITests-Runner[82107:12756219] [Security] __delegate_identifier__:Performance Diagnostics__:::____message__:This method should not be called on the main thread as it may lead to UI unresponsiveness.
+2026-10-04 14:12:55.792076+0800 PicUITests-Runner[82107:12757522] [ClientDonation] (+[PPSClientDonation isRegisteredSubsystem:category:]) Permission denied: CoreMedia / CM-EXPORT
+<unknown>:0: warning: -[PicUITests.SettingsControlsUITests testNextVideoMenuItemAdvancesEvenInSingleLoopMode] : This method should not be called on the main thread as it may lead to UI unresponsiveness.
+    t =     0.92s                 Open com.local.pic
+    t =     0.92s                     Launch com.local.pic
+    t =     0.92s                         Terminate com.local.pic:82472
+2026-10-04 14:12:56.874 xcodebuild[82101:12755974] [MT] IDELaunchParametersSnapshot: debugger version lookup failed for path '<nil>': noURL
+2026-10-04 14:12:56.874 xcodebuild[82101:12755974] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     2.42s                         Wait for accessibility to load
+    t =     2.63s                         Setting up automation session
+    t =     2.64s                         Wait for com.local.pic to idle
+    t =     2.65s                 Waiting 10.0s for StatusItem (First Match) to exist
+    t =     3.67s                     Checking `Expect predicate `existsNoRetry == 1` for object StatusItem (First Match)`
+    t =     3.67s                         Checking existence of `StatusItem (First Match)`
+    t =     3.68s                 Click StatusItem (First Match)
+    t =     3.68s                     Wait for com.local.pic to idle
+    t =     3.69s                     Find the StatusItem (First Match)
+    t =     3.71s                     Check for interrupting elements affecting StatusItem
+    t =     3.71s                     Synthesize event
+    t =     4.21s                     Wait for com.local.pic to idle
+    t =     4.21s                 Waiting 5.0s for MenuItem (First Match) to exist
+    t =     5.24s                     Checking `Expect predicate `existsNoRetry == 1` for object MenuItem (First Match)`
+    t =     5.24s                         Checking existence of `MenuItem (First Match)`
+    t =     5.33s                         Capturing element debug description
+    t =     6.26s                     Checking `Expect predicate `existsNoRetry == 1` for object MenuItem (First Match)`
+    t =     6.26s                         Checking existence of `MenuItem (First Match)`
+    t =     6.31s                         Capturing element debug description
+    t =     7.24s                     Checking `Expect predicate `existsNoRetry == 1` for object MenuItem (First Match)`
+    t =     7.24s                         Checking existence of `MenuItem (First Match)`
+    t =     7.29s                         Capturing element debug description
+    t =     8.22s                     Checking `Expect predicate `existsNoRetry == 1` for object MenuItem (First Match)`
+    t =     8.23s                         Checking existence of `MenuItem (First Match)`
+    t =     8.28s                         Capturing element debug description
+    t =     9.22s                     Checking `Expect predicate `existsNoRetry == 1` for object MenuItem (First Match)`
+    t =     9.22s                         Checking existence of `MenuItem (First Match)`
+    t =     9.27s                         Capturing element debug description
+    t =     9.27s                     Checking existence of `MenuItem (First Match)`
+    t =     9.30s                 Collecting debug information to assist test failure triage
+    t =     9.31s                     Requesting snapshot of accessibility hierarchy for app with pid 82499
+/Users/coderstory/dev/pic/UITests/PicUITests/SettingsControlsUITests.swift:300: error: -[PicUITests.SettingsControlsUITests testNextVideoMenuItemAdvancesEvenInSingleLoopMode] : XCTAssertTrue failed - 菜单应有「立即下一个」（G-04-3）
+    t =     9.38s Tear Down
+Test Case '-[PicUITests.SettingsControlsUITests testNextVideoMenuItemAdvancesEvenInSingleLoopMode]' failed (9.942 seconds).
+Test Case '-[PicUITests.SettingsControlsUITests testRotationRowIgnoresTapsInSingleLoopAndRecoversInListLoop]' started.
+    t =     0.00s Start Test at 2026-10-04 14:13:04.833
+    t =     0.10s Set Up
+    t =     0.64s                 Open com.local.pic
+    t =     0.65s                     Launch com.local.pic
+    t =     0.65s                         Terminate com.local.pic:82499
+2026-10-04 14:13:06.522 xcodebuild[82101:12755974] [MT] IDELaunchParametersSnapshot: debugger version lookup failed for path '<nil>': noURL
+2026-10-04 14:13:06.522 xcodebuild[82101:12755974] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     2.12s                         Wait for accessibility to load
+    t =     2.24s                         Setting up automation session
+    t =     2.24s                         Wait for com.local.pic to idle
+    t =     2.25s                 Waiting 10.0s for "rotation-stepper" Any to exist
+    t =     3.28s                     Checking `Expect predicate `existsNoRetry == 1` for object "rotation-stepper" Any`
+    t =     3.28s                         Checking existence of `"rotation-stepper" Any`
+    t =     3.33s                 Find the "rotation-stepper" Any
+    t =     5.35s                 Find the "rotation-stepper" Image
+    t =     5.41s                 Tap "rotation-stepper" Image[0.95, 0.50]
+    t =     5.41s                     Wait for com.local.pic to idle
+    t =     5.41s                     Find the "rotation-stepper" Image
+    t =     5.43s                     Check for interrupting elements affecting "rotation-stepper" Image
+    t =     5.45s                     Synthesize event
+    t =     5.45s                         Find the "rotation-stepper" Image
+    t =     5.47s                         Find the "rotation-stepper" Image
+2026-10-04 14:13:10.330342+0800 PicUITests-Runner[82107:12756055] [DisplayManager] Found 1 displays containing rect (379.0, 534.0, 12.5, 12.5): [1]
+    t =    10.58s                     Wait for com.local.pic to idle
+    t =    12.59s                 Tap "列表循环" Button
+    t =    12.59s                     Wait for com.local.pic to idle
+    t =    12.60s                     Find the "列表循环" Button
+    t =    12.70s                     Check for interrupting elements affecting "mode-segmented" Button
+    t =    12.71s                     Synthesize event
+2026-10-04 14:13:17.553347+0800 PicUITests-Runner[82107:12756055] [DisplayManager] Found 1 displays containing rect (615.0, 491.0, 46.0, 14.0): [1]
+    t =    17.79s                     Wait for com.local.pic to idle
+    t =    17.79s                 Checking existence of `"rotation-stepper" Any`
+    t =    17.82s                 Find the "rotation-stepper" Any
+    t =    18.09s                 Checking existence of `"rotation-stepper" Any`
+    t =    18.12s                 Find the "rotation-stepper" Any
+    t =    18.40s                 Checking existence of `"rotation-stepper" Any`
+    t =    18.42s                 Find the "rotation-stepper" Any
+    t =    18.70s                 Checking existence of `"rotation-stepper" Any`
+    t =    18.73s                 Find the "rotation-stepper" Any
+    t =    19.01s                 Checking existence of `"rotation-stepper" Any`
+    t =    19.04s                 Find the "rotation-stepper" Any
+    t =    19.31s                 Checking existence of `"rotation-stepper" Any`
+    t =    19.34s                 Find the "rotation-stepper" Any
+    t =    19.62s                 Checking existence of `"rotation-stepper" Any`
+    t =    19.65s                 Find the "rotation-stepper" Any
+    t =    19.92s                 Checking existence of `"rotation-stepper" Any`
+    t =    19.95s                 Find the "rotation-stepper" Any
+    t =    20.23s                 Checking existence of `"rotation-stepper" Any`
+    t =    20.26s                 Find the "rotation-stepper" Any
+    t =    20.53s                 Checking existence of `"rotation-stepper" Any`
+    t =    20.56s                 Find the "rotation-stepper" Any
+    t =    20.84s                 Checking existence of `"rotation-stepper" Any`
+    t =    20.86s                 Find the "rotation-stepper" Any
+    t =    21.14s                 Checking existence of `"rotation-stepper" Any`
+    t =    21.17s                 Find the "rotation-stepper" Any
+    t =    21.45s                 Checking existence of `"rotation-stepper" Any`
+    t =    21.47s                 Find the "rotation-stepper" Any
+    t =    21.75s                 Checking existence of `"rotation-stepper" Any`
+    t =    21.78s                 Find the "rotation-stepper" Any
+    t =    22.05s                 Checking existence of `"rotation-stepper" Any`
+    t =    22.08s                 Find the "rotation-stepper" Any
+    t =    22.35s                 Checking existence of `"rotation-stepper" Any`
+    t =    22.37s                 Find the "rotation-stepper" Any
+    t =    22.65s                 Checking existence of `"rotation-stepper" Any`
+    t =    22.68s                 Find the "rotation-stepper" Any
+    t =    22.95s                 Checking existence of `"rotation-stepper" Any`
+    t =    22.98s                 Find the "rotation-stepper" Any
+    t =    23.25s                 Checking existence of `"rotation-stepper" Any`
+    t =    23.29s                 Find the "rotation-stepper" Any
+    t =    23.56s                 Checking existence of `"rotation-stepper" Any`
+    t =    23.59s                 Find the "rotation-stepper" Any
+    t =    23.86s                 Checking existence of `"rotation-stepper" Any`
+    t =    23.89s                 Find the "rotation-stepper" Any
+    t =    24.17s                 Checking existence of `"rotation-stepper" Any`
+    t =    24.19s                 Find the "rotation-stepper" Any
+    t =    24.47s                 Checking existence of `"rotation-stepper" Any`
+    t =    24.50s                 Find the "rotation-stepper" Any
+    t =    24.78s                 Checking existence of `"rotation-stepper" Any`
+    t =    24.81s                 Find the "rotation-stepper" Any
+    t =    25.08s                 Checking existence of `"rotation-stepper" Any`
+    t =    25.11s                 Find the "rotation-stepper" Any
+    t =    25.39s                 Checking existence of `"rotation-stepper" Any`
+    t =    25.41s                 Find the "rotation-stepper" Any
+    t =    25.68s                 Checking existence of `"rotation-stepper" Any`
+    t =    25.71s                 Find the "rotation-stepper" Any
+    t =    25.99s                 Checking existence of `"rotation-stepper" Any`
+    t =    26.01s                 Find the "rotation-stepper" Any
+    t =    26.29s                 Checking existence of `"rotation-stepper" Any`
+    t =    26.32s                 Find the "rotation-stepper" Any
+    t =    26.59s                 Checking existence of `"rotation-stepper" Any`
+    t =    26.62s                 Find the "rotation-stepper" Any
+    t =    26.89s                 Checking existence of `"rotation-stepper" Any`
+    t =    26.92s                 Find the "rotation-stepper" Any
+    t =    27.19s                 Checking existence of `"rotation-stepper" Any`
+    t =    27.22s                 Find the "rotation-stepper" Any
+    t =    27.50s                 Checking existence of `"rotation-stepper" Any`
+    t =    27.52s                 Find the "rotation-stepper" Any
+/Users/coderstory/dev/pic/UITests/PicUITests/SettingsControlsUITests.swift:212: error: -[PicUITests.SettingsControlsUITests testRotationRowIgnoresTapsInSingleLoopAndRecoversInListLoop] : XCTAssertTrue failed - 切回列表循环后轮换行应恢复可用（TEST-08 ①）
+    t =    27.80s Tear Down
+Test Case '-[PicUITests.SettingsControlsUITests testRotationRowIgnoresTapsInSingleLoopAndRecoversInListLoop]' failed (28.482 seconds).
+Test Case '-[PicUITests.SettingsControlsUITests testVolumeSliderIgnoresDragWhenMutedAndRecoversAfterUnmute]' started.
+    t =     0.00s Start Test at 2026-10-04 14:13:33.315
+    t =     0.09s Set Up
+    t =     0.62s                 Open com.local.pic
+    t =     0.62s                     Launch com.local.pic
+    t =     0.62s                         Terminate com.local.pic:82521
+2026-10-04 14:13:34.958 xcodebuild[82101:12755974] [MT] IDELaunchParametersSnapshot: debugger version lookup failed for path '<nil>': noURL
+2026-10-04 14:13:34.958 xcodebuild[82101:12755974] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     2.09s                         Wait for accessibility to load
+    t =     2.20s                         Setting up automation session
+    t =     2.21s                         Wait for com.local.pic to idle
+    t =     2.22s                 Waiting 10.0s for "volume-slider" Any to exist
+    t =     3.25s                     Checking `Expect predicate `existsNoRetry == 1` for object "volume-slider" Any`
+    t =     3.25s                         Checking existence of `"volume-slider" Any`
+    t =     3.30s                 Tap "sound-toggle" Any
+    t =     3.30s                     Wait for com.local.pic to idle
+    t =     3.34s                     Find the "sound-toggle" Any
+    t =     3.37s                     Check for interrupting elements affecting "sound-toggle" CheckBox
+    t =     3.39s                     Found 1 interrupting element:
+    t =     3.39s Window at {{169.0, 243.0}, {640.0, 420.0}} from Target Application 'com.local.pic'
+    t =     3.39s                     Invoking UI interruption monitors for Window at {{169.0, 243.0}, {640.0, 420.0}} from Target Application 'com.local.pic'
+    t =     3.39s Checking for user permission dialogs...
+    t =     3.39s                             Checking existence of `StaticText (Elements matching predicate 'value MATCHES[c] ".+ would like ((to|full) access|to find) .+"')`
+    t =     3.46s                             Checking existence of `StaticText (Elements matching predicate 'title CONTAINS[c] "Trust This "')`
+    t =     3.49s Checking for Bluetooth Setup Assistant...
+    t =     3.49s                             Find the Window at {{169.0, 243.0}, {640.0, 420.0}}
+    t =     3.52s Checking for Notification Center Banners...
+    t =     3.52s Checking for basic alerts
+    t =     3.52s                             Checking existence of `"transcode" Window`
+    t =     3.55s                             Find the "transcode" Window
+    t =     3.58s                             Find the "transcode" Window
+    t =     3.61s No monitors handled UI interruption, checking to see if element still exists...
+    t =     3.61s                             Checking existence of `"transcode" Window`
+    t =     3.64s Did not handle the interruption, but will attempt to continue…
+    t =     3.64s                     Synthesize event
+    t =     3.66s                         Falling back to element center point: {695, 624}
+2026-10-04 14:13:36.980564+0800 PicUITests-Runner[82107:12756055] [DisplayManager] Found 1 displays containing rect (675.0, 612.5, 40.0, 23.0): [1]
+    t =     8.70s                     Wait for com.local.pic to idle
+/Users/coderstory/dev/pic/UITests/PicUITests/SettingsControlsUITests.swift:224: error: -[PicUITests.SettingsControlsUITests testVolumeSliderIgnoresDragWhenMutedAndRecoversAfterUnmute] : XCTAssertTrue failed - 第一次点开关应进入静音
+    t =    18.84s Tear Down
+Test Case '-[PicUITests.SettingsControlsUITests testVolumeSliderIgnoresDragWhenMutedAndRecoversAfterUnmute]' failed (19.507 seconds).
+Test Suite 'SettingsControlsUITests' failed at 2026-10-04 14:13:52.822.
+	 Executed 6 tests, with 6 failures (0 unexpected) in 140.058 (140.062) seconds
+Test Suite 'SettingsWindowUITests' started at 2026-10-04 14:13:52.823.
+Test Case '-[PicUITests.SettingsWindowUITests testClosingWindowKeepsProcessAlive]' started.
+    t =     0.00s Start Test at 2026-10-04 14:13:52.824
+    t =     0.09s Set Up
+    t =     0.10s                 Open com.local.pic
+    t =     0.10s                     Launch com.local.pic
+    t =     0.10s                         Terminate com.local.pic:82545
+2026-10-04 14:13:53.968 xcodebuild[82101:12755974] [MT] IDELaunchParametersSnapshot: debugger version lookup failed for path '<nil>': noURL
+2026-10-04 14:13:53.968 xcodebuild[82101:12755974] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.61s                         Wait for accessibility to load
+    t =     1.70s                         Setting up automation session
+    t =     1.71s                         Wait for com.local.pic to idle
+    t =     1.71s                 Waiting 10.0s for Window (First Match) to exist
+    t =     2.72s                     Checking `Expect predicate `existsNoRetry == 1` for object Window (First Match)`
+    t =     2.72s                         Checking existence of `Window (First Match)`
+    t =     2.73s                 Click "_XCUI:CloseWindow" Button
+    t =     2.73s                     Wait for com.local.pic to idle
+    t =     2.74s                     Find the "_XCUI:CloseWindow" Button
+    t =     2.79s                     Check for interrupting elements affecting "_XCUI:CloseWindow" Button
+    t =     2.80s                     Synthesize event
+    t =     3.28s                     Wait for com.local.pic to idle
+    t =     4.28s                 Checking existence of `Window (First Match)`
+    t =     4.40s                 Open com.local.pic
+    t =     4.40s                     Activate com.local.pic
+    t =     4.41s                         Wait for com.local.pic to idle
+    t =     4.42s                 Waiting 3.0s for StatusItem (First Match) to exist
+    t =     5.43s                     Checking `Expect predicate `existsNoRetry == 1` for object StatusItem (First Match)`
+    t =     5.43s                         Checking existence of `StatusItem (First Match)`
+    t =     5.44s Tear Down
+Test Case '-[PicUITests.SettingsWindowUITests testClosingWindowKeepsProcessAlive]' passed (5.499 seconds).
+Test Case '-[PicUITests.SettingsWindowUITests testRateDragAppliesImmediatelyAndSurvivesRelaunch]' started.
+    t =     0.00s Start Test at 2026-10-04 14:13:58.323
+    t =     0.11s Set Up
+    t =     0.12s                 Open com.local.pic
+    t =     0.12s                     Launch com.local.pic
+    t =     0.12s                         Terminate com.local.pic:82558
+2026-10-04 14:13:59.489 xcodebuild[82101:12755974] [MT] IDELaunchParametersSnapshot: debugger version lookup failed for path '<nil>': noURL
+2026-10-04 14:13:59.489 xcodebuild[82101:12755974] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.49s                         Wait for accessibility to load
+    t =     1.71s                         Setting up automation session
+    t =     1.72s                         Wait for com.local.pic to idle
+    t =     1.73s                 Waiting 10.0s for Window (First Match) to exist
+    t =     2.75s                     Checking `Expect predicate `existsNoRetry == 1` for object Window (First Match)`
+    t =     2.75s                         Checking existence of `Window (First Match)`
+    t =     2.76s                 Waiting 5.0s for "rate-slider" Any to exist
+    t =     3.77s                     Checking `Expect predicate `existsNoRetry == 1` for object "rate-slider" Any`
+    t =     3.77s                         Checking existence of `"rate-slider" Any`
+    t =     3.82s                 Press "rate-slider" Any[0.20, 0.50] for 0.1 seconds, then drag to "rate-slider" Any[0.80, 0.50] with velocity of 500.00 pixels per second, and then hold for 0.0 seconds 
+    t =     3.82s                     Wait for com.local.pic to idle
+    t =     3.82s                     Find the "rate-slider" Any
+    t =     3.84s                     Check for interrupting elements affecting "rate-slider" Other
+    t =     3.86s                     Synthesize event
+    t =     3.86s                         Find the "rate-slider" Other
+    t =     3.88s                         Find the "rate-slider" Other
+    t =     3.90s                         Find the "rate-slider" Other
+    t =     3.92s                         Find the "rate-slider" Other
+2026-10-04 14:14:02.262284+0800 PicUITests-Runner[82107:12756055] [DisplayManager] Found 1 displays containing rect (572.0, 573.0, 92.0, 18.0): [1]
+    t =     9.01s                     Wait for com.local.pic to idle
+    t =    10.02s                 Press "rate-slider" Other[0.20, 0.50] for 0.1 seconds, then drag to "rate-slider" Other[0.80, 0.50] with velocity of 500.00 pixels per second, and then hold for 0.0 seconds 
+    t =    10.02s                     Wait for com.local.pic to idle
+    t =    10.03s                     Find the "rate-slider" Other
+    t =    10.06s                     Check for interrupting elements affecting "rate-slider" Other
+    t =    10.08s                     Synthesize event
+    t =    10.08s                         Find the "rate-slider" Other
+    t =    10.11s                         Find the "rate-slider" Other
+    t =    10.13s                         Find the "rate-slider" Other
+    t =    10.15s                         Find the "rate-slider" Other
+2026-10-04 14:14:08.495988+0800 PicUITests-Runner[82107:12756055] [DisplayManager] Found 1 displays containing rect (572.0, 573.0, 92.0, 18.0): [1]
+    t =    15.24s                     Wait for com.local.pic to idle
+    t =    16.25s                 Press "rate-slider" Other[0.20, 0.50] for 0.1 seconds, then drag to "rate-slider" Other[0.80, 0.50] with velocity of 500.00 pixels per second, and then hold for 0.0 seconds 
+    t =    16.25s                     Wait for com.local.pic to idle
+    t =    16.26s                     Find the "rate-slider" Other
+    t =    16.29s                     Check for interrupting elements affecting "rate-slider" Other
+    t =    16.31s                     Synthesize event
+    t =    16.31s                         Find the "rate-slider" Other
+    t =    16.34s                         Find the "rate-slider" Other
+    t =    16.36s                         Find the "rate-slider" Other
+    t =    16.38s                         Find the "rate-slider" Other
+2026-10-04 14:14:14.716259+0800 PicUITests-Runner[82107:12756055] [DisplayManager] Found 1 displays containing rect (572.0, 573.0, 92.0, 18.0): [1]
+    t =    21.43s                     Wait for com.local.pic to idle
+NOTE W-2026-10-03-32 slider drag drift
+/Users/coderstory/dev/pic/UITests/PicUITests/SettingsWindowUITests.swift:148: -[PicUITests.SettingsWindowUITests testRateDragAppliesImmediatelyAndSurvivesRelaunch] : Test skipped - W-2026-10-03-32 slider drag drift
+    t =    22.44s Tear Down
+Test Case '-[PicUITests.SettingsWindowUITests testRateDragAppliesImmediatelyAndSurvivesRelaunch]' skipped (22.560 seconds).
+Test Case '-[PicUITests.SettingsWindowUITests testSettingsMenuItemRendersShortcutAndOpensWindow]' started.
+    t =     0.00s Start Test at 2026-10-04 14:14:20.883
+    t =     0.08s Set Up
+    t =     0.09s                 Open com.local.pic
+    t =     0.09s                     Launch com.local.pic
+    t =     0.09s                         Terminate com.local.pic:82563
+2026-10-04 14:14:22.023 xcodebuild[82101:12755974] [MT] IDELaunchParametersSnapshot: debugger version lookup failed for path '<nil>': noURL
+2026-10-04 14:14:22.023 xcodebuild[82101:12755974] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.57s                         Wait for accessibility to load
+    t =     1.62s                         Setting up automation session
+    t =     1.62s                         Wait for com.local.pic to idle
+    t =     1.64s                 Waiting 10.0s for StatusItem (First Match) to exist
+    t =     2.65s                     Checking `Expect predicate `existsNoRetry == 1` for object StatusItem (First Match)`
+    t =     2.65s                         Checking existence of `StatusItem (First Match)`
+    t =     2.68s                 Click StatusItem (First Match)
+    t =     2.68s                     Wait for com.local.pic to idle
+    t =     2.68s                     Find the StatusItem (First Match)
+    t =     2.70s                     Check for interrupting elements affecting StatusItem
+    t =     2.70s                     Open com.local.pic
+    t =     2.70s                         Activate com.local.pic
+    t =     2.71s                             Wait for com.local.pic to idle
+    t =     2.72s                     Synthesize event
+    t =     3.23s                     Wait for com.local.pic to idle
+    t =     3.23s                 Waiting 5.0s for "打开设置 ⌘," MenuItem to exist
+    t =     4.26s                     Checking `Expect predicate `existsNoRetry == 1` for object "打开设置 ⌘," MenuItem`
+    t =     4.26s                         Checking existence of `"打开设置 ⌘," MenuItem`
+    t =     4.37s                         Capturing element debug description
+    t =     5.30s                     Checking `Expect predicate `existsNoRetry == 1` for object "打开设置 ⌘," MenuItem`
+    t =     5.30s                         Checking existence of `"打开设置 ⌘," MenuItem`
+    t =     5.38s                         Capturing element debug description
+    t =     6.30s                     Checking `Expect predicate `existsNoRetry == 1` for object "打开设置 ⌘," MenuItem`
+    t =     6.30s                         Checking existence of `"打开设置 ⌘," MenuItem`
+    t =     6.37s                         Capturing element debug description
+    t =     7.28s                     Checking `Expect predicate `existsNoRetry == 1` for object "打开设置 ⌘," MenuItem`
+    t =     7.28s                         Checking existence of `"打开设置 ⌘," MenuItem`
+    t =     7.35s                         Capturing element debug description
+    t =     8.24s                     Checking `Expect predicate `existsNoRetry == 1` for object "打开设置 ⌘," MenuItem`
+    t =     8.24s                         Checking existence of `"打开设置 ⌘," MenuItem`
+    t =     8.32s                         Capturing element debug description
+    t =     8.32s                     Checking existence of `"打开设置 ⌘," MenuItem`
+    t =     8.36s                 Collecting debug information to assist test failure triage
+    t =     8.36s                     Requesting snapshot of accessibility hierarchy for app with pid 82567
+/Users/coderstory/dev/pic/UITests/PicUITests/SettingsWindowUITests.swift:110: error: -[PicUITests.SettingsWindowUITests testSettingsMenuItemRendersShortcutAndOpensWindow] : XCTAssertTrue failed - 菜单应逐字渲染「打开设置 ⌘,」
+    t =     8.44s Tear Down
+Test Case '-[PicUITests.SettingsWindowUITests testSettingsMenuItemRendersShortcutAndOpensWindow]' failed (8.530 seconds).
+Test Case '-[PicUITests.SettingsWindowUITests testWindowOpensAt780WideViaDebugSwitch]' started.
+    t =     0.00s Start Test at 2026-10-04 14:14:29.414
+    t =     0.11s Set Up
+    t =     0.11s                 Open com.local.pic
+    t =     0.12s                     Launch com.local.pic
+    t =     0.12s                         Terminate com.local.pic:82567
+2026-10-04 14:14:30.577 xcodebuild[82101:12755974] [MT] IDELaunchParametersSnapshot: debugger version lookup failed for path '<nil>': noURL
+2026-10-04 14:14:30.577 xcodebuild[82101:12755974] [MT] IDELaunchParametersSnapshot: no debugger version
+    t =     1.49s                         Wait for accessibility to load
+    t =     1.69s                         Setting up automation session
+    t =     1.70s                         Wait for com.local.pic to idle
+    t =     1.70s                 Waiting 10.0s for Window (First Match) to exist
+    t =     2.74s                     Checking `Expect predicate `existsNoRetry == 1` for object Window (First Match)`
+    t =     2.74s                         Checking existence of `Window (First Match)`
+    t =     2.75s                 Find the Window (First Match)
+    t =     2.76s Tear Down
+Test Case '-[PicUITests.SettingsWindowUITests testWindowOpensAt780WideViaDebugSwitch]' passed (2.775 seconds).
+Test Suite 'SettingsWindowUITests' failed at 2026-10-04 14:14:32.189.
+	 Executed 4 tests, with 1 test skipped and 1 failure (0 unexpected) in 39.364 (39.366) seconds
+Test Suite 'PicUITests.xctest' failed at 2026-10-04 14:14:32.190.
+	 Executed 10 tests, with 1 test skipped and 7 failures (0 unexpected) in 179.422 (179.429) seconds
+Test Suite 'All tests' failed at 2026-10-04 14:14:32.190.
+	 Executed 10 tests, with 1 test skipped and 7 failures (0 unexpected) in 179.422 (179.430) seconds
+2026-10-04 14:14:40.887 xcodebuild[82101:12755974] [MT] IDETestOperationsObserverDebug: 192.619 elapsed -- Testing started completed.
+2026-10-04 14:14:40.887 xcodebuild[82101:12755974] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-10-04 14:14:40.887 xcodebuild[82101:12755974] [MT] IDETestOperationsObserverDebug: 192.619 sec, +192.619 sec -- end
+
+Test session results, code coverage, and logs:
+	/Users/coderstory/Library/Developer/Xcode/DerivedData/Pic-hfprhbexaazniwaxomjrbqfmjqgx/Logs/Test/Test-Pic-2026.10.04_14-11-28-+0800.xcresult
+
+Failing tests:
+	SettingsControlsUITests.testAllControlsExistAndTranscodeStaysTappableWhenDimmed()
+	SettingsControlsUITests.testEmptyFolderShowsVerbatimCopyAndRescanStaysEnabled()
+	SettingsControlsUITests.testMenuBarExposesFiveHittableItems()
+	SettingsControlsUITests.testNextVideoMenuItemAdvancesEvenInSingleLoopMode()
+	SettingsControlsUITests.testRotationRowIgnoresTapsInSingleLoopAndRecoversInListLoop()
+	SettingsControlsUITests.testVolumeSliderIgnoresDragWhenMutedAndRecoversAfterUnmute()
+	SettingsWindowUITests.testSettingsMenuItemRendersShortcutAndOpensWindow()
+
+** TEST EXECUTE FAILED **
+
+Testing started
+UITEST_STATUS=failed
+UITEST_SKIPPED=0
