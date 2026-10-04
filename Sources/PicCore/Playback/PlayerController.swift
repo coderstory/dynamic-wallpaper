@@ -12,6 +12,24 @@ public final class PlayerController: NSObject, PlaybackTarget {
 
     public let player = AVQueuePlayer()
 
+    /// 解码分辨率上限。`PIC_MAX_RES=2560x1440` 打开，不设或 `0` = 不限（= 原行为）。
+    /// 功耗 A/B 的单变量开关，与 `PIC_NO_PROBE` 同一套取证形状。
+    nonisolated public static let maxResolutionEnvKey = "PIC_MAX_RES"
+
+    /// 懒取值一次。解析失败一律**回落不限**（= 现状），并打一行 —— 宁可没生效，
+    /// 不可静默把 A/B 的对照组当成实验组。
+    nonisolated private static let maxResolutionOverride: CGSize? = {
+        let env = ProcessInfo.processInfo.environment
+        guard let raw = env[maxResolutionEnvKey], !raw.isEmpty, raw != "0" else { return nil }
+        let parts = raw.lowercased().split(separator: "x")
+        guard parts.count == 2,
+              let w = Double(parts[0]), let h = Double(parts[1]), w > 0, h > 0 else {
+            WallpaperWindowController.emit("PIC_MAX_RES_INVALID=\(raw)")
+            return nil
+        }
+        return CGSize(width: w, height: h)
+    }()
+
     /// looper 必须强持有：一旦释放，模板 item 立刻被踢出队列（Pitfall 4）。
     private var looper: AVPlayerLooper?
 
@@ -37,6 +55,14 @@ public final class PlayerController: NSObject, PlaybackTarget {
         item.audioTimePitchAlgorithm = .spectral
         // 定值 3.0。该属性属于 AVPlayerItem，AVQueuePlayer 上没有。
         item.preferredForwardBufferDuration = 3.0
+
+        // 解码分辨率上限。**必须设在 looper 之前** —— 与 `audioTimePitchAlgorithm`
+        // 同理：AVPlayerLooper 每个 loop 边界克隆模板 item，晚设只作用这一次，
+        // 克隆体不带这个上限，一循环就掉回全分辨率。
+        if let cap = Self.maxResolutionOverride {
+            item.preferredMaximumResolution = cap
+            WallpaperWindowController.emit("PIC_MAX_RES_APPLIED=\(Int(cap.width))x\(Int(cap.height))")
+        }
 
         looper?.disableLooping()
         // `after: nil` 是追加到队尾，所以必须扫掉全部非新条目 —— 否则旧片继续播、
