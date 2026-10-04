@@ -8,12 +8,42 @@ import Foundation
 ///   绝不用管道技巧拿退出码 —— PITFALLS #9(d)）；
 /// - 本文件不含任何转码知识 —— 收到什么 argv 就执行什么。
 /// 协议不标 `@MainActor`，由持有者（`TranscodeQueue`）负责隔离。
-public final class ProcessTranscodeRunner: TranscodeRunning {
+public final class ProcessTranscodeRunner: TranscodeRunning, @unchecked Sendable {
 
     public init() {}
 
+    /// 当前进程的句柄 —— 取消要靠它，所以不能是 `run` 的局部变量。
+    /// ⚠️ 加锁：`cancel()` 可能来自与 `run()` 不同的线程，而协议要求 `Sendable`。
+    private let lock = NSLock()
+    private var process: Process?
+    private var cancelled = false
+
+    public var isRunning: Bool {
+        lock.withLock { process != nil }
+    }
+
+    /// 终止当前进程。没有进程在跑时空操作（取消可能被连点）。
+    public func cancel() {
+        let running = lock.withLock { () -> Process? in
+            cancelled = true
+            return process
+        }
+        running?.terminate()
+    }
+
+    /// 本次 run 是否已被取消 —— spawn 前查一次，避免取消后还把进程拉起来。
+    private func consumeCancellation() -> Bool {
+        lock.withLock { () -> Bool in
+            let was = cancelled
+            cancelled = false
+            return was
+        }
+    }
+
     public func run(ffmpegPath: String, arguments: [String], outputTemporaryPath: String,
                     onProgressLine: @escaping @Sendable (String) -> Void) async -> Int32 {
+        _ = consumeCancellation()
+
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/nice")
         process.arguments = ["-n", "10", ffmpegPath] + arguments
@@ -22,9 +52,13 @@ public final class ProcessTranscodeRunner: TranscodeRunning {
         process.standardOutput = stdoutPipe
         // stderr 整根吞掉不读：人话输出格式随版本漂，不解析（RESEARCH Don't-Hand-Roll）。
         process.standardError = Pipe()
+
+        lock.withLock { self.process = process }
+
         do {
             try process.run()
         } catch {
+            clearProcess()
             return -1
         }
         let splitter = LineSplitter(emit: onProgressLine)
@@ -49,7 +83,12 @@ public final class ProcessTranscodeRunner: TranscodeRunning {
         handle.readabilityHandler = nil
         // 收尾 drain：handler 置 nil 后管道里可能还有未投递的字节，不读会丢尾行。
         splitter.feed(handle.readDataToEndOfFile())
+        clearProcess()
         return process.terminationStatus
+    }
+
+    private func clearProcess() {
+        lock.withLock { process = nil }
     }
 }
 

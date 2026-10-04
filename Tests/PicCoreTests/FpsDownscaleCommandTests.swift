@@ -72,18 +72,21 @@ final class FpsDownscaleCommandTests: XCTestCase {
 
     /// 恰好 30 不算超 —— NTSC 的 29.97 也走这条路。
     func testExactlyThirtyIsNotDownscaled() {
-        XCTAssertFalse(VideoAssetMetadata(hasVideoTrack: true, frameRate: 30).needsDownscale())
-        XCTAssertFalse(VideoAssetMetadata(hasVideoTrack: true, frameRate: 29.97).needsDownscale())
+        let limit = FpsDownscaleCommand.maxFrameRate
+        XCTAssertFalse(VideoAssetMetadata(hasVideoTrack: true, frameRate: 30).exceedsFrameRate(limit))
+        XCTAssertFalse(VideoAssetMetadata(hasVideoTrack: true, frameRate: 29.97).exceedsFrameRate(limit))
     }
 
     func testAboveThirtyIsDownscaled() {
-        XCTAssertTrue(VideoAssetMetadata(hasVideoTrack: true, frameRate: 60).needsDownscale())
-        XCTAssertTrue(VideoAssetMetadata(hasVideoTrack: true, frameRate: 120).needsDownscale())
+        let limit = FpsDownscaleCommand.maxFrameRate
+        XCTAssertTrue(VideoAssetMetadata(hasVideoTrack: true, frameRate: 60).exceedsFrameRate(limit))
+        XCTAssertTrue(VideoAssetMetadata(hasVideoTrack: true, frameRate: 120).exceedsFrameRate(limit))
     }
 
     /// 读不到帧率时按「不降」——宁可文件大一点，不在元数据缺失时猜错画质。
     func testUnknownFrameRateIsNotDownscaled() {
-        XCTAssertFalse(VideoAssetMetadata(hasVideoTrack: true, frameRate: nil).needsDownscale())
+        XCTAssertFalse(VideoAssetMetadata(hasVideoTrack: true, frameRate: nil)
+            .exceedsFrameRate(FpsDownscaleCommand.maxFrameRate))
     }
 
     func testDerivativeNameGetsDistinctSuffix() {

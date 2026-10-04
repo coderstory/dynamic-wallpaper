@@ -16,8 +16,11 @@ public struct VideoAssetMetadata: Equatable, Sendable {
         self.durationSeconds = durationSeconds
     }
 
-    /// 帧率高于 30 才需要降帧。**恰好 30 不动** —— NTSC 的 29.97 也走这条路。
-    public func needsDownscale(target: Double = FpsDownscaleCommand.maxFrameRate) -> Bool {
+    /// 帧率是否高于给定的封顶线。**恰好等于不降** —— NTSC 的 29.97 也走这条路。
+    ///
+    /// ⚠️ 封顶线由调用方传，不在这里引用 `FpsDownscaleCommand` ——
+    /// 那会让 Media/ 反向依赖 Transcode/，两个探针脚本的编译面会因此破。
+    public func exceedsFrameRate(_ target: Double) -> Bool {
         guard let frameRate else { return false }
         return frameRate > target
     }
