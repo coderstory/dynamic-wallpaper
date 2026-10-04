@@ -39,8 +39,8 @@ struct SettingsView: View {
     var body: some View {
         VStack(spacing: 0) {
             // 自绘标题行（windowStyle(.hiddenTitleBar) 下唯一的「标题栏」—— 深蓝底白字，
-            // 左侧红绿灯由系统浮在上面）。文字内容是 UI-SPEC §7 的硬要求，逐字保留。
-            Text("Pic 设置")
+            // 左侧红绿灯由系统浮在上面）。文字逐字 = 「动态壁纸」（2026-10-04 用户改名）。
+            Text("动态壁纸")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Color.pFg)
                 .frame(maxWidth: .infinity)
@@ -94,7 +94,6 @@ struct SettingsView: View {
                 }
                 countRow
             }
-            Hint(t: "递归扫子目录 · 只认 MP4 / MOV / M4V")
 
             SectionHead(t: "播放").padding(.top, 4)
             Card {
@@ -165,7 +164,6 @@ struct SettingsView: View {
                         .accessibilityIdentifier("autostart-toggle")
                 }
             }
-            Hint(t: "全屏 / 锁屏 / 熄屏 / 睡眠时自动暂停")
 
             SectionHead(t: "维护").padding(.top, 4)
             Card {
@@ -341,7 +339,7 @@ struct SettingsView: View {
     /// （几何探针同一时序），此刻设置一次即可（该属性不在 SwiftUI 场景配置里，不会被改回）。
     private func applyWindowChrome() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            guard let win = NSApp.windows.first(where: { $0.title == "Pic 设置" }) else { return }
+            guard let win = NSApp.windows.first(where: { $0.title == "动态壁纸" }) else { return }
             win.isMovableByWindowBackground = true
             emitWindowGeometry(win)
         }

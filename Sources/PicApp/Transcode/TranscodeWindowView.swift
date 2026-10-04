@@ -74,12 +74,15 @@ struct TranscodeWindowView: View {
 
     // MARK: - 队列表
 
-    @ViewBuilder
+    /// 表格壳**常驻**：空态也显示卡片框（用户语义「待转码就是个表格」），空文案画在框内。
     private var jobList: some View {
-        if viewModel.jobs.isEmpty {
-            Hint(t: "没有待转码的文件。壁纸目录里的 MKV / AVI / WEBM 会出现在这里。")
-        } else {
-            Card {
+        Card {
+            if viewModel.jobs.isEmpty {
+                Text("没有待转码的文件。壁纸目录里的 MKV / AVI / WEBM 会出现在这里。")
+                    .font(mono(10.5))
+                    .foregroundStyle(Color.pFg.opacity(0.5))
+                    .frame(maxWidth: .infinity, minHeight: 56)
+            } else {
                 ForEach(viewModel.jobs) { job in
                     jobRow(job)
                     if job.id != viewModel.jobs.last?.id {
@@ -171,11 +174,17 @@ struct TranscodeWindowView: View {
     // MARK: - 产物规则 + 工具行
 
     private var rules: some View {
-        Hint(t: "产物输出到壁纸目录的 Converted 子文件夹 · 原文件保留不删 · 产物不会再进入待转码队列")
+        Hint(t: "产物输出到壁纸目录的 Converted 子文件夹 · 自动扫描的源文件转码成功后自动删除 · 手动选择的源文件保留 · 产物不会再进入待转码队列")
     }
 
     private var toolbar: some View {
         HStack(spacing: 10) {
+            // 用户手动选择目录/文件（目录递归展开成 N 个候选）—— 手动来源的源文件不删。
+            Button("选择目录或文件…") {
+                Task { await viewModel.loadPickedSources() }
+            }
+            .buttonStyle(GlowButton())
+            .accessibilityIdentifier("transcode-pick")
             Button("重新查找待转码文件") { viewModel.loadCandidates() }
                 .buttonStyle(GlowButton())
                 .accessibilityIdentifier("transcode-rescan")

@@ -22,20 +22,24 @@ public enum TranscodeJobState: Equatable, Sendable {
 }
 
 /// 一个转码任务。`commandDisplay` 入队时就算好 —— 审计串从入队那一刻就存在（TRANS-06）。
+/// `deletesSource`：转码**成功**后是否删除源文件 —— 自动扫描（壁纸目录）的源为 true
+///（目录保持整洁），用户手动选择的源一律 false（外部素材不碰，删除策略按来源不按路径）。
 public struct TranscodeJob: Identifiable, Equatable, Sendable {
     public let id: UUID
     public let sourceURL: URL
     public internal(set) var state: TranscodeJobState
     public internal(set) var percent: Double?
     public let commandDisplay: String
+    public let deletesSource: Bool
 
     init(id: UUID = UUID(), sourceURL: URL, state: TranscodeJobState = .pending,
-         percent: Double? = nil, commandDisplay: String) {
+         percent: Double? = nil, commandDisplay: String, deletesSource: Bool = false) {
         self.id = id
         self.sourceURL = sourceURL
         self.state = state
         self.percent = percent
         self.commandDisplay = commandDisplay
+        self.deletesSource = deletesSource
     }
 }
 
@@ -84,7 +88,8 @@ public final class TranscodeQueue {
 
     /// 逐个建 Job（state pending、commandDisplay 先算）。仍在排队（pending/running）
     /// 的同路径不重复入队；已终态的同路径允许再入队（会走 skipDecision 的幂等路径）。
-    public func enqueue(sources: [URL]) {
+    /// `deletesSource` 逐 job 记录（来源化删除策略：自动扫描 true / 用户选择 false）。
+    public func enqueue(sources: [URL], deletesSource: Bool = false) {
         var activePaths = Set(jobs.filter { Self.isActive($0.state) }.map { $0.sourceURL.path })
         let toolPath = currentToolPath()
         for source in sources where !activePaths.contains(source.path) {
@@ -93,7 +98,8 @@ public final class TranscodeQueue {
             jobs.append(TranscodeJob(
                 sourceURL: source,
                 commandDisplay: TranscodeCommand.displayString(
-                    ffmpegPath: toolPath, input: source, output: temporaryURL)))
+                    ffmpegPath: toolPath, input: source, output: temporaryURL),
+                deletesSource: deletesSource))
         }
         onJobsChanged?()
     }
@@ -179,6 +185,11 @@ public final class TranscodeQueue {
         } else {
             try? FileManager.default.removeItem(at: temporaryURL)
             jobs[index].state = .failed(reason: "exit_nonzero")
+        }
+        // 来源化删除策略：仅在**成功落盘后**删源（失败/跳过一律保留）。
+        // 删除失败静默 —— 源还在只会让它下轮被 skipDecision 幂等跳过，不出错。
+        if jobs[index].state == .succeeded, jobs[index].deletesSource {
+            try? FileManager.default.removeItem(at: source)
         }
         onJobsChanged?()
     }

@@ -160,7 +160,7 @@ final class SettingsControlsUITests: XCTestCase {
 
     func testAllControlsExistAndTranscodeStaysTappableWhenDimmed() throws {
         _ = launchApp()
-        XCTAssertTrue(app.windows.matching(NSPredicate(format: "title CONTAINS %@", "Pic 设置"))
+        XCTAssertTrue(app.windows.matching(NSPredicate(format: "title CONTAINS %@", "动态壁纸"))
             .firstMatch.waitForExistence(timeout: 10), "设置窗应经 --open-settings 打开")
 
         // 默认起点（loopSingle）下轮换整行是**真**置灰，可点性归下一节判；转码入口相反，

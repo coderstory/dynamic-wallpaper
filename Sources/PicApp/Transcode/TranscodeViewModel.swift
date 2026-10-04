@@ -17,12 +17,16 @@ final class TranscodeViewModel: ObservableObject {
     private let queue: TranscodeQueue
     private let locator: ExternalToolLocator
     private let wallpaperRootProvider: () -> URL?
+    /// 转码源选择面板（与壁纸目录选择同一个 seam 实例 —— 全仓唯一 NSOpenPanel 落点）。
+    private let sourcePicker: any FolderPicker
 
     init(queue: TranscodeQueue, locator: ExternalToolLocator,
-         wallpaperRootProvider: @escaping () -> URL?) {
+         wallpaperRootProvider: @escaping () -> URL?,
+         sourcePicker: any FolderPicker) {
         self.queue = queue
         self.locator = locator
         self.wallpaperRootProvider = wallpaperRootProvider
+        self.sourcePicker = sourcePicker
         queue.onJobsChanged = { [weak self] in self?.reload() }
         reload()
     }
@@ -32,10 +36,29 @@ final class TranscodeViewModel: ObservableObject {
         availability = locator.locate()
     }
 
-    /// 壁纸目录里的转码候选 → 队列的 pending jobs。同路径去重在队列侧。
+    /// 壁纸目录里的转码候选 → 队列的 pending jobs（**自动来源**：转码成功后自动删源）。
+    /// 同路径去重在队列侧。
     func loadCandidates() {
         guard let root = wallpaperRootProvider() else { return }
-        queue.enqueue(sources: TranscodeCandidateFilter.candidates(in: root))
+        queue.enqueue(sources: TranscodeCandidateFilter.candidates(in: root), deletesSource: true)
+        reload()
+    }
+
+    /// 用户手动选择目录/文件（**手动来源**：源文件永不删除）。
+    /// 目录递归展开成 N 个候选（与自动扫描同一过滤器）；白名单外的散选文件静默过滤。
+    func loadPickedSources() async {
+        guard let picked = await sourcePicker.pickTranscodeSources(), !picked.isEmpty else { return }
+        var sources: [URL] = []
+        var isDir: ObjCBool = false
+        for url in picked {
+            FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir)
+            if isDir.boolValue {
+                sources.append(contentsOf: TranscodeCandidateFilter.candidates(in: url))
+            } else if TranscodeCandidateFilter.candidateExtensions.contains(url.pathExtension.lowercased()) {
+                sources.append(url)
+            }
+        }
+        queue.enqueue(sources: sources, deletesSource: false)
         reload()
     }
 

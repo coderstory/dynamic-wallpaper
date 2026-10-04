@@ -39,7 +39,7 @@ final class SettingsWindowUITests: XCTestCase {
     }
 
     private func settingsWindow(in app: XCUIApplication) -> XCUIElement {
-        app.windows.matching(NSPredicate(format: "title CONTAINS %@", "Pic 设置")).firstMatch
+        app.windows.matching(NSPredicate(format: "title CONTAINS %@", "动态壁纸")).firstMatch
     }
 
     /// 证据文件里的行由 onAppear 延迟半秒后写出 —— 轮询等它落盘。

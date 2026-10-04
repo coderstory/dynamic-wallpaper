@@ -7,15 +7,17 @@ import PicCore
 /// 与设置窗本身同一套开窗机制（不引入第二套窗口管理）。
 struct TranscodeScene: Scene {
 
-    /// 队列 / 判定 / 壁纸目录由装配层注入，视图自己不造。
+    /// 队列 / 判定 / 壁纸目录 / 源选择面板由装配层注入，视图自己不造。
     let queue: TranscodeQueue
     let locator: ExternalToolLocator
     let wallpaperRootProvider: () -> URL?
+    let sourcePicker: any FolderPicker
 
     var body: some Scene {
         Window("转码", id: TranscodeScene.windowID) {
             TranscodeWindowHost(queue: queue, locator: locator,
-                                wallpaperRootProvider: wallpaperRootProvider)
+                                wallpaperRootProvider: wallpaperRootProvider,
+                                sourcePicker: sourcePicker)
         }
         .defaultSize(width: 640, height: 420)
     }
@@ -31,10 +33,12 @@ private struct TranscodeWindowHost: View {
     @StateObject private var viewModel: TranscodeViewModel
 
     init(queue: TranscodeQueue, locator: ExternalToolLocator,
-         wallpaperRootProvider: @escaping () -> URL?) {
+         wallpaperRootProvider: @escaping () -> URL?,
+         sourcePicker: any FolderPicker) {
         _viewModel = StateObject(wrappedValue: TranscodeViewModel(
             queue: queue, locator: locator,
-            wallpaperRootProvider: wallpaperRootProvider))
+            wallpaperRootProvider: wallpaperRootProvider,
+            sourcePicker: sourcePicker))
     }
 
     var body: some View {

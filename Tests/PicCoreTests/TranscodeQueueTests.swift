@@ -109,6 +109,40 @@ final class TranscodeQueueTests: XCTestCase {
                        "失败不得留半成品 .mp4")
     }
 
+    /// 来源化删除策略（2026-10-04 用户拍板）：自动来源成功后删源、手动来源保留。
+    func testAutoSourceDeletedAfterSuccessAndUserSourceKept() async {
+        let autoSource = makeSource("auto.mkv")
+        let userSource = makeSource("user-picked.mkv")
+        let runner = FakeRunner()
+        let queue = makeQueue(runner: runner)
+
+        queue.enqueue(sources: [autoSource], deletesSource: true)
+        queue.enqueue(sources: [userSource], deletesSource: false)
+        await queue.run()
+
+        XCTAssertEqual(queue.jobs.first { $0.sourceURL == autoSource }?.deletesSource, true)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: autoSource.path),
+                       "自动来源的源文件转码成功后必须被删除")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: userSource.path),
+                      "手动来源的源文件必须保留")
+        XCTAssertEqual(queue.jobs.first { $0.sourceURL == userSource }?.deletesSource, false)
+    }
+
+    /// 失败路径上删除策略不生效：deletesSource=true 但转码失败 → 源必须还在。
+    func testFailedJobKeepsAutoSource() async {
+        let source = makeSource()
+        let runner = FakeRunner()
+        runner.exitStatus = 1
+        let queue = makeQueue(runner: runner)
+
+        queue.enqueue(sources: [source], deletesSource: true)
+        await queue.run()
+
+        XCTAssertEqual(queue.jobs.first?.state, .failed(reason: "exit_nonzero"))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: source.path),
+                      "失败不得删源（删除只挂在成功落盘上）")
+    }
+
     /// 幂等路径：产物已存在且更新 → skipped，runner 零调用（防重复烤机）。
     func testUpToDateProductIsSkippedWithoutRunner() async throws {
         let source = makeSource()
