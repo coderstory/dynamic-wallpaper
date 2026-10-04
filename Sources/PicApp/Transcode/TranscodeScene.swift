@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import PicCore
 
 /// 转码窗口 scene —— 全 app 唯一出现列表的地方（UI-SPEC §8 例外，已存档）。
@@ -20,6 +21,8 @@ struct TranscodeScene: Scene {
                                 sourcePicker: sourcePicker)
         }
         .defaultSize(width: 640, height: 420)
+        // 与设置窗同款：原生标题栏不吃配色（macOS 27），深蓝标题行由内容自绘。
+        .windowStyle(.hiddenTitleBar)
     }
 
     /// 窗 id 的唯一一份 —— 设置窗的开窗动作按它拼。
@@ -46,6 +49,13 @@ private struct TranscodeWindowHost: View {
             .onAppear {
                 viewModel.refresh()
                 viewModel.loadCandidates()
+                // hiddenTitleBar 窗口默认不可拖 —— 开 isMovableByWindowBackground。
+                // 0.5s 等 SwiftUI 把 Window 装进 NSApp.windows（设置窗同一时序）。
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    if let win = NSApp.windows.first(where: { $0.title == "转码" }) {
+                        win.isMovableByWindowBackground = true
+                    }
+                }
             }
     }
 }

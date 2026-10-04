@@ -14,15 +14,24 @@ struct TranscodeWindowView: View {
     @State private var selectedJobID: TranscodeJob.ID?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            badge
-            SectionHead(t: "待转码")
-            jobList
-            commandBlock
-            rules
-            toolbar
+        VStack(spacing: 0) {
+            // 自绘标题行（hiddenTitleBar 下唯一的「标题栏」，与设置窗同款深蓝主题）。
+            Text("转码")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.pFg)
+                .frame(maxWidth: .infinity)
+                .padding(.top, 10).padding(.bottom, 8)
+                .contentShape(Rectangle())
+            VStack(alignment: .leading, spacing: 12) {
+                badge
+                SectionHead(t: "待转码")
+                jobList
+                commandBlock
+                rules
+                toolbar
+            }
+            .padding(.horizontal, 14).padding(.bottom, 14)
         }
-        .padding(14)
         // max 系列让深色背景填满窗口任意尺寸 —— 内容紧贴高度时，状态恢复把窗口撑大
         // 会露出大片系统默认白底（用户报「大白的空白」）。
         .frame(minWidth: 520, idealWidth: 640,
@@ -34,7 +43,9 @@ struct TranscodeWindowView: View {
                 LinearGradient(colors: [Color(red: 76/255, green: 196/255, blue: 245/255).opacity(0.07), Color.clear],
                                startPoint: .top, endPoint: .center)
             }
+            .ignoresSafeArea()
         )
+        .preferredColorScheme(.dark)
         .sheet(isPresented: $showingPathways) {
             InstallPathwaysView(onRecheck: { viewModel.refresh() })
         }
