@@ -40,6 +40,17 @@ else
 fi
 
 echo ""
+echo "── 构建系统一致性（xcodebuild vs SwiftPM）──"
+# 存在原因：SwiftPM 自动发现文件，pbxproj 要手工登记；两者漏一处，swift build/test 全绿而只有 xcodebuild 红（已两次漏登记）。
+# PicCore 由 SwiftPM 包级发现、不进 pbxproj，故只比对 PicApp 目标 + UITests 目标真正登记的那批。
+DIFF=$(comm -3 \
+  <(find Sources/PicApp UITests -name '*.swift' -exec basename {} \; | sort) \
+  <(grep 'isa = PBXFileReference' Pic.xcodeproj/project.pbxproj | grep -o 'path = .*\.swift' | sed 's/path = //' | sort))
+[ -z "$DIFF" ] && ok "pbxproj 登记的 swift 文件集合 == 磁盘 Sources/UITests" \
+  || no "pbxproj 登记的 swift 文件集合 == 磁盘 Sources/UITests" \
+       "只在磁盘不在 pbxproj / 只在 pbxproj 不在磁盘：$(echo "$DIFF" | tr '\n' ' ')"
+
+echo ""
 echo "── 关键 API 可用性（编译期验证）─────────"
 probe(){ # $1=名称 $2=源码
   echo "$2" > "$TMP/p.swift"
