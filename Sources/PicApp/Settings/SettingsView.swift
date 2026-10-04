@@ -155,8 +155,8 @@ struct SettingsView: View {
     private var rightColumn: some View {        VStack(alignment: .leading, spacing: 12) {
             SectionHead(t: "电源与系统")
             Card {
-                Row(symbol: "battery.75", title: "电池时播放", sub: "默认关") {
-                    Toggle("", isOn: pauseOnBattery).toggleStyle(GlowToggle()).labelsHidden()
+                Row(symbol: "battery.75", title: "电池时播放", sub: "默认开") {
+                    Toggle("", isOn: playOnBattery).toggleStyle(GlowToggle()).labelsHidden()
                         .accessibilityIdentifier("battery-toggle")
                 }
                 Row(symbol: "power", title: "开机自启", hairline: false) {
@@ -297,11 +297,14 @@ struct SettingsView: View {
             })
     }
 
-    private var pauseOnBattery: Binding<Bool> {
+    /// 「电池时播放」开关（勾 = 使用电池也播放 —— 用户语义，2026-10-04 反转）。
+    /// store 键仍是 pauseOnBattery（持久化语义不变：true = 电池时暂停），视图侧取反一次，
+    /// 别处不许出现第二份取反。默认 pauseOnBattery=false → 勾选态=开（默认播放）。
+    private var playOnBattery: Binding<Bool> {
         Binding(
-            get: { store.pauseOnBattery },
+            get: { !store.pauseOnBattery },
             set: {
-                store.pauseOnBattery = $0
+                store.pauseOnBattery = !$0
                 store.persist()
                 // 当场重估：用最近一次已知的电源状态走同一个映射，不等下一次电源跃迁。
                 reapplyBatteryHold()
