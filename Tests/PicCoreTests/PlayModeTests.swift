@@ -65,14 +65,14 @@ final class PlayModeTests: XCTestCase {
                        "未知 rawValue 必须回落到 seed.playMode —— 兜底行为与 Phase 2 一致")
     }
 
-    /// 可执行代理：`persist()` 写出的键集合**恰好**是那 7 个。
+    /// 可执行代理：`persist()` 写出的键集合**恰好**是那 8 个。
     ///
     /// ⚠️ 过滤是「排除系统注入键」而不是「包含某前缀」：`dictionaryRepresentation()`
     /// 对 suite 域返回**不带 suite 前缀的裸键名**，且混有约 60 个系统键
     /// （`AppleLanguages` / `com.apple.*` / `NS*` 一类，本机实测）。
     /// 系统键集合用一个**全新的空 suite** 实测取得，不写死清单 —— 将来谁往
     /// `persist()` 里加第八个键，差集里立刻多出一项，这条当场红。
-    func testPersistWritesExactlyTheSevenKnownKeys() {
+    func testPersistWritesExactlyTheEightKnownKeys() {
         let baselineName = "pic.tests.playmode.baseline.\(UUID().uuidString)"
         guard let baseline = UserDefaults(suiteName: baselineName) else {
             return XCTFail("baseline suite 创建失败")
