@@ -27,6 +27,7 @@ struct PicApp: App {
                          reapplyBatteryHold: { appDelegate.reapplyBatteryHold() },
                          setLaunchAtLogin: { appDelegate.setLaunchAtLogin($0) },
                          transcodeViewModel: appDelegate.transcodeViewModel,
+                         fpsViewModel: appDelegate.fpsTranscodeViewModel,
                          refreshFFmpeg: {
                              appDelegate.refreshFFmpegAvailability()
                              return appDelegate.ffmpegIsAvailable

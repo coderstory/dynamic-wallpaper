@@ -13,6 +13,8 @@
 		510500000000000000000304 /* MenuContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510500000000000000000104 /* MenuContentView.swift */; };
 		510500000000000000000305 /* SettingsComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510500000000000000000105 /* SettingsComponents.swift */; };
 		510500000000000000000315 /* TranscodeSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510500000000000000000115 /* TranscodeSection.swift */; };
+		510500000000000000000317 /* FpsTranscodeSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510500000000000000000117 /* FpsTranscodeSection.swift */; };
+		510500000000000000000318 /* FpsTranscodeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510500000000000000000118 /* FpsTranscodeViewModel.swift */; };
 		510500000000000000000306 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510500000000000000000106 /* SettingsView.swift */; };
 		510500000000000000000310 /* SettingsSessionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510500000000000000000110 /* SettingsSessionState.swift */; };
 		510500000000000000000312 /* InstallPathwaysView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510500000000000000000112 /* InstallPathwaysView.swift */; };
@@ -39,6 +41,8 @@
 		510500000000000000000104 /* MenuContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuContentView.swift; sourceTree = "<group>"; };
 		510500000000000000000105 /* SettingsComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsComponents.swift; sourceTree = "<group>"; };
 		510500000000000000000115 /* TranscodeSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscodeSection.swift; sourceTree = "<group>"; };
+		510500000000000000000117 /* FpsTranscodeSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FpsTranscodeSection.swift; sourceTree = "<group>"; };
+		510500000000000000000118 /* FpsTranscodeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FpsTranscodeViewModel.swift; sourceTree = "<group>"; };
 		510500000000000000000106 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		510500000000000000000110 /* SettingsSessionState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSessionState.swift; sourceTree = "<group>"; };
 		510500000000000000000112 /* InstallPathwaysView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstallPathwaysView.swift; sourceTree = "<group>"; };
@@ -118,6 +122,8 @@
 				510500000000000000000112 /* InstallPathwaysView.swift */,
 				510500000000000000000113 /* TranscodeViewModel.swift */,
 				510500000000000000000115 /* TranscodeSection.swift */,
+				510500000000000000000117 /* FpsTranscodeSection.swift */,
+				510500000000000000000118 /* FpsTranscodeViewModel.swift */,
 			);
 			path = Transcode;
 			sourceTree = "<group>";
@@ -235,6 +241,8 @@
 				510500000000000000000304 /* MenuContentView.swift in Sources */,
 				510500000000000000000305 /* SettingsComponents.swift in Sources */,
 				510500000000000000000315 /* TranscodeSection.swift in Sources */,
+				510500000000000000000317 /* FpsTranscodeSection.swift in Sources */,
+				510500000000000000000318 /* FpsTranscodeViewModel.swift in Sources */,
 				510500000000000000000306 /* SettingsView.swift in Sources */,
 				510500000000000000000310 /* SettingsSessionState.swift in Sources */,
 				510500000000000000000312 /* InstallPathwaysView.swift in Sources */,

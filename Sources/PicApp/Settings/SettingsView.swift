@@ -27,6 +27,8 @@ struct SettingsView: View {
     let setLaunchAtLogin: (Bool) -> Void
     /// 转码视图模型 —— 转码并入本窗后由 PicApp 注入。
     let transcodeViewModel: TranscodeViewModel
+    /// 降帧视图模型 —— 同样由 PicApp 注入，生命周期跟 AppDelegate。
+    let fpsViewModel: FpsTranscodeViewModel
     /// 安装途径弹层的「重新检测」——重查并回填最新读数（新鲜化出口）。
     let refreshFFmpeg: () -> Bool
 
@@ -39,7 +41,7 @@ struct SettingsView: View {
     // 顶部 TAB：0 播放 / 1 转码 / 2 关于。
     @State private var tab: Int = 0
 
-    private static let tabTitles = ["播放", "转码", "关于"]
+    private static let tabTitles = ["播放", "转码", "降帧", "关于"]
 
     var body: some View {
         VStack(spacing: 0) {
@@ -58,7 +60,9 @@ struct SettingsView: View {
                 Group {
                     switch tab {
                     case 1: transcodeTab
-                    case 2: aboutTab
+                    // case 3 必须在 default 之上 —— default 兜底回播放页。
+                    case 2: fpsTab
+                    case 3: aboutTab
                     default: playTab
                     }
                 }
@@ -214,7 +218,13 @@ struct SettingsView: View {
                          refresh: { _ = refreshFFmpeg() })
     }
 
-    // MARK: - TAB 3 · 关于
+    // MARK: - TAB 3 · 降帧
+
+    private var fpsTab: some View {
+        FpsTranscodeSection(viewModel: fpsViewModel, showingPathways: $showingPathways)
+    }
+
+    // MARK: - TAB 4 · 关于
 
     private var aboutTab: some View {
         VStack(spacing: 0) {

@@ -77,6 +77,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         sourcePicker: picker
     )
 
+    /// 降帧队列。⚠️ 必须强持有 —— 队列跑着 198 个任务，被回收等于静默停工。
+    /// 壁纸目录此刻取不到就退到临时目录：队列在 `scan()` 之前不会真的读它。
+    lazy var fpsTranscodeQueue = FpsTranscodeQueue(
+        runner: ProcessTranscodeRunner(),
+        root: store.resolvedFolderURL() ?? URL(fileURLWithPath: NSTemporaryDirectory()),
+        availability: { [weak self] in self?.ffmpegAvailability ?? .unavailable },
+        freeSpaceProvider: { url in
+            (try? url.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]))?
+                .volumeAvailableCapacityForImportantUsage
+        },
+        specProvider: { url in await AVFoundationAssetProbe().metadata(url) })
+
+    lazy var fpsTranscodeViewModel = FpsTranscodeViewModel(
+        queue: fpsTranscodeQueue,
+        locator: transcodeLocator
+    )
+
     /// 开机自启的唯一写入口。
     ///
     /// ⚠️ 必须**强持有** —— emit 闭包捕获了 `self` 的 `emit(_:)`，让它随用随建会出现「实例被回收后闭包仍活着」的窗口。
