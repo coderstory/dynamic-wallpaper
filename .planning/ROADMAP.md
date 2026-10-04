@@ -174,8 +174,9 @@ Plans:
 
 ### Phase 5: 设置窗口与即时生效
 
-**Goal:** 用户有一个按 UI-SPEC 定稿的设置窗；所有可调项改完**当场生效**；扫不到视频时界面明确告诉他壁纸已隐藏；任何时候都能看到「现在为什么暂停」。
+**Goal:** As a desktop wallpaper user, I want to tune every adjustable control in a settings window that matches the finalized UI-SPEC and applies changes immediately, so that I can see at a glance why playback is paused without restarting the app.
 **Mode:** mvp
+**Goal（原文，技术内容保留备查）:** 用户有一个按 UI-SPEC 定稿的设置窗；所有可调项改完**当场生效**；扫不到视频时界面明确告诉他壁纸已隐藏；任何时候都能看到「现在为什么暂停」。
 **Depends on**: Phase 2（`SettingsStore`）· Phase 3（暂停原因）· Phase 4（可调项）
 **Requirements**: SOURCE-04, UI-01, UI-02, UI-03, UI-04, PLAY-07, PLAY-08, PLAY-09, PLAY-10, MENUBAR-02, MENUBAR-06
 **Success Criteria** (what must be TRUE):

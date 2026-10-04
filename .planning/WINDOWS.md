@@ -530,13 +530,20 @@
 ### W-2026-10-03-33 · unrun-verify · Phase 5 / Plan 05-04
 
 - **描述**：**SC-4「0.5×/2× 人声不变调」的听感面完全未验证 —— 自动化也覆盖不了它。**
-  自动化只能证明两件事：音轨侧的 `.spectral` 在 item 创建时已落位（Phase 2 冻结面，
-  单测锁），以及 `rate` 改动当场落到播放器（`PIC_SETTINGS_APPLY key=rate … applied=1`）。
-  **「听起来人声没变调」这件事没有任何一条断言能表达** —— 它是听感。
-- **证据**：`Sources/PicCore/Playback/PlayerController.swift` 的 `setRate` 只写 `player.rate`，
-  不碰 `audioTimePitchAlgorithm`；`Sources/PicCore/Media/VideoItem.swift` 在创建 item 时
-  带上 `.spectral`（Phase 2 的 PLAY-07 冻结面）。**这两条是代码形态与单测证据，
-  不是「听过」的证据。** 本条目入库时，0.5× 与 2× 的人声**没有人听过**。
+  自动化**零覆盖**这条：`.spectral` 与 `audioTimePitchAlgorithm` 在 `Tests/` 与 `UITests/`
+  里 grep 命中 **0**（`grep -rniE "pitch|音高|不变调|变调" Tests/ UITests/`）。
+  机制在代码里，但**没有任何一条测试断言它** —— 它是纯源码形态，不是被测出来的事实。
+  能被单测证明的只有相邻的另一半：`SettingsApplierTests` 的 8 条锁住
+  `rate` 改动当场落到 `player.rate`（`testPlayingRateAppliesImmediately` 等），
+  **那证的是「速度生效」，不是「音高不变」** —— 两者不是同一件事。
+  **「听起来人声没变调」没有任何一条断言能表达** —— 它是听感。
+- **证据**：`Sources/PicCore/Playback/PlayerController.swift:37` 在 `load(url:)` 里
+  `item.audioTimePitchAlgorithm = .spectral`（Phase 2 `dd5adc4` 冻结面），
+  同一文件的 `setRate` 只写 `player.rate`、不碰 `audioTimePitchAlgorithm`。
+  **这两条是代码形态证据，不是「测过」也不是「听过」的证据。**
+  本条目入库时，0.5× 与 2× 的人声**没有人听过**。
+  ⚠️ 补自动化**不**在本条的解开路径上 —— 音高是否守恒只能在播放时听，
+  写成断言也只是断言源码里那行还在，不是听感。Phase 5 的自动化面归 TEST-04。
 - **影响**：ROADMAP SC-4 后半句「实际听 0.5×/2× 的人声确认不变调」**未闭合**。
   拿「参数设对了」冒充「听过了」是本项目明令禁止的记账方式（T-05-18）。
 - **解开条件**：真人在解锁会话里以 0.5× 与 2× 各播一段**含人声**的素材，确认音高不变，

@@ -725,11 +725,16 @@ fi
 
 echo ""
 echo "── 渲染 ───────────────────────────────"
+# 判据名里的「spike」是刻意的：$SRC 渲的是 .planning/spike/SettingsSpike.swift（Render.swift 里的
+# `SettingsSpike()`），**不是**产品 Sources/PicApp/Settings/SettingsView.swift —— 后者要 8 个注入闭包
+# + 4 个 @Environment 对象、且全项目零 ImageRenderer 调用点，本段渲不了；名字去掉「spike」会让下游
+# 误读成「产品设置窗已渲染验证过」。产品视图的渲染面归 XCUITest（W-34，未跑）。
 swiftc -O -parse-as-library -target arm64-apple-macosx15.0 -o "$TMP/render" $SRC 2>/dev/null \
   && "$TMP/render" "$TMP/out.png" >/dev/null 2>&1 \
   && [ -s "$TMP/out.png" ] \
-  && ok "设置窗渲染成功 ($(stat -f%z "$TMP/out.png") bytes)" \
-  || no "设置窗渲染失败" ""
+  && ok "spike 设置窗渲染成功（产品 SettingsView 待 XCUITest 覆盖）" \
+  || no "spike 设置窗渲染成功（产品 SettingsView 待 XCUITest 覆盖）" \
+       "spike 渲染进程未产出非空 PNG；编译源 = $SRC（spike 文件，非产品 SettingsView）"
 
 echo ""
 echo "── 打包产物 ───────────────────────────"

@@ -185,8 +185,8 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 | # | 事项 | 对应 W | 解锁条件 | 为什么自动化不了 |
 |---|------|--------|---------|-----------------|
-| 7 | **听 0.5× 与 2× 的人声，确认不变调** | W-33 | 真人在场，任意解锁会话 | **这一项原理上没有断言能表达。** 自动化只证明了两件事：音轨的 `.spectral` 在 item 创建时已落位（Phase 2 冻结面，单测锁）、`rate` 改动当场落到播放器（`PIC_SETTINGS_APPLY key=rate … applied=1`）。**参数设对了 ≠ 听过了** —— 用无人声或纯音乐素材不算 |
-| 8 | 解锁会话重跑 `bash scripts/run-uitests.sh`（TEST-07/08/09/10 + G-04-3 + 拖速度共 11 条） | W-34（整体未跑）/ W-31（菜单实点）/ W-32（拖动漂移） | 解锁 | 本会话 `SCREEN_LOCKED=1`，XCUITest 跑前就被守卫挡成 `blocked`。**测试目标编译已通过（`XCODEBUILD_BUILD_RC=0`），但一条用例都没执行过** |
+| 7 | **听 0.5× 与 2× 的人声，确认不变调** | W-33 | 真人在场，任意解锁会话 | **这一项原理上没有断言能表达。** 自动化对保音高**零覆盖** —— `grep -rniE "pitch\|音高\|不变调\|变调" Tests/ UITests/` 命中 0：`.spectral` 在 `PlayerController.swift:37` 是纯源码形态，没有一条测试断言它。能测的只有相邻的「速度当场生效」（`SettingsApplierTests` 8 条），**那证的不是音高**。**参数设对了 ≠ 测过了 ≠ 听过了** —— 用无人声或纯音乐素材不算 |
+| 8 | 解锁会话重跑 `bash scripts/run-uitests.sh`（TEST-07/08/09/10 + G-04-3 + 拖速度共 10 条） | W-34（整体未跑）/ W-31（菜单实点）/ W-32（拖动漂移） | 解锁 | 本会话 `SCREEN_LOCKED=1`，XCUITest 跑前就被守卫挡成 `blocked`。**测试目标编译已通过（`XCODEBUILD_BUILD_RC=0`），但一条用例都没执行过** |
 | 9 | 锁屏态打开设置窗目视「屏幕已锁定」副标签 | W-29 | 锁屏 + 能看见屏幕 | 活体目视；原因→文案的映射已由穷举单测逐字锁死，缺的只是「屏上真的出现这行字」 |
 
 ⚠️ 第 8 项的重跑**不需要改任何判据**：`run-uitests.sh` 会数出 `UITEST_SKIPPED=`，
