@@ -25,6 +25,7 @@ final class TranscodeCommandTests: XCTestCase {
             "-movflags", "+faststart",
             "-progress", "pipe:1",
             "-nostats",
+            "-f", "mp4",
             "/tmp/p6-root/Converted/样本 movie.mp4.tmp"
         ]
     }
@@ -32,7 +33,19 @@ final class TranscodeCommandTests: XCTestCase {
     func testArgumentsMatchExpectedTokenSequenceExactly() {
         XCTAssertEqual(TranscodeCommand.arguments(input: input, output: output), expectedTokens,
                        "argv 必须与锁定基线逐 token 相等（TEST-06 本体，不是子串包含）")
-        XCTAssertEqual(expectedTokens.count, 28, "基线 argv 恰好 28 个 token")
+        XCTAssertEqual(expectedTokens.count, 30, "基线 argv 恰好 30 个 token")
+    }
+
+    /// ⚠️ 这条钉的是实测 bug：产物先写 `.tmp` 再 rename，而 ffmpeg 按**最后一个**
+    /// 扩展名判输出格式 —— `x.mp4.tmp` 被判成未知格式，muxer 初始化失败、进程秒退
+    /// （降帧侧已实测踩到，转码侧是同一个形状，只是还没被触发过）。
+    func testExplicitMuxerSoTmpExtensionDoesNotBreakFormatDetection() {
+        let argv = TranscodeCommand.arguments(input: input, output: output)
+        guard let index = argv.firstIndex(of: "-f") else {
+            return XCTFail("argv 必须带 -f mp4 —— .tmp 后缀会让 ffmpeg 判不出格式")
+        }
+        XCTAssertEqual(argv[index + 1], "mp4")
+        XCTAssertEqual(argv[index + 2], output.path, "输出路径必须是 -f mp4 后的下一个 token")
     }
 
     func testDisplayStringStartsWithNiceAndJoinsSameTokens() {

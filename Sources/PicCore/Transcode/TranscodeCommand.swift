@@ -31,6 +31,10 @@ public enum TranscodeCommand {
             "-movflags", "+faststart",
             "-progress", "pipe:1",                  // 机器可读进度（成败仍只认 terminationStatus）
             "-nostats",
+            // ⚠️ 必须显式给 muxer：产物先写 `.tmp` 再 rename，而 ffmpeg 按**最后一个**
+            // 扩展名判格式 —— `x.mp4.tmp` 会判成未知格式，muxer 初始化直接失败、进程秒退。
+            // 与 FpsDownscaleCommand 同一条理由。
+            "-f", "mp4",
             output.path,
         ]
     }
