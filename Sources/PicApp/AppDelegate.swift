@@ -79,20 +79,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// 降帧队列。⚠️ 必须强持有 —— 队列跑着 198 个任务，被回收等于静默停工。
     /// 壁纸目录此刻取不到就退到临时目录：队列在 `scan()` 之前不会真的读它。
-    lazy var fpsTranscodeQueue = FpsTranscodeQueue(
-        runner: ProcessTranscodeRunner(),
-        root: store.resolvedFolderURL() ?? URL(fileURLWithPath: NSTemporaryDirectory()),
-        availability: { [weak self] in self?.ffmpegAvailability ?? .unavailable },
-        freeSpaceProvider: { url in
-            (try? url.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]))?
-                .volumeAvailableCapacityForImportantUsage
-        },
-        specProvider: { url in await AVFoundationAssetProbe().metadata(url) })
+    lazy var fpsTranscodeQueue: FpsTranscodeQueue = {
+        let queue = FpsTranscodeQueue(
+            runner: ProcessTranscodeRunner(),
+            root: store.resolvedFolderURL() ?? URL(fileURLWithPath: NSTemporaryDirectory()),
+            availability: { [weak self] in self?.ffmpegAvailability ?? .unavailable },
+            freeSpaceProvider: { url in
+                (try? url.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]))?
+                    .volumeAvailableCapacityForImportantUsage
+            },
+            specProvider: { url in await AVFoundationAssetProbe().metadata(url) })
+        // ⚠️ 必须挂：不失效缓存 + 重扫的话，降完帧壁纸还在播旧的 4K60 ——
+        // 用户看到「跑了一夜，醒来发现什么都没变」。
+        queue.onBatchFinished = { [weak self] in
+            MainActor.assumeIsolated { self?.handleFpsBatchFinished() }
+        }
+        return queue
+    }()
 
     lazy var fpsTranscodeViewModel = FpsTranscodeViewModel(
         queue: fpsTranscodeQueue,
         locator: transcodeLocator
     )
+
+    /// 降帧批次完成 → 失效扫描缓存并重扫，让播放池换上一对一替换后的派生片。
+    private func handleFpsBatchFinished() {
+        library.invalidateCache()
+        emit("PIC_FPS_RESCAN=1")
+        Task { await rescanAndApply() }
+    }
 
     /// 开机自启的唯一写入口。
     ///
@@ -341,11 +356,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 播放清单合并的**唯一**入口：根扫描 items 在前、`Converted/` 产物按序追加、
     /// 按 path 去重。转码产物因此当轮就能进轮换，不必回根目录再生成一份。
     /// 转换侧扫不出来一律吞成空数组 —— 播不了新片不该打断正在播的旧片。
+    ///
+    /// 走 `PlaybackPool` 而非 `playbackItems`：降帧产物要**一对一顶替**原片，
+    /// 纯 path 去重会让两者都进池，同一段素材播两遍。
     private func mergedPlaybackItems(_ report: MediaLibraryReport?) async -> [VideoItem] {
         let root = report?.items ?? []
         guard let folder = store.resolvedFolderURL() else { return root }
         let converted = (try? await convertedLibrary.scan(folder: folder)) ?? []
-        return ConvertedLibrary.playbackItems(root: root, converted: converted)
+        return PlaybackPool.build(root: root, converted: converted,
+                                  table: FrameRateTable.load())
     }
 
     /// 转码队列排空 → 新产物当轮进播放清单。

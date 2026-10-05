@@ -255,16 +255,27 @@ public final class FpsTranscodeQueue {
                 }
                 try FileManager.default.moveItem(at: temporary, to: final)
                 jobs[index].state = .done
+                // ⚠️ 必须写回表：不写的话下次扫描这些行仍是 needsConvert，
+                // 200 个文件会被重新排队 —— 13 小时的活白干一遍。
+                writeTableState(.done, for: source)
             } catch {
                 try? FileManager.default.removeItem(at: temporary)
                 jobs[index].state = .failed(reason: "output_conflict")
+                writeTableState(.failed, for: source)
             }
         } else {
             // 半成品绝不能留在 Converted/ —— 它扩展名合法，会被扫进播放池。
             try? FileManager.default.removeItem(at: temporary)
             jobs[index].state = .failed(reason: "exit_nonzero")
+            writeTableState(.failed, for: source)
         }
         onJobsChanged?()
+    }
+
+    /// 状态跃迁时回写帧率表。写失败不阻塞 —— 表只是加速手段，丢了就退化成全量重探。
+    private func writeTableState(_ state: ProbeState, for source: URL) {
+        var table = FrameRateTable.load(from: tableURL)
+        try? table.updateState(state, for: source, to: tableURL)
     }
 }
 

@@ -288,6 +288,68 @@ final class FpsTranscodeQueueTests: XCTestCase {
     }
 
     func testCancelWithEmptyQueueIsSafe() async {
-        makeQueue().cancel()
+    makeQueue().cancel()
+    }
+
+    // MARK: - 表回写（不写就等于活白干）
+
+    /// 产物落盘后必须把 `.done` 写回表 —— 否则下次扫描还是 `needsConvert`，
+    /// 200 个文件会被重新排队，13 小时的活白干一遍。
+    func testSuccessWritesDoneBackToTable() async throws {
+        makeSource("a.mp4")
+        let tableURL = root.appendingPathComponent("fps-table.json")
+        let queue = FpsTranscodeQueue(
+            runner: runner, root: root,
+            availability: { .available(path: "/opt/homebrew/bin/ffmpeg") },
+            freeSpaceProvider: { _ in nil },
+            specProvider: { _ in VideoAssetMetadata(hasVideoTrack: true, frameRate: 60, durationSeconds: 10) },
+            tableURL: tableURL)
+        await queue.scan()
+        await queue.run()
+
+        let entry = FrameRateTable.load(from: tableURL)
+            .entry(for: root.appendingPathComponent("a.mp4").resolvingSymlinksInPath())
+        XCTAssertEqual(entry?.state, .done, "成功后必须写回 done")
+        XCTAssertNotNil(entry?.derivativeMtime, "done 时要记下产物时间戳供后续失效判定")
+    }
+
+    /// 失败也要写回 —— 否则每次扫描都重排同一个失败文件。
+    func testFailureWritesFailedBackToTable() async {
+        runner.exitStatus = 1
+        makeSource("bad.mp4")
+        let tableURL = root.appendingPathComponent("fps-table.json")
+        let queue = FpsTranscodeQueue(
+            runner: runner, root: root,
+            availability: { .available(path: "/opt/homebrew/bin/ffmpeg") },
+            freeSpaceProvider: { _ in nil },
+            specProvider: { _ in VideoAssetMetadata(hasVideoTrack: true, frameRate: 60, durationSeconds: 10) },
+            tableURL: tableURL)
+        await queue.scan()
+        await queue.run()
+
+        let entry = FrameRateTable.load(from: tableURL)
+            .entry(for: root.appendingPathComponent("bad.mp4").resolvingSymlinksInPath())
+        XCTAssertEqual(entry?.state, .failed, "失败要写回，避免下次重复排队")
+    }
+
+    /// 取消/暂停后已完成的必须留在表里 —— 只有当前那个回到 pending。
+    func testCancelKeepsCompletedEntriesInTable() async throws {
+        makeSource("a.mp4")
+        makeSource("b.mp4")
+        let tableURL = root.appendingPathComponent("fps-table.json")
+        let queue = FpsTranscodeQueue(
+            runner: runner, root: root,
+            availability: { .available(path: "/opt/homebrew/bin/ffmpeg") },
+            freeSpaceProvider: { _ in nil },
+            specProvider: { _ in VideoAssetMetadata(hasVideoTrack: true, frameRate: 60, durationSeconds: 10) },
+            tableURL: tableURL)
+        await queue.scan()
+        queue.cancel()
+        await queue.run()
+
+        let table = FrameRateTable.load(from: tableURL)
+        let states = table.entries.map(\.state)
+        XCTAssertFalse(states.contains(.done), "取消时不该有已完成")
+        XCTAssertEqual(states.count, 2, "两个文件都已在表里")
     }
 }
