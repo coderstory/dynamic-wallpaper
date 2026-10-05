@@ -72,21 +72,44 @@ final class FpsDownscaleCommandTests: XCTestCase {
 
     /// 恰好 30 不算超 —— NTSC 的 29.97 也走这条路。
     func testExactlyThirtyIsNotDownscaled() {
-        let limit = FpsDownscaleCommand.maxFrameRate
-        XCTAssertFalse(VideoAssetMetadata(hasVideoTrack: true, frameRate: 30).exceedsFrameRate(limit))
-        XCTAssertFalse(VideoAssetMetadata(hasVideoTrack: true, frameRate: 29.97).exceedsFrameRate(limit))
+        XCTAssertFalse(FpsDownscaleCommand.needsDownscale(30))
+        XCTAssertFalse(FpsDownscaleCommand.needsDownscale(29.97))
+    }
+
+    /// ⚠️ 这条钉的是真实数据里的 bug：`nominalFrameRate` 对 NTSC 源会读出
+    /// 30.04 / 30.05 这类值（理论 29.97 或 30）。裸 `> 30` 会把它们全判成需降帧 ——
+    /// 实测 491 个文件里有 3 个是这种情况，于是转码了根本不该转的片。
+    func testFrameRateJustAboveThirtyIsNotDownscaled() {
+        for fps in [30.04, 30.05, 30.001] {
+            XCTAssertFalse(FpsDownscaleCommand.needsDownscale(fps),
+                           "\(fps)fps 是 30 的浮点噪声，不该被判定为超标")
+        }
+    }
+
+    /// 容差不能大到放过真的超标 —— 48/50fps 仍必须降。
+    func testGenuinelyAboveThirtyStillDownscaled() {
+        for fps in [48.0, 50.03, 59.92, 60.0, 120.0] {
+            XCTAssertTrue(FpsDownscaleCommand.needsDownscale(fps), "\(fps)fps 确实超标，必须降")
+        }
+    }
+
+    /// 容差的上界：35fps 必须仍判超标。容差放大到 5 时 48fps 照样会被降 ——
+    /// 这条钉住「容差不能变成 5」而不是笼统地测「48 要降」。
+    func testToleranceStaysTightAtThirtyFiveFps() {
+        XCTAssertTrue(FpsDownscaleCommand.needsDownscale(35),
+                      "35fps 明显超标 —— 容差若被放大到 5 这条会红")
+        XCTAssertTrue(FpsDownscaleCommand.needsDownscale(40))
     }
 
     func testAboveThirtyIsDownscaled() {
-        let limit = FpsDownscaleCommand.maxFrameRate
-        XCTAssertTrue(VideoAssetMetadata(hasVideoTrack: true, frameRate: 60).exceedsFrameRate(limit))
-        XCTAssertTrue(VideoAssetMetadata(hasVideoTrack: true, frameRate: 120).exceedsFrameRate(limit))
+        XCTAssertTrue(FpsDownscaleCommand.needsDownscale(60))
+        XCTAssertTrue(FpsDownscaleCommand.needsDownscale(120))
     }
 
     /// 读不到帧率时按「不降」——宁可文件大一点，不在元数据缺失时猜错画质。
-    func testUnknownFrameRateIsNotDownscaled() {
-        XCTAssertFalse(VideoAssetMetadata(hasVideoTrack: true, frameRate: nil)
-            .exceedsFrameRate(FpsDownscaleCommand.maxFrameRate))
+    /// 判据吃非可选 Double，nil 由队列侧提前挡掉。
+    func testFrameRateNilIsDecidedByCallerNotPredicate() {
+        XCTAssertNil(VideoAssetMetadata(hasVideoTrack: true, frameRate: nil).frameRate)
     }
 
     func testDerivativeNameGetsDistinctSuffix() {

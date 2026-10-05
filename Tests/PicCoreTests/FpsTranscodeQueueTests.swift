@@ -64,6 +64,8 @@ final class FpsTranscodeQueueTests: XCTestCase {
         return url
     }
 
+    /// ⚠️ 必须显式给 tableURL —— 用默认路径会读写真实用户数据
+    ///（~/Library/Application Support/Pic/frame-rate-table.json）。
     private func makeQueue(specProvider: @escaping (URL) async -> VideoAssetMetadata = { _ in
         VideoAssetMetadata(hasVideoTrack: true, frameRate: 60, durationSeconds: 10)
     }) -> FpsTranscodeQueue {
@@ -72,7 +74,8 @@ final class FpsTranscodeQueueTests: XCTestCase {
             root: root,
             availability: { .available(path: "/opt/homebrew/bin/ffmpeg") },
             freeSpaceProvider: { _ in nil },
-            specProvider: specProvider)
+            specProvider: specProvider,
+            tableURL: root.appendingPathComponent("fps-table.json"))
     }
 
     // MARK: - 扫描
@@ -119,6 +122,42 @@ final class FpsTranscodeQueueTests: XCTestCase {
         let queue = makeQueue()
         await queue.scan()
         XCTAssertTrue(queue.jobs.isEmpty, "Converted/ 里的产物不进队列")
+    }
+
+    /// 帧率表卡的三个读数：总数 / 需降 / 无需处理。
+    /// ⚠️ 「已是 30fps」显示 0 而库里明明有 287 个 —— 这条钉的就是那个 bug。
+    func testScanExposesTableCardCounts() async {
+        makeSource("hi1.mp4")
+        makeSource("hi2.mp4")
+        makeSource("lo1.mp4")
+        let queue = makeQueue { url in
+            // 按文件名决定：两个 60fps、一个 30fps。
+            url.lastPathComponent.hasPrefix("hi")
+                ? VideoAssetMetadata(hasVideoTrack: true, frameRate: 60, durationSeconds: 10)
+                : VideoAssetMetadata(hasVideoTrack: true, frameRate: 30, durationSeconds: 10)
+        }
+        await queue.scan()
+
+        XCTAssertEqual(queue.scannedCount, 3, "扫到 3 个源文件")
+        XCTAssertEqual(queue.jobs.count, 2, "两个高于 30fps 进队列")
+        XCTAssertEqual(queue.okAt30Count, 1, "「已是 30fps」必须显示 1，不能是 0")
+        XCTAssertEqual(queue.tableTotal, 3, "帧率表行数 = 扫到的源文件数")
+    }
+
+    /// 探测失败的文件**不进表** —— 表存的是实测结果，`fps` 是非可选 Double，
+    /// 存失败只能写 0，那是撒谎。所以 tableTotal 会小于 scannedCount。
+    func testUnknownFrameRateCountsInScanButNotTable() async {
+        makeSource("a.mp4")
+        makeSource("b.mp4")
+        let queue = makeQueue { url in
+            url.lastPathComponent == "a.mp4"
+                ? VideoAssetMetadata(hasVideoTrack: true, frameRate: nil)
+                : VideoAssetMetadata(hasVideoTrack: true, frameRate: 30, durationSeconds: 10)
+        }
+        await queue.scan()
+        XCTAssertEqual(queue.scannedCount, 2, "两个都被扫过")
+        XCTAssertEqual(queue.tableTotal, 1, "只有真正测到帧率的才占一行")
+        XCTAssertEqual(queue.okAt30Count, 1, "30fps 那个算达标")
     }
 
     /// 表里已完成的文件不再重复入队。
@@ -192,7 +231,8 @@ final class FpsTranscodeQueueTests: XCTestCase {
             runner: runner, root: root,
             availability: { .unavailable },
             freeSpaceProvider: { _ in nil },
-            specProvider: { _ in VideoAssetMetadata(hasVideoTrack: true, frameRate: 60) })
+            specProvider: { _ in VideoAssetMetadata(hasVideoTrack: true, frameRate: 60) },
+            tableURL: root.appendingPathComponent("fps-table.json"))
         await queue.scan()
         await queue.run()
         XCTAssertTrue(runner.calls.isEmpty, "工具不可用不得进 runner")

@@ -52,10 +52,16 @@ struct FpsTranscodeSection: View {
     }
 
     /// 副行要说清「哪些读表、哪些探测」—— 否则用户看到 491 会以为是全量重扫。
+    /// 表行数会**小于**扫描数：探测不出帧率的文件不进表（`fps` 存不了「失败」）。
     private var tableSubLine: String {
-        if viewModel.isScanning { return "本次探测 \(viewModel.scannedCount - viewModel.reusedCount) · 表内复用 \(viewModel.reusedCount)" }
+        if viewModel.isScanning {
+            return "本次探测 \(viewModel.scannedCount - viewModel.reusedCount) · 表内复用 \(viewModel.reusedCount)"
+        }
         guard viewModel.scannedCount > 0 else { return "尚未扫描" }
-        return "上次扫描 \(viewModel.scannedCount) 个文件"
+        guard viewModel.tableTotal < viewModel.scannedCount else {
+            return "上次扫描 \(viewModel.scannedCount) 个文件"
+        }
+        return "上次扫描 \(viewModel.scannedCount) 个 · \(viewModel.scannedCount - viewModel.tableTotal) 个探测不出帧率"
     }
 
     // MARK: - 队列卡

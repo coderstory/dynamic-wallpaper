@@ -15,15 +15,6 @@ public struct VideoAssetMetadata: Equatable, Sendable {
         self.frameRate = frameRate
         self.durationSeconds = durationSeconds
     }
-
-    /// 帧率是否高于给定的封顶线。**恰好等于不降** —— NTSC 的 29.97 也走这条路。
-    ///
-    /// ⚠️ 封顶线由调用方传，不在这里引用 `FpsDownscaleCommand` ——
-    /// 那会让 Media/ 反向依赖 Transcode/，两个探针脚本的编译面会因此破。
-    public func exceedsFrameRate(_ target: Double) -> Bool {
-        guard let frameRate else { return false }
-        return frameRate > target
-    }
 }
 
 /// 视频轨探测入口。【可注入】—— 单测用 `FakeAssetProbe`（放 Tests/，不是产品代码）。

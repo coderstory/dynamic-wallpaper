@@ -15,6 +15,15 @@ public enum FpsDownscaleCommand {
     /// 帧率封顶。**高于**它才需要降，恰好等于不动。
     public static let maxFrameRate: Double = 30
 
+    /// 是否需要降帧 —— 唯一的判定口。带 0.5fps 容差。
+    ///
+    /// ⚠️ `nominalFrameRate` 对 NTSC 源会读出 30.04 / 30.05（理论 29.97 或 30）。
+    /// 裸 `>` 会把它们判成超标 —— 实测 491 个文件里 3 个这种情况，等于白转。
+    /// 真超标从 48 起跳，0.5 的容差碰不到它们。
+    public static func needsDownscale(_ fps: Double) -> Bool {
+        fps > maxFrameRate + 0.5
+    }
+
     /// 高度上限。`scale=-2:1440` 只给高、宽按比例跟随，`-2` 保证偶数
     /// （libx265 + yuv420p 要求偶数尺寸，写死 1440 可能得到奇数宽而报错）。
     public static let maxHeight = 1440

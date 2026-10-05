@@ -86,5 +86,8 @@ final class FpsTranscodeViewModel: ObservableObject {
         jobs = queue.jobs
         scannedCount = queue.scannedCount
         reusedCount = queue.reusedCount
+        // ⚠️ 这两个曾经只有声明没有赋值 —— 帧率表卡永远显示 0。
+        tableTotal = queue.tableTotal
+        okAt30Count = queue.okAt30Count
     }
 }

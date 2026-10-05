@@ -36,6 +36,10 @@ public final class FpsTranscodeQueue {
     public private(set) var jobs: [Job] = []
     public private(set) var scannedCount = 0
     public private(set) var reusedCount = 0
+    /// 帧率表卡的读数：总行数 / 无需处理数。⚠️ 探测失败的文件也算一行 ——
+    /// 它被看过了，只是判不出帧率；不算进「已达标」。
+    public private(set) var tableTotal = 0
+    public private(set) var okAt30Count = 0
 
     public var onJobsChanged: (() -> Void)?
     public var onBatchFinished: (() -> Void)?
@@ -137,6 +141,8 @@ public final class FpsTranscodeQueue {
         jobs = candidates
         scannedCount = scanned
         reusedCount = reused
+        tableTotal = table.entries.count
+        okAt30Count = table.entries.filter { $0.state == .okAt30 }.count
         try? table.save(to: tableURL)
         onJobsChanged?()
     }
@@ -150,7 +156,7 @@ public final class FpsTranscodeQueue {
             // 已完成的必须跳过，否则每次扫描都把 198 个已转文件重排一遍。
             guard cached.state.recovered == .needsConvert else { return nil }
             let cachedFPS = cached.fps
-            return cachedFPS > FpsDownscaleCommand.maxFrameRate ? cachedFPS : nil
+            return FpsDownscaleCommand.needsDownscale(cachedFPS) ? cachedFPS : nil
         }
         let meta = await specProvider(source)
         guard meta.hasVideoTrack, let fps = meta.frameRate else { return nil }
@@ -162,7 +168,7 @@ public final class FpsTranscodeQueue {
             sourceMtime: attributes?[.modificationDate] as? Date ?? Date(timeIntervalSince1970: 0),
             fps: fps, durationSeconds: meta.durationSeconds ?? 0,
             derivativePath: derivativeURL(for: source).path,
-            state: fps > FpsDownscaleCommand.maxFrameRate ? .needsConvert : .okAt30)
+            state: FpsDownscaleCommand.needsDownscale(fps) ? .needsConvert : .okAt30)
         try? table.upsert(entry, to: tableURL)
         return entry.state == .needsConvert ? fps : nil
     }
