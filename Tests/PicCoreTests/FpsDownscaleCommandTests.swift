@@ -26,8 +26,27 @@ final class FpsDownscaleCommandTests: XCTestCase {
             "-movflags", "+faststart",
             "-progress", "pipe:1",
             "-nostats",
+            "-f", "mp4",
             "/tmp/p6-fps/Converted/样本 movie-30fps.mp4",
         ]
+    }
+
+    /// ⚠️ 这条钉的是实测 bug：产物先写 `.tmp` 再 rename，而 ffmpeg 按**最后一个**
+    /// 扩展名判格式 —— `x-30fps.mp4.tmp` 被判成未知格式，muxer 初始化失败，
+    /// 进程秒退（报 "Unable to choose an output format"）。必须显式 `-f mp4`。
+    func testExplicitMuxerSoTmpExtensionDoesNotBreakFormatDetection() {
+        let argv = FpsDownscaleCommand.arguments(input: input, output: output)
+        guard let index = argv.firstIndex(of: "-f") else {
+            return XCTFail("argv 必须带 -f mp4 —— .tmp 后缀会让 ffmpeg 判不出格式")
+        }
+        XCTAssertEqual(argv[index + 1], "mp4")
+    }
+
+    /// `-f` 必须紧邻输出路径（ffmpeg 把它当作用于其后的输出）。
+    func testFormatFlagPrecedesOutputPath() {
+        let argv = FpsDownscaleCommand.arguments(input: input, output: output)
+        let formatIndex = argv.firstIndex(of: "-f")!
+        XCTAssertEqual(argv[formatIndex + 2], output.path, "输出路径必须是 -f mp4 后的下一个 token")
     }
 
     func testArgumentsMatchExpectedTokenSequenceExactly() {

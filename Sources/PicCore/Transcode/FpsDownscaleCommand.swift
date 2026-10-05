@@ -58,6 +58,10 @@ public enum FpsDownscaleCommand {
             "-movflags", "+faststart",
             "-progress", "pipe:1",                  // 机器可读进度（成败仍只认 terminationStatus）
             "-nostats",
+            // ⚠️ 必须显式给 muxer：产物先写 `.tmp` 再 rename，而 ffmpeg 是按**最后一个**
+            // 扩展名判格式的 —— `x-30fps.mp4.tmp` 会被判成未知格式，muxer 初始化直接失败，
+            // 进程秒退（实测报 "Unable to choose an output format"）。给了 -f 就与文件名无关。
+            "-f", "mp4",
             output.path,
         ]
     }
