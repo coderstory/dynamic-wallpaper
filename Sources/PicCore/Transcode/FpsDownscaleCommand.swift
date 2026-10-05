@@ -25,17 +25,11 @@ public enum FpsDownscaleCommand {
     }
 
     /// 高度上限。`scale=-2:1440` 只给高、宽按比例跟随，`-2` 保证偶数
-    /// （libx265 + yuv420p 要求偶数尺寸，写死 1440 可能得到奇数宽而报错）。
+    /// （yuv420p 要求偶数尺寸，写死 1440 可能得到奇数宽而报错）。
     public static let maxHeight = 1440
 
-    /// x265 慢速档（默认 100）会让 198 个 4K 文件从几小时变一天多。
-    /// `fast` 与 x264 medium 编码耗时同量级（实测 10s 的 4K60 素材约 10.6s）。
-    public static let preset = "fast"
-
-    /// x265 的 CRF 与 x264 不是同一质量档，不能按数字类比。
-    public static let crf = 20
-
-    /// 逐 token 返回 ffmpeg argv。
+    /// 逐 token 返回 ffmpeg argv。编码器与质量档来自 `VideoEncoderProfile`
+    /// —— 与转码共用同一份，改一处两边生效。
     public static func arguments(input: URL, output: URL) -> [String] {
         [
             "-nostdin",                             // 防 ffmpeg 吃掉父进程 stdin
@@ -43,9 +37,10 @@ public enum FpsDownscaleCommand {
             "-i", input.path,                       // 绝对路径，防「文件名像选项」
             "-map", "0:v:0",
             "-map", "0:a:0?",                       // 可选音轨：无音轨源不报错
-            "-c:v", "libx265",
-            "-preset", preset,
-            "-crf", String(crf),
+            "-c:v", VideoEncoderProfile.encoder.ffmpegName,
+        ]
+        + VideoEncoderProfile.qualityTokens()
+        + [
             // ⚠️ 顺序要紧：`fps` 在 `scale` 之前 —— 先减帧再缩像素，省掉一半重采样。
             "-vf", "fps=\(Int(maxFrameRate)),scale=-2:\(maxHeight)",
             // ⚠️ 这一行是 HEVC 硬解的唯一开关，**漏了会静默落到软解**（不报错，

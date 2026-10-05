@@ -203,14 +203,16 @@ final class FpsTranscodeQueueTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: source.path), "原片保留不动")
     }
 
-    /// argv 必须含 HEVC 硬解 tag —— 漏了会静默软解。
-    func testRunUsesHevcArguments() async {
+    /// argv 必须带 HEVC 硬解 tag —— 漏了会静默软解。
+    /// 编码器名引用 profile 而非硬编码 —— profile 是唯一真相。
+    func testRunUsesProfileEncoderWithHevcTag() async {
         makeSource("a.mp4")
         let queue = makeQueue()
         await queue.scan()
         await queue.run()
         XCTAssertEqual(runner.calls.count, 1)
-        XCTAssertTrue(runner.calls[0].contains("libx265"), "用 libx265")
+        XCTAssertTrue(runner.calls[0].contains(VideoEncoderProfile.encoder.ffmpegName),
+                      "用 profile 指定的编码器")
         XCTAssertTrue(runner.calls[0].contains("-tag:v hvc1"), "必须带 hvc1 tag 才走硬解")
     }
 

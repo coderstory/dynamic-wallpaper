@@ -21,10 +21,17 @@ public enum TranscodeCommand {
             "-i", input.path,                       // 绝对路径，防「文件名像选项」
             "-map", "0:v:0",
             "-map", "0:a:0?",                       // 可选音轨：无音轨源不报错（Q3）
-            "-c:v", "libx264",
-            "-preset", baselinePreset,
-            "-crf", String(baselineCRF),
+            "-c:v", VideoEncoderProfile.encoder.ffmpegName,
+            // 编码器与质量档来自 VideoEncoderProfile —— 与降帧共用同一份。
+            // ⚠️ 转码只换容器不换画质，但编码器该用哪个是同一个决定。
+        ]
+        + VideoEncoderProfile.qualityTokens()
+        + [
             "-pix_fmt", "yuv420p",                  // P2：防 Hi10P 产出 10bit 掉硬解
+            // ⚠️ HEVC 硬解开关。profile 默认 videotoolbox 产 HEVC，漏了这个 tag
+            // 会**静默**落到软解 —— 不报错，只是更慢更烫，肉眼看不出来。
+            // 切回 libx264/libx265 时这一行无害（对 H.264 也接受 hvc1 之外的 tag）。
+            "-tag:v", "hvc1",
             "-c:a", "aac",
             "-b:a", "192k",
             "-sn", "-dn",                           // P3：丢字幕与数据附件
