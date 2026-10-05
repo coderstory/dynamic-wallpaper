@@ -88,4 +88,18 @@ final class ProcessCancellationTests: XCTestCase {
             onProgressLine: { _ in })
         XCTAssertFalse(runner.isRunning, "进程退出后 isRunning 必须为 false")
     }
+
+    /// ⚠️ 这条钉的是实测 bug：stderr 挂了 Pipe 却不读，缓冲区（~64KB）一满，
+    /// ffmpeg 就阻塞在写 stderr 上永不退出 —— 表现是 waitUntilExit 挂住、
+    /// 队列卡死、CPU 归零。转长视频必现（ffmpeg 的告警量足以填满管道）。
+    func testLargeStderrOutputDoesNotHangTheProcess() async {
+        let runner = ProcessTranscodeRunner()
+        let status = await runner.run(
+            ffmpegPath: "/bin/sh",
+            // stderr 输出远超管道容量。standardError 若是无人读的 Pipe，这里必挂死。
+            arguments: ["-c", "i=0; while [ $i -lt 20000 ]; do echo \"stderr 填充行 $i\"; i=$((i+1)); done; printf 'frame=1\\n'"],
+            outputTemporaryPath: root.appendingPathComponent("f.tmp").path,
+            onProgressLine: { _ in })
+        XCTAssertEqual(status, 0, "stderr 灌满管道时进程仍必须正常退出")
+    }
 }

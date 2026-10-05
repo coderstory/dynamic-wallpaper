@@ -50,8 +50,11 @@ public final class ProcessTranscodeRunner: TranscodeRunning, @unchecked Sendable
         process.standardInput = nil
         let stdoutPipe = Pipe()
         process.standardOutput = stdoutPipe
-        // stderr 整根吞掉不读：人话输出格式随版本漂，不解析（RESEARCH Don't-Hand-Roll）。
-        process.standardError = Pipe()
+        // ⚠️ stderr 必须**丢给 /dev/null**，不能挂一个不读的 Pipe：
+        // 管道缓冲区（约 64KB）一满，ffmpeg 就阻塞在写 stderr 上，进程永不退出 ——
+        // 表现是 waitUntilExit 挂住、队列卡死、CPU 归零（实测踩到，转长视频必现）。
+        // 人话输出格式随版本漂，不解析（RESEARCH Don't-Hand-Roll），所以直接丢弃。
+        process.standardError = FileHandle.nullDevice
 
         lock.withLock { self.process = process }
 
