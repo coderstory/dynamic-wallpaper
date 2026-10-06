@@ -127,8 +127,7 @@ struct TranscodeSection: View {
         .accessibilityIdentifier("transcode-job-\(job.id)")
     }
 
-    /// `percent` 来自 `ProgressParser.percent`，量纲是 **0…1**（不是 0…100）——
-    /// 先前这里又除了一次 100，进度条最大只有 0.96pt，肉眼恒为空。
+    /// `percent` 量纲是 **0…1**（不是 0…100），直接乘宽度，别再除 100。
     private func progressBar(_ job: TranscodeJob) -> some View {
         ZStack(alignment: .leading) {
             Capsule().fill(Color.pTrack)

@@ -100,6 +100,8 @@ public struct FrameRateTable: Codable, Equatable, Sendable {
     }
 
 
+    /// 变更口都落盘。只在状态跃迁时调用，**不是每 tick**——高频路径用下面的 `upsertInMemory`，
+    /// 否则每次全量 JSON 编码 + 原子写是写放大。
     public mutating func upsert(_ entry: FrameRateEntry, to url: URL = FrameRateTable.defaultURL()) throws {
         upsertInMemory(entry)
         try save(to: url)
