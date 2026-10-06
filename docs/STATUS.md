@@ -24,6 +24,7 @@
 | 6 | `RotationController` 依赖 scheduler 在**主线程**投递，但协议没写明这个契约 | `RotationController.swift:205` 的 `MainActor.assumeIsolated` | 生产实现满足；属架构脆弱点 —— 换个非主线程的 scheduler 实现会崩 |
 | 7 | `LineSplitter` **在锁内调 `emit`** | `ProcessTranscodeRunner.swift:110`（`unlock` 是 `defer`，所以仍在锁内） | 当前 `emit` 是 `Task { @MainActor }` 异步派发、非阻塞，无死锁；若将来改成同步实现会卡锁 |
 | 8 | 转码过程中换目录 → **跨卷 `moveItem` 失败** | `TranscodeQueue.runJob`（tmp 在旧目录求值、产物在新目录求值） | 安全失败（源保留、标 `output_conflict`），边缘场景 |
+| 9 | **2 条「真数据」用例在本机恒 skip** | `RealLibraryPlaybackPoolTests` 要求真实帧率表里有 `state == .done` 且派生片还活着的条目；本机表里 0 行 `done` → 两条都跳过 | 等于这两条覆盖是空转。要改动得用临时目录自造表才能自足运行。⚠️ 其中 `testDeletingDerivativeFallsBackToSource` 会**移动用户的真实派生片**再移回（靠 `defer` 还原）—— 真让它跑起来前先想清楚 |
 
 **已随之消失的旧问题**（留个交代，别再从旧报告里翻出来）：删源日志里「刻意打印文件名供审计」
 那 3 处随打点体系一起删了 —— 现在日志里一个文件名都没有，可审计性有轻微下降，这是删打点的既定代价。
