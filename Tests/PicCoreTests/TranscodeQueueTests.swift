@@ -14,12 +14,20 @@ final class TranscodeQueueTests: XCTestCase {
 
         private(set) var calls: [Call] = []
         var exitStatus: Int32 = 0
+        /// true 时不写 .tmp —— 模拟「退出码 0 但产物空」的磁盘写满 / map 落空场景。
+        var writeEmptyOutput = false
 
         func run(ffmpegPath: String, arguments: [String], outputTemporaryPath: String,
                  onProgressLine: @escaping @Sendable (String) -> Void) async -> Int32 {
             calls.append(Call(tmpPath: outputTemporaryPath, arguments: arguments))
-            FileManager.default.createFile(
-                atPath: outputTemporaryPath, contents: Data("fake-payload".utf8))
+            if !writeEmptyOutput {
+                FileManager.default.createFile(
+                    atPath: outputTemporaryPath, contents: Data("fake-payload".utf8))
+            } else {
+                // 模拟磁盘写满 / map 落空：tmp 存在但 0 字节，退出码仍 0。
+                FileManager.default.createFile(
+                    atPath: outputTemporaryPath, contents: Data())
+            }
             onProgressLine("frame=1")
             onProgressLine("out_time_ms=500000")
             return exitStatus
@@ -151,6 +159,24 @@ final class TranscodeQueueTests: XCTestCase {
 
         XCTAssertEqual(queue.jobs.first?.state, .succeeded,
                        "删源失败不影响转码结果：产物在，源也还在，下轮被幂等跳过")
+    }
+
+    /// 退出码 0 但产物空（磁盘写满 / map 落空）时**不得删源** —— 删源不可逆。
+    func testEmptyOutputDoesNotDeleteSource() async {
+        let source = makeSource("auto.mkv")
+        let runner = FakeRunner()
+        runner.writeEmptyOutput = true
+        var trashed: [URL] = []
+        let queue = makeQueue(runner: runner, trashProvider: { url in trashed.append(url) })
+
+        queue.enqueue(sources: [source], deletesSource: true)
+        await queue.run()
+
+        XCTAssertTrue(trashed.isEmpty, "空产物绝不能删源 —— 退出码 0 不等于产物可用")
+        XCTAssertEqual(queue.jobs.first?.state, .failed(reason: "output_unverified"),
+                       "产物不可用应显式标失败，而不是悄悄成功")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: source.path),
+                      "源文件必须保留，供下轮重转")
     }
 
     /// 换目录（不重启 app）：产物必须落进新目录。
@@ -327,5 +353,23 @@ final class TranscodeQueueTests: XCTestCase {
 
         XCTAssertEqual(queue.jobs.first?.state, .failed(reason: "ffmpeg_unavailable"))
         XCTAssertEqual(runner.calls.count, 0, "不可用绝不 spawn")
+    }
+
+    /// 已终态的同源再次入队，不得产出 `name_collision` 失败行：产物占位只算活跃 job，
+    /// 否则「失败后修好文件再转一次」这条重试路径会被历史终态记录堵死。
+    /// 产品侧（`TranscodeViewModel.loadCandidates`）负责过滤已知源，队列侧只保证不误标。
+    func testReEnqueueTerminalSourceDoesNotMarkNameCollision() async throws {
+        let source = makeSource("clip.mkv")
+        let runner = FakeRunner()
+        let queue = makeQueue(runner: runner)
+
+        queue.enqueue(sources: [source])
+        await queue.run()
+        XCTAssertEqual(queue.jobs.first?.state, .succeeded, "前置：这批真的转完")
+
+        // 已终态的同源再次入队：产物路径已不在活跃占位里，不应被误标 name_collision。
+        queue.enqueue(sources: [source])
+        XCTAssertFalse(queue.jobs.contains { $0.state == .failed(reason: "name_collision") },
+                       "已终态源重入队不得误标 name_collision —— 那是重试路径，不是碰撞")
     }
 }

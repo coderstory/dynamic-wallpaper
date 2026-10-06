@@ -99,7 +99,10 @@ public final class TranscodeQueue {
     /// `name_collision` 且不入队：宁可让用户改个文件名，不可悄悄吃掉一份素材。
     public func enqueue(sources: [URL], deletesSource: Bool = false) {
         var activePaths = Set(jobs.filter { Self.isActive($0.state) }.map { $0.sourceURL.path })
-        var claimedOutputs = Set(jobs.map { naming.outputURL(for: $0.sourceURL).path })
+        // 产物占位只算**活跃** job：已终态 job 的产物路径不该参与碰撞判定，
+        // 否则「失败后修好文件再转一次」这条重试路径会被历史记录堵死。
+        var claimedOutputs = Set(jobs.filter { Self.isActive($0.state) }
+            .map { naming.outputURL(for: $0.sourceURL).path })
         let toolPath = currentToolPath()
         for source in sources where !activePaths.contains(source.path) {
             activePaths.insert(source.path)
@@ -226,9 +229,25 @@ public final class TranscodeQueue {
         // 走废纸篓而不是 removeItem —— 删错了能从访达找回来。删除失败静默：
         // 源还在只会让它下轮被 skipDecision 幂等跳过，且产物已经落盘，不算失败。
         if jobs[index].state == .succeeded, jobs[index].deletesSource {
-            try? trashProvider(source)
+            // 退出码 0 不是「产物可用」的充分条件：磁盘写满、map 落空都会退出 0 但产出空文件。
+            // 删源不可逆（即便走废纸篓也是素材丢失），必须先确认产物真的可用再动源。
+            let outputURL = naming.outputURL(for: source)
+            if Self.looksLikeUsableOutput(outputURL) {
+                try? trashProvider(source)
+            } else {
+                jobs[index].state = .failed(reason: "output_unverified")
+            }
         }
         onJobsChanged?()
+    }
+
+    /// 产物可用性的同步闸：体积 > 0。不做 AVAsset 探测（那是 async，会把状态机拖长，
+    /// 且失败路径下一轮 skipDecision 会幂等跳过这个源，不会反复重转）。
+    private static func looksLikeUsableOutput(_ url: URL) -> Bool {
+        guard let size = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.size] as? Int64 else {
+            return false
+        }
+        return size > 0
     }
 
     private static func isActive(_ state: TranscodeJobState) -> Bool {

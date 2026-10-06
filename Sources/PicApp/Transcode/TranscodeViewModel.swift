@@ -36,9 +36,14 @@ final class TranscodeViewModel: ObservableObject {
     /// 壁纸目录里的转码候选 → 队列的 pending jobs。
     /// **入队时刻意不标删源**（`deletesSource: false`）：打开转码页只是看一眼，
     /// 不该把素材提前押上「成功即永久删除」。标记由 `startTranscoding()` 在点下去那一刻才落位。
+    /// 已进过队列的源（含已终态）不再入队 —— 否则每次切回本 TAB 都会把已完成的项
+    /// 重新标成 `name_collision` 失败行。
     func loadCandidates() {
         guard let root = wallpaperRootProvider() else { return }
-        queue.enqueue(sources: TranscodeCandidateFilter.candidates(in: root), deletesSource: false)
+        let known = Set(queue.jobs.map { $0.sourceURL.path })
+        queue.enqueue(
+            sources: TranscodeCandidateFilter.unseenCandidates(in: root, excluding: known),
+            deletesSource: false)
         reload()
     }
 

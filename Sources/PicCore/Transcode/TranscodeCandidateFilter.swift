@@ -29,6 +29,15 @@ public enum TranscodeCandidateFilter {
         return result
     }
 
+    /// 从未进过队列的候选 ——「补新文件」语义。转码页每次 `onAppear` 都会扫一遍，
+    /// 若不过滤，已终态（succeeded / skipped）的源会被重新入队并显示成失败行。
+    /// 过滤按 source path，不碰产物路径（那是 `TranscodeQueue.enqueue` 的活）。
+    /// 两边都走 standardized 路径：enumerator 可能给 /private/var/...，调用方给 /var/...。
+    public static func unseenCandidates(in root: URL, excluding knownSources: Set<String>) -> [URL] {
+        let known = Set(knownSources.map { URL(fileURLWithPath: $0).standardizedFileURL.path })
+        return candidates(in: root).filter { !known.contains($0.standardizedFileURL.path) }
+    }
+
     /// 目录名大小写不敏感精确匹配 Converted（与 `MediaLibrary` 同规则），不是子串匹配 —— `converted-lower` 不命中。
     private static func isInsideConverted(_ url: URL) -> Bool {
         url.pathComponents.contains {

@@ -90,4 +90,18 @@ final class TranscodeCandidateFilterTests: XCTestCase {
         XCTAssertEqual(TranscodeCandidateFilter.candidates(in: missing), [],
                        "根不存在 → 空数组，不抛（候选发现是尽力而为）")
     }
+
+    func testUnseenCandidatesExcludesKnownSources() {
+        makeFile("a.mkv")
+        makeFile("b.mkv")
+        let all = TranscodeCandidateFilter.candidates(in: root)
+        XCTAssertEqual(all.count, 2)
+
+        // 已进过队列的源（path 作为 key）被排除，只剩没见过的。
+        // 用 standardized 路径：enumerator 返回 /private/var/...，调用方给的可能是 /var/...。
+        let known = Set([root.appendingPathComponent("a.mkv").standardizedFileURL.path])
+        let unseen = TranscodeCandidateFilter.unseenCandidates(in: root, excluding: known)
+        XCTAssertEqual(unseen.map { $0.lastPathComponent }, ["b.mkv"],
+                       "已知源必须被过滤掉 —— 否则转码页每次 onAppear 都会把已完成的项重新入队")
+    }
 }
