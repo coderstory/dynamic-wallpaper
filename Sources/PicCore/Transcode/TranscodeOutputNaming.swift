@@ -27,13 +27,24 @@ public struct TranscodeOutputNaming {
     /// `root/Converted/<源文件去扩展名>.mp4` —— 不加任何后缀：目录隔离 + MP4 原生双闸门已够，后缀只换来难看的文件名。
     /// 源文件保留不删（是否删源由 `TranscodeJob.deletesSource` 决定）。
     public func outputURL(for source: URL) -> URL {
-        let stem = source.deletingPathExtension().lastPathComponent
-        return convertedDirectoryURL().appendingPathComponent(stem + ".mp4")
+        Self.outputURL(for: source, in: convertedDirectoryURL())
     }
 
     /// 中间态：`outputURL` 加 `.tmp` 后缀（先写 tmp 再 rename；`.tmp` 扩展名天然进不了任何白名单）。
     public func temporaryURL(for source: URL) -> URL {
-        outputURL(for: source).appendingPathExtension("tmp")
+        Self.temporaryURL(for: source, in: convertedDirectoryURL())
+    }
+
+    /// 给定**已解析**的产物目录推导产物路径。命名规则只有这一份（上面的实例方法转调这里）。
+    ///
+    /// 队列在 job 开始时把目录固化成快照，tmp 与产物都从同一个快照推 —— 否则中途换壁纸目录会让
+    /// 两者分落新旧两处，`moveItem` 跨卷失败、作业被误标 `output_conflict`（源不丢，但白跑一趟）。
+    public static func outputURL(for source: URL, in directory: URL) -> URL {
+        directory.appendingPathComponent(source.deletingPathExtension().lastPathComponent + ".mp4")
+    }
+
+    public static func temporaryURL(for source: URL, in directory: URL) -> URL {
+        outputURL(for: source, in: directory).appendingPathExtension("tmp")
     }
 
     /// 幂等跳过：产物已存在且产物 mtime ≥ 源 mtime → true（已转过且源没变，跳过防重复烤机）。产物不存在或更旧 → false。

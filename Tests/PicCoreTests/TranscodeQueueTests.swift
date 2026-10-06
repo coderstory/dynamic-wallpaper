@@ -14,12 +14,15 @@ final class TranscodeQueueTests: XCTestCase {
 
         private(set) var calls: [Call] = []
         var exitStatus: Int32 = 0
+        /// run 一开始调一次 —— 只给「运行期环境变化」的用例用（例如转码途中换了壁纸目录）。
+        var onRun: (() -> Void)?
         /// true 时不写 .tmp —— 模拟「退出码 0 但产物空」的磁盘写满 / map 落空场景。
         var writeEmptyOutput = false
 
         func run(ffmpegPath: String, arguments: [String], outputTemporaryPath: String,
                  onProgressLine: @escaping @Sendable (String) -> Void) async -> Int32 {
             calls.append(Call(tmpPath: outputTemporaryPath, arguments: arguments))
+            onRun?()
             if !writeEmptyOutput {
                 FileManager.default.createFile(
                     atPath: outputTemporaryPath, contents: Data("fake-payload".utf8))
@@ -91,6 +94,52 @@ final class TranscodeQueueTests: XCTestCase {
                       "源文件必须保留（TRANS-04）")
         let sourceText = try String(contentsOf: source, encoding: .utf8)
         XCTAssertEqual(sourceText, "placeholder-mkv", "源文件内容原封不动")
+    }
+
+    /// 转码**途中**换壁纸目录：tmp 与产物必须落在同一个目录快照里。
+    ///
+    /// 换了目录还向新 root 求产物路径的话，`moveItem` 的目标目录（`<新 root>/Converted`）此刻**还不存在**
+    /// —— 预检只建了 job 开始时那个目录 —— 于是 move 失败、作业被误标 `output_conflict`；
+    /// 壁纸目录在外接盘上时还要再叠一层跨设备失败。
+    /// （实测：退回修复后本用例确定性复现 `output_conflict`。）
+    func testFolderChangeDuringJobKeepsTmpAndOutputInOneSnapshot() async throws {
+        /// 可变的目录持有者。用类而不是捕获 var：`rootProvider` 是并发读的，Swift 6 下捕获可变 var 不合法。
+        final class RootBox: @unchecked Sendable {
+            var url: URL
+            init(_ url: URL) { self.url = url }
+        }
+
+        let source = makeSource()
+        let oldRoot = root.appendingPathComponent("old", isDirectory: true)
+        let newRoot = root.appendingPathComponent("new", isDirectory: true)
+        for dir in [oldRoot, newRoot] {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        }
+
+        let box = RootBox(oldRoot)
+        let runner = FakeRunner()
+        // 替身一跑起来就换目录 —— 等价于用户在这里点了「选择…」换了壁纸文件夹。
+        runner.onRun = { box.url = newRoot }
+
+        let queue = TranscodeQueue(
+            runner: runner,
+            naming: TranscodeOutputNaming(rootProvider: { box.url }),
+            availability: { .available(path: "/opt/homebrew/bin/tool") },
+            freeSpaceProvider: { _ in 1_000_000_000 },
+            durationProvider: { _ in nil })
+
+        queue.enqueue(sources: [source])
+        await queue.run()
+
+        XCTAssertEqual(queue.jobs.first?.state, .succeeded,
+                       "中途换目录不该把作业打成 output_conflict")
+        let frozen = oldRoot.appendingPathComponent("Converted", isDirectory: true)
+        XCTAssertTrue(FileManager.default.fileExists(
+            atPath: frozen.appendingPathComponent("sample.mp4").path),
+                      "产物必须落在 job 开始时的目录快照里")
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: newRoot.appendingPathComponent("Converted/sample.mp4").path),
+                       "换了目录也不该把产物写进新目录 —— 那会让 tmp 与产物分落两处")
     }
 
     func testFailedJobCleansTmpAndMarksFailed() async {

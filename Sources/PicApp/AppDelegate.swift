@@ -19,6 +19,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let fullscreenDetector = FullscreenDetector()
     let displayWatcher = DisplayWatcher()
     let powerWatcher = PowerWatcher()
+    /// 屏幕参数变更的订阅。与四个 Watcher 同一条纪律：谁创建谁注销。
+    private var screenObserver: NSObjectProtocol?
     // rotation 必须强持有，它持 onAdvance 闭包与 Timer 调度器
     let library = MediaLibrary()
     /// 面板 seam：全仓唯一碰 NSOpenPanel 的地方注入进来的句柄。
@@ -137,6 +139,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         lockWatcher.start { [arbiter] isLocked in
             MainActor.assumeIsolated { arbiter.set(.screenLocked, active: isLocked) }
         }
+        // 屏幕参数变更：窗口 frame 在创建时就固化了，不重建就停在旧屏尺寸上（换主屏 / 改分辨率 /
+        // 合盖接显示器都会触发）。投递中心必须是 NotificationCenter.default —— 这条由 AppKit 在
+        // 本进程投递，不在 NSWorkspace 的中心上。
+        screenObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.rebuildWallpaperForCurrentScreen() }
+        }
+    }
+
+    /// 换屏 → 用当前 `NSScreen.main` 重建壁纸窗口。重建动作在控制器里（它知道自己的 frame 从哪来）。
+    private func rebuildWallpaperForCurrentScreen() {
+        wallpaper.rebuildForCurrentScreen(player: player.player)
     }
 
     /// 最近一次已知的电源状态。设置窗的 toggle 要用它**当场**重估，不能等下一次电源跃迁。
@@ -223,11 +238,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        // 与 wiring() 里的四个 start() 严格配对
+        // 与 wiring() 里的四个 start() 加一条订阅严格配对
         lockWatcher.stop()
         fullscreenDetector.stop()
         displayWatcher.stop()
         powerWatcher.stop()
+        if let screenObserver {
+            NotificationCenter.default.removeObserver(screenObserver)
+            self.screenObserver = nil
+        }
     }
 
     /// 异步化 + 走 `MediaLibrary.scan` + `router.start`。装载分派由 router 内部的 `onAdvance`

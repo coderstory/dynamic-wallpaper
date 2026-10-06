@@ -53,6 +53,19 @@ public final class WallpaperWindowController {
         window?.orderFrontRegardless()
     }
 
+    /// 屏幕参数变更（换主屏 / 改分辨率 / 合盖接显示器）→ 用新的 `NSScreen.main` 重建窗口。
+    ///
+    /// 窗口的 frame 在 `WallpaperWindow.init` 里就按当时的 `screen.frame` 固化了，不重建就一直是
+    /// 旧屏的尺寸（表现是壁纸只铺满旧分辨率那块，或换外接屏后铺不满）。
+    ///
+    /// **`window == nil` 时什么都不做**：降级态（还没 attach 过 / 已 teardown）不该被一次换屏唤醒 ——
+    /// 那会让「没有可播视频」的会话凭空冒出一扇黑窗。
+    public func rebuildForCurrentScreen(player: AVQueuePlayer) {
+        guard window != nil else { return }
+        teardown()
+        attach(player: player)
+    }
+
     public func teardown() {
         window?.orderOut(nil)
         window = nil

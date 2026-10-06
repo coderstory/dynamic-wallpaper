@@ -194,7 +194,8 @@ public final class TranscodeQueue {
         jobs[index].state = .running
         onJobsChanged?()
 
-        let temporaryURL = naming.temporaryURL(for: source)
+        // 从上面那个目录快照推 tmp：不在完成后再向 naming 求值，否则中途换壁纸目录会让 tmp 与产物跨卷。
+        let temporaryURL = TranscodeOutputNaming.temporaryURL(for: source, in: convertedDirectory)
         let arguments = TranscodeCommand.arguments(input: source, output: temporaryURL)
         // duration 在 job 开始时取一次缓存，不逐行取（拿不到 → percent 走 nil 路径）。
         let durationSeconds = await durationProvider(source)
@@ -212,7 +213,7 @@ public final class TranscodeQueue {
         }
 
         if status == 0 {
-            let outputURL = naming.outputURL(for: source)
+            let outputURL = TranscodeOutputNaming.outputURL(for: source, in: convertedDirectory)
             do {
                 if FileManager.default.fileExists(atPath: outputURL.path) {
                     try FileManager.default.removeItem(at: outputURL)
@@ -233,7 +234,8 @@ public final class TranscodeQueue {
         if jobs[index].state == .succeeded, jobs[index].deletesSource {
             // 退出码 0 不是「产物可用」的充分条件：磁盘写满、map 落空都会退出 0 但产出空文件。
             // 删源不可逆（即便走废纸篓也是素材丢失），必须先确认产物真的可用再动源。
-            let outputURL = naming.outputURL(for: source)
+            // 校验的必须是**刚写的那个**产物路径：同样从目录快照推，不重新求值。
+            let outputURL = TranscodeOutputNaming.outputURL(for: source, in: convertedDirectory)
             if Self.looksLikeUsableOutput(outputURL) {
                 try? trashProvider(source)
             } else {

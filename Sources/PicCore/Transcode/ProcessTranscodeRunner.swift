@@ -100,15 +100,19 @@ private final class LineSplitter: @unchecked Sendable {
     }
 
     func feed(_ chunk: Data) {
+        var lines: [String] = []
         lock.lock()
-        defer { lock.unlock() }
         buffer.append(chunk)
         while let newline = buffer.firstIndex(of: UInt8(ascii: "\n")) {
             let lineData = buffer.subdata(in: buffer.startIndex..<newline)
             buffer.removeSubrange(buffer.startIndex...newline)
             if let line = String(data: lineData, encoding: .utf8) {
-                emit(line)
+                lines.append(line)
             }
         }
+        lock.unlock()
+        // **emit 必须在锁外**：现在的实现是 `Task { @MainActor }` 异步派发、不会阻塞，但哪天有人把它
+        // 换成同步实现，锁内调用就会把整条读取管道卡死（readabilityHandler 与收尾 drain 争同一把锁）。
+        for line in lines { emit(line) }
     }
 }
