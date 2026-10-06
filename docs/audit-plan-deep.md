@@ -16,28 +16,76 @@
 
 ---
 
-## 1. 审查维度（12 个，按风险权重排序）
+## 1. 审查维度（审查专家判断 · 按项目本质重排）
 
-| # | 维度 | 核心问题 | 关键文件 |
-|---|---|---|---|
-| 1 | **线程安全** | `assumeIsolated` 25 处、`nonisolated(unsafe)` 4 处、`@unchecked Sendable` 3 处——每一处都是「AI 猜错隔离域就崩」的雷 | 所有 Watcher、ProcessTranscodeRunner、LineSplitter |
-| 2 | **注释-代码一致性** | 191 处反重构警告是否仍准确；注释里「顺序/门控/刻意不用某 API」的断言与代码是否脱节 | 全仓，重点 PlayerController、HoldArbiter、AppDelegate |
-| 3 | **并发交错时序** | 跨 `await` 的状态、锁屏+菜单、转码+换目录、启动+拔盘 | AppDelegate、FpsTranscodeQueue、TranscodeQueue |
-| 4 | **资源占用** | 44 处 FileManager 调用、AVPlayerItem/AVPlayerLayer 生命周期、Timer 泄漏、观察者注销配对 | PlayerController、WallpaperWindowController、各 Watcher |
-| 5 | **启动/切换/播放速度** | 首屏路径上的同步阻塞、`waitUntilExit`、启动时的全量探测 | AppDelegate.bootstrap、ProcessTranscodeRunner、MediaLibrary |
-| 6 | **播放切换稳定性** | AVPlayerLooper 克隆、先插后扫、队列清空闪屏、seek 锚点 | PlayerController、PlaybackRouter、HoldArbiter |
-| 7 | **UI 布局** | 固定 780pt 宽度、磁贴网格、长文件名截断、空态 | SettingsComponents、SettingsView、两个 Section |
-| 8 | **UX 交互** | 菜单「暂停」语义、降帧/转码的可控性、无障碍、反馈即时性 | MenuContentView、SettingsView、FpsTranscodeSection |
-| 9 | **代码安全** | 路径穿越、符号链接、注入面、隐私（日志不泄漏文件名） | MediaLibrary、TranscodeCommand、LaunchAgentWriter |
-| 10 | **代码稳定性** | 崩溃面：数组越界、可选值、磁盘满、权限拒绝 | 全仓 `[index]`、`first!`、IO 错误路径 |
-| 11 | **性能** | 已修 O(n²)/写放大；剩余：扫描串行、逐文件 IO、主线程阻塞 | MediaLibrary、ConvertedLibrary、FrameRateTable |
-| 12 | **注释合理性** | 面向 AI 的注释是否「帮 AI 少犯错」还是「浪费注意力」；过度注释 vs 缺注释 | 全仓对照 CLAUDE.md 注释纪律 |
+> **维度设计的判断依据**：这是一个「macOS 菜单栏常驻 + 桌面层视频壁纸」应用——零第三方依赖、零网络、零数据库、零用户输入拼接、argv 全数组。它不是通用 Web 服务，所以传统「安全/性能」维度的权重**必须按项目本质重排**。下面是重排后的维度，标注了「用户提出」vs「专家补充」vs「权重重校准」。
+
+### 1.1 命门维度（P0，专家补充——用户清单里没有）
+
+| 维度 | 为什么是命门 | 关键文件 |
+|---|---|---|
+| **状态机正确性** | 这个项目本质是一个状态机：`Watcher(6 信号源) → HoldArbiter(veto 集合) → PlayerController`。它的正确性 = 「6 个布尔信号 → 1 个 shouldPlay 决策」在**所有 2⁶ 组合 + 时序交错**下都正确。前六轮抓的 bug（恢复速度回落、暂停语义、锚点错位）全是这条链上的。决策一错，用户看到的就是「壁纸盖在全屏应用上」或「锁屏后还在放」——产品的核心承诺 | HoldArbiter、HoldReason、PlaybackDecision、6 个 Watcher |
+| **AVFoundation 隐蔽陷阱** | `AVPlayerLooper` 克隆语义、`preferredMaximumResolution`/`audioTimePitchAlgorithm`/`preferredForwardBufferDuration` 设在 looper 之前 vs 之后、`AVQueuePlayer` 队列操作时序——这些只有踩过坑才知道要查。用户提的「播放切换稳定性」是对的，但没点出这些具体 API 陷阱 | PlayerController、PlaybackRouter |
+| **进程生命周期/资源回收** | 这个 app **不退出**（关窗只隐藏）。换目录 100 次内存是否线性增长？重扫是否释放旧 AVPlayerItem？转码 Process 句柄、Timer、观察者长跑几天是否泄漏？**常驻进程的泄漏是「慢慢死」，比崩溃更阴险，单测测不出** | AppDelegate、PlayerController、各 Watcher、TranscodeQueue |
+
+### 1.2 高优先级维度（P1）
+
+| 维度 | 核心问题 | 关键文件 |
+|---|---|---|
+| **线程安全**（用户提出） | `assumeIsolated` 25 处、`nonisolated(unsafe)` 4 处、`@unchecked Sendable` 3 处——每一处都是「AI 猜错隔离域就崩」的雷 | 所有 Watcher、ProcessTranscodeRunner、LineSplitter |
+| **注释-代码一致性**（专家补充，面向 AI 独有） | 191 处反重构警告是否仍准确；注释里「顺序/门控/刻意不用某 API」的断言与代码是否脱节。**一条过时的权威注释比没有注释更危险** | 全仓，重点 PlayerController、HoldArbiter、AppDelegate |
+| **并发交错时序**（用户提出） | 跨 `await` 的状态、锁屏+菜单、转码+换目录、启动+拔盘 | AppDelegate、FpsTranscodeQueue、TranscodeQueue |
+
+### 1.3 中优先级维度（P2）
+
+| 维度 | 核心问题 | 关键文件 |
+|---|---|---|
+| **常驻隐性成本**（专家把「性能+资源占用」合并重校准） | 首屏时间（菜单栏 app 用户期望秒开）、24 小时后台的 CPU/内存/功耗、44 处 FileManager 调用 | AppDelegate.bootstrap、MediaLibrary、ConvertedLibrary |
+| **代码稳定性**（用户提出） | 崩溃面：数组越界、可选值、磁盘满、权限拒绝、JSON 损坏 | 全仓 `[index]`、`first!`、IO 错误路径 |
+
+### 1.4 低优先级维度（P3）
+
+| 维度 | 核心问题 | 关键文件 |
+|---|---|---|
+| **隐私**（专家从「安全」里拎出来单列） | 日志不泄漏文件名（本项目独有红线）、符号链接纵深、自启动 plist 路径注入。**注意：这个项目没有传统注入面**（argv 全数组、零网络、零 SQL），把「安全」当独立维度去扫 SQL/命令注入是浪费时间 | MediaLibrary、ConvertedLibrary、LaunchAgentWriter、各 emit 调用点 |
+| **UI 布局**（用户提出） | 固定 780pt 宽度溢出、磁贴网格、长文件名截断、空态 | SettingsComponents、SettingsView、两个 Section |
+| **UX 交互**（用户提出） | 菜单「暂停」语义、降帧/转码可控性、无障碍、反馈即时性 | MenuContentView、SettingsView、FpsTranscodeSection |
+| **注释合理性**（用户提出，面向 AI 独有） | 注释是否「帮 AI 少犯错」还是「浪费注意力」；单位/量纲/常量值的精度 | 全仓对照 CLAUDE.md 注释纪律 |
+
+### 1.5 权重重校准的三个关键判断（专家意见）
+
+1. **「代码安全」降权**：零第三方依赖 + 零网络 + 零 SQL + argv 全数组 → 传统注入面几乎为零。安全审查的正确落点是「隐私」（日志不泄漏文件名）和「符号链接纵深」，不是逐项扫注入。**把安全列成一个靠前的独立维度，是拿通用项目的模板硬套**。
+2. **「性能」与「资源占用」合并为「常驻隐性成本」**：壁纸播放器没有高并发/大数据，O(n²) 已修。真正的性能问题是「首屏时间」和「24 小时后台的隐性消耗」，这两个是同一个维度的两面。
+3. **补上三个命门维度**：状态机正确性、AVFoundation 陷阱、进程生命周期——这三样是这个项目「正确性」的根基，比「UI/UX」重要一个量级。用户清单里没有显式列它们，但它们才是深水区。
 
 ---
 
 ## 2. 每个维度的具体审查点（这是计划的核心）
 
-### 维度 1：线程安全（最高优先级）
+### 维度 A：状态机正确性（命门，专家补充）
+
+**核心命题**：`shouldPlay = holds.isEmpty` 这个决策，必须在 6 个信号源的 2⁶ 组合 + 任意时序下都正确。前六轮抓到的「恢复速度回落」「暂停语义」「锚点错位」全是这条链的 bug。
+
+1. **决策链完整走查**：6 个 `HoldReason`（manualPause / fullscreen / screenLocked / displayAsleep / systemSleeping / battery）的每个 set 入口，是否都最终汇到 `HoldArbiter.set`？有没有绕开仲裁器直连 `PlayerController` 的地方（注释纪律明令禁止，但需验证）？
+2. **锚点语义的边界**：`resumeAnchor` 只在 ∅→非∅ 写入。叠加暂停（先锁屏再全屏）、hold 期间 `advanceNow` 换片、hold 期间改速度——锚点是否总指向正确位置？`arbiterSeek` 对已换片的 seek 是否错位？
+3. **decision 的幂等与重放**：`set` 里 `before != after` 才 apply；`applyCurrentDecision` 绕过 set。启动时「四个 Watcher 已置位」这个前提，AI 若调整 wiring 顺序就会破坏。审计这个前提是否被注释锁死。
+4. **`isManuallyPaused` 的语义泄漏**：它是「只读派生量」，但菜单/UI 用它判断「继续 vs 暂停」。系统压住（非 manualPause）时它返回 false——UI 语义是否正确？
+
+### 维度 B：AVFoundation 隐蔽陷阱（命门，专家补充）
+
+1. **looper 克隆边界**：`preferredMaximumResolution`、`audioTimePitchAlgorithm` 注释说「设在 looper 之前，克隆体不带」。但 `preferredForwardBufferDuration`（=3.0）呢？它在 `item` 上，克隆时保留吗？循环下一圈 buffer 是否掉回默认？
+2. **先插后扫的闪屏窗口**：`load(url:)` 先 `insert(item, after: nil)` 再 `remove` 旧 item，保队列非空防闪屏。AI 若「优化」成先 remove 再 insert，闪屏回归。审计注释警示是否够强。
+3. **`stop()` 三步顺序**：`disableLooping → looper=nil → removeAllItems`。与 `load` 交错（stop 后立刻 load）是否有窗口。
+4. **克隆 item 的属性冻结**：`AVPlayerLooper` 每个 loop 边界克隆模板 item，模板的属性在 init 时冻结。哪些「改设置当场生效」的诉求（rate/volume/muted）是挂在 player 上而非 item 上？有没有漏挂到 item 导致「设置改了但循环下一圈失效」？
+
+### 维度 C：进程生命周期/资源回收（命门，专家补充）
+
+1. **AVPlayerItem 释放**：`load(url:)` 每次新建 item + 重建 looper，旧 item 是否真的被释放？`player.remove()` + looper 引用循环？
+2. **换目录 100 次**：`rescanAndApply` 反复执行，`MediaLibrary.cached`、`ConvertedLibrary` 每次 new、`AVURLAsset` 探测——是否有线性增长的缓存/对象？
+3. **Timer/观察者配对**：`ticker`、`SystemRotationScheduler.timer`、`FrameDriver.fallbackTimer`、`LoopProbe.sampler`、所有 `addObserver`（通知/DistributedNotification/CGDisplay/IOPS）——每个是否有 invalidate/remove 配对？`applicationWillTerminate` 是否是唯一收口？
+4. **Process 句柄**：`ProcessTranscodeRunner.process` 在 `clearProcess` 置 nil，但转码中途退出/崩溃时，句柄是否泄漏？`cancel()` 的 `terminate()` 后句柄清理路径。
+
+### 维度 1：线程安全（P1）
 
 **为什么这是首要**：前六轮只修了 1 处 `assumeIsolated` 越界（P1-3）。还有 25 处 `assumeIsolated` 没逐个核对其**合法前提**——每处都要问：「这个回调真的保证在主线程/主 actor 上投递吗？」
 
@@ -139,22 +187,24 @@
 
 按「风险密度 → 影响面 → 可验证性」排优先级，分阶段执行：
 
-**Phase A（先行，最高价值）**：
+**Phase A（命门，最高价值）**：
+- 维度 A 状态机正确性：6 信号 → 决策链完整走查 + 锚点边界
+- 维度 B AVFoundation 陷阱：looper 克隆边界 + 属性挂载位置
+- 维度 C 进程生命周期：AVPlayerItem 释放 + Timer/观察者配对
+
+**Phase B**：
 - 维度 1 线程安全：25 处 `assumeIsolated` 逐个核对投递来源
 - 维度 2 注释-代码一致性：191 处反重构警告抽样 + 前六轮改动后的注释漂移
 - 维度 10 稳定性：下标越界 + 磁盘满失败路径
 
-**Phase B**：
-- 维度 3 并发交错：4 个交错场景逐一走查（可写临时并发测试）
-- 维度 6 播放切换稳定性：looper 克隆边界 + 锚点错位
-- 维度 9 安全：路径穿越纵深 + 日志隐私纪律
-
 **Phase C**：
-- 维度 4 资源占用：Timer/观察者配对
-- 维度 5/11 速度与性能：启动阻塞、扫描串行
-- 维度 7/8 UI/UX：布局溢出、菜单语义、无障碍
+- 维度 3 并发交错：4 个交错场景逐一走查（可写临时并发测试）
+- 维度 6 播放切换稳定性：锚点错位、stop/load 交错
+- 隐私：日志不泄漏文件名 + 符号链接纵深
 
 **Phase D（收尾）**：
+- 常驻隐性成本：首屏时间 + 后台消耗
+- 维度 7/8 UI/UX：布局溢出、菜单语义、无障碍
 - 维度 12 注释合理性：对照 CLAUDE.md 纪律全量过一遍
 
 每个发现都要：**位置 + 级别 + 根因 + 正确方案 + 可照抄的代码/设计**（延续前六轮的输出标准）。
@@ -176,3 +226,135 @@
 - **注释-代码一致性**（全新维度，前六轮未涉及）
 - **并发交错时序**（前六轮只修了单点，未系统审查交错）
 - **面向 AI 的注释合理性**（本项目独有，前六轮只做「写得对不对」，未做「注释与代码是否脱节」）
+
+---
+
+## 6. 注释现状分析（面向 AI 的独立审查对象）
+
+> 本节是**分析结论**，回答「这个项目的注释到底处于什么状态、哪里有问题」；第 7 节「注释精简」才是**执行**。二者分开：先看懂，再动手。
+
+### 6.1 总量与占比（实测，2026-10-06）
+
+| 指标 | 数值 |
+|---|---|
+| 源码总行数 | 7185 |
+| 含 `//` 的行数 | 1261（占比 **17.6%**） |
+| 整行注释（`///`/`//` 开头） | 307 行（4.3%） |
+| 行内注释（代码后 `//`） | 954 行（13.3%） |
+| 反重构警告/契约（含「不得/必须/顺序/刻意/必现/否则」） | 229 行 |
+| `MARK:` 分组标记 | 65 处 |
+| 演变叙事（此前/先前/改成/原来/曾经） | 4 处 |
+| 复述命名/行为（启发式） | ~11 处 |
+| 空注释行 | 1 处 |
+
+### 6.2 结构判断：注释占比高，但「病态」和「健康」各占多少
+
+**结论：17.6% 对「纯面向 AI」项目不算离谱，但其中有约 81 处是明确的「浪费注意力」废注释，另有约 200 行「中性描述」可压缩。**
+
+拆解：
+
+1. **229 处反重构警告/契约 —— 这是核心资产，一个字都不能删**。AI 最大的风险是「自作主张优化它认为冗余的代码」，这些「顺序不可换/刻意不用某 API/必现」的注释正是防这个的。它们占注释总量的 18%，却是注释**价值最高**的部分。
+2. **954 行行内注释 —— 主因**。其中混着三类：该留的反重构警告、该删的复述、以及介于两者之间的中性描述。行内注释是注释占比高的直接来源。
+3. **65 处 MARK + 4 处演变叙事 + 11 处复述 + 1 空行 ≈ 81 处 —— 明确的废注释**，删了不损失任何「帮 AI 少犯错」的信息。
+
+### 6.3 典型案例（正反两面）
+
+**✅ 该留的（反重构警告，价值极高）**：
+
+```swift
+// stderr 必须丢给 /dev/null，不能挂一个不读的 Pipe：管道缓冲区（约 64KB）一满，
+// ffmpeg 就阻塞在写 stderr 上，进程永不退出 —— 表现是 waitUntilExit 挂住、队列卡死、
+// CPU 归零（转长视频必现）。
+```
+（`ProcessTranscodeRunner.swift`）——AI 极可能「优化」成挂 Pipe，这条注释直接防住一个必现的生产事故。
+
+**❌ 该删的（演变叙事，AI 会自己 `git log`）**：
+
+```swift
+/// 先前这里又除了一次 100，进度条最大只有 0.96pt，肉眼恒为空。
+```
+（`TranscodeSection.swift:133`）——这是前几轮修 progress 量纲时遗留的「此前」叙事，CLAUDE.md 明令禁止。
+
+**⚠️ 已漂移的（注释-代码不一致，最危险）**：
+
+```swift
+// 「成功即永久删除」  ← P1-5 加删源校验后，实际语义已变成「校验产物可用后才删」
+```
+这类「注释还权威、代码已变」的漂移，比没有注释更危险——AI 会严格照错误的规则执行。这正是维度 2「注释-代码一致性」要专项查的。
+
+### 6.4 面向 AI 的注释判断标准（本项目专用）
+
+对每条注释问一句 CLAUDE.md 的判据：**「这句话是在帮 AI 少犯一条错，还是在浪费它的注意力？」**
+
+| 判断 | 处置 |
+|---|---|
+| 帮 AI 少犯错（反重构警告/契约/跨文件不变量/非显然坑） | **留** |
+| 浪费 AI 注意力（复述行为/复述命名/演变叙事/出处证据/纯装饰） | **删** |
+| 注释说「单位是秒」但代码是毫秒 | **这是 bug，改注释或改代码** |
+
+**关键原则**：注释是「给 AI 的约束指令」。约束指令与代码脱节 = 一个会主动误导下一个 AI 的 bug。注释的**精度**和**一致性**，比注释的**数量**重要得多。
+
+---
+
+## 7. 前置任务：注释精简（激进档）
+
+> 用户拍板「激进精简」，目标把注释占比从 17.6% 降到约 12%。这是执行 Phase A 前的**前置任务**——注释密度降下来后，「注释-代码一致性」审查才有干净的基线。
+
+### 7.1 现状量化（实测）
+
+| 类别 | 数量 | 处置 |
+|---|---|---|
+| 整行 doc 注释 | 307 行（4.3%） | 压缩为一行核心点 |
+| 行内注释 | 954 行（13.3%） | 保留反重构警告，删复述 |
+| 反重构警告/契约（不得/必须/顺序/刻意/必现） | 229 行 | **保留**（核心资产） |
+| `MARK:` 分组标记 | 65 处 | ✅ 已删（纯装饰分隔线） |
+| 演变叙事（此前/先前/改成） | 4 处 | 待删 |
+| 复述命名/行为 | ~11 处 | 待删 |
+| 空注释行 | 1 处 | 待删 |
+
+### 7.2 删除原则（严格对照 CLAUDE.md「必删」清单）
+
+**必删**（浪费 AI 注意力）：
+1. 演变叙事 —— 例 `TranscodeSection.swift:133`「先前这里又除了一次 100，进度条最大只有 0.96pt」→ 删，AI 会自己 `git log`
+2. 复述代码行为 —— 「把 X 设成 Y」「让 Z 生效」这类 AI 自己读代码就懂的
+3. 复述命名 —— 注释和标识符说的是同一件事
+4. 纯装饰分隔线 —— `MARK:`、`---`、emoji 分隔
+
+**必留**（帮 AI 少犯错）：
+1. 反重构警告 —— 「顺序不可换」「刻意不用某 API」「必须门控」「必现」
+2. 契约 —— 参数单位/返回语义（含三态与哨兵值）/前置条件
+3. 跨文件不变量 —— 单文件推不出来的规则
+4. 非显然的坑 —— 只陈述规则，不写发现过程
+
+### 7.3 执行步骤
+
+1. ✅ 删除 65 处 `MARK:` 标记（已完成，占 65 行）
+2. ⏳ 删除 4 处演变叙事 + 11 处复述 + 1 空行（约 16 行）
+3. ⏳ 压缩多行 doc comment 为一行核心点（307 行整行注释中，约 2/3 是多行的，可压掉约 80-100 行）
+4. ⏳ 行内注释逐条过：删「复述行为」、保留「反重构警告」（954 行中预计删 80-120 行）
+5. ⏳ 复验：`swift build --disable-sandbox` + `swift test --disable-sandbox` 全绿（注释删除不得影响编译/测试）
+
+### 7.4 关键权衡（需用户知晓）
+
+- **注释占比降到 12% 是「正确精简」的结果，不是目的**。删的是「浪费 AI 注意力」的废注释，绝不为了数字好看去砍「帮 AI 少犯错」的 229 处反重构警告。
+- **`MARK:` 标记删除的副作用**：Xcode 跳转栏会失去分组。纯面向 AI 场景下无影响，但若日后仍需用 Xcode 导航，可考虑保留少量关键分组的 `MARK`。另有两处带实质约束的 MARK（`FpsDownscaleCommand`「档位常量不做配置化」、`FrameRateTable`「变更口都落盘——只在状态跃迁时调用」）随 MARK 一起删了，其约束信息需下沉到文件头注释补回。
+- **压缩 doc comment 的风险**：多行注释里的「非显然坑」可能在压缩时被误删。压缩时逐条判断，凡含「不得/必须/顺序/刻意/必现/否则」的，压缩后仍保留这些关键词。
+
+### 7.5 验收
+
+- 注释占比 ≤ 13%（目标 12%）
+- 229 处反重构警告一字不减
+- `swift test --disable-sandbox` 全绿
+- 删除后无编译警告（注释删除不引入新 warning）
+
+---
+
+## 8. 执行顺序（修订）
+
+> **主线是深度审计（第 3 节 Phase A→D），注释分析（第 6 节）+ 注释精简（第 7 节）是 Phase A 前的前置**。三者关系：先看懂注释现状（分析）→ 精简出干净基线 → 再跑 Phase A 的三个命门维度。
+
+1. **前置：注释分析 + 精简**（第 6、7 节，激进档，约 200 行删减）
+2. **Phase A**：状态机正确性 + AVFoundation 陷阱 + 进程生命周期（三个命门）
+3. **Phase B**：线程安全 + 注释-代码一致性 + 稳定性
+4. **Phase C**：并发交错 + 播放切换稳定性 + 隐私
+5. **Phase D**：常驻隐性成本 + UI/UX + 注释合理性（精简后的干净基线上最终核对）
