@@ -103,12 +103,18 @@ public struct FrameRateTable: Codable, Equatable, Sendable {
     // MARK: - 变更（每个口都落盘 —— 只在状态跃迁时调用，不是每 tick）
 
     public mutating func upsert(_ entry: FrameRateEntry, to url: URL = FrameRateTable.defaultURL()) throws {
+        upsertInMemory(entry)
+        try save(to: url)
+    }
+
+    /// 只改内存、不落盘。批量探测（`FpsTranscodeQueue.scan` 每文件调一次）时用这个，
+    /// 循环结束后由调用方 `save` 一次 —— 否则 500 个文件 = 500 次全量 JSON 编码 + 原子写。
+    public mutating func upsertInMemory(_ entry: FrameRateEntry) {
         if let index = indexOf(entry.sourcePath) {
             entries[index] = entry
         } else {
             entries.append(entry)
         }
-        try save(to: url)
     }
 
     private func indexOf(_ sourcePath: String) -> Int? {

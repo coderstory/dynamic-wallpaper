@@ -218,7 +218,7 @@ public final class FpsTranscodeQueue {
             state: alreadyConverted
                 ? .done
                 : (FpsDownscaleCommand.needsDownscale(fps) ? .needsConvert : .okAt30))
-        try? table.upsert(entry, to: tableURL)
+        try? table.upsertInMemory(entry)
         return entry.state == .needsConvert ? fps : nil
     }
 
