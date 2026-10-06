@@ -11,6 +11,12 @@
 - Release tag 格式 `vYYYY.MM.DD-<run_number>`，说明由上次 tag 以来的提交信息汇总；
   DMG 资产重命名成 `Pic-<tag>.dmg`（`build.sh` 里的 `VERSION="0.1.0"` 是写死的，不重命名各版本同名）。
   无 Secrets 依赖：ad-hoc 签名，`GITHUB_TOKEN` 靠 workflow 自带 `permissions: contents: write`。
+- **发布动作 = `git push origin dev:master`**（master 是 dev 的祖先，一律快进，不要 merge commit）。
+  已实测一次：run 37491851240 → tag `v2026.10.06-1`，资产 `Pic-v2026.10.06-1.dmg`（2.1 MB），
+  产物校验通过（adhoc 签名有效 / `CFBundleIdentifier=com.local.pic` / `LSUIElement=true` /
+  `LSMinimumSystemVersion=27.0` / arm64）。`brew install create-dmg` 在 runner 上走主路成功
+  （卷里有 `Applications` 符号链接与 `.DS_Store`），`DMG_FALLBACK` 未触发。
+  首次发布的说明会取最近 40 条提交（无上次 tag 可 diff），属预期。
 - **CI 靠 `swift test --skip` 隔离了一条 VM 上必红的用例**：
   `PowerWatcherTests/testPowerSourceStateKeyIsTheRealSDKKeyAndValuesAreStrings`
   —— 它断言 `readPowerState()` 不得返回 `.failed`，前提是宿主真有电源源；runner 是 VM，
