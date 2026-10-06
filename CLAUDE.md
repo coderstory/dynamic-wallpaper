@@ -5,8 +5,7 @@ macOS 动态壁纸播放器。菜单栏常驻（`.accessory`，无 Dock 图标�
 
 - **包**：`PicApp`（可执行，AppKit + SwiftUI）/ `PicCore`（纯逻辑库），仅 macOS 27，零第三方依赖
 - **构建**：`swift build`；打包 .app + DMG 走 `./build.sh`（不签名）
-- **测试**：XCTest，`swift test`（框架锁死 XCTest，汇总串被 `test.sh` 依赖）
-- **验证脚本**：`./test.sh` 是端到端验收，单测 + 探针脚本 + 打包检查都串在里面
+- **测试**：XCTest，`swift test`（框架锁死 XCTest，不引入 Swift Testing）
 
 ## 架构
 
@@ -52,8 +51,8 @@ RotationController（轮换）→ PlaybackRouter（装载分派）
 
 ## 改代码时的红线
 
-- `emit("...")` 是遗留的字符串验收锚点，**正在逐步废弃**，由 XCTest 替代。改产品逻辑时
-  不得新增 `emit` 打点；已有的打点可以删（同步删 `test.sh` / `scripts/` 里对应的 grep）。
+- 验收只走 XCTest。**不得再引入字符串打点**（`emit` / 输出行 grep）—— 那套体系已整体删除：
+  它需要产品代码常驻打点，比等价断言更脆弱，且会渗进交付二进制。
 - 只改注释时，验证方式：剥掉所有 `//` 行后与 `HEAD` 逐字节比对，应完全相同。
 - 不改构建产物、不碰 `build/` `dist/` `fixtures/`。
 

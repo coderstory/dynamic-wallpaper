@@ -6,33 +6,31 @@
 
 1. ✅ 修正病根：CLAUDE.md 两条规则
    - 「注释篇幅不设上限」→「注释是负资产，默认不写，超 2 行先怀疑在讲故事」
-   - 「emit 打点是验收锚点一个字不能改」→「emit 正在废弃，由 XCTest 替代，可删」
+   - 「emit 打点是验收锚点一个字不能改」→「验收只走 XCTest，不得再引入字符串打点」
 2. ✅ 零风险压缩（已提交，净减 32 行，327 测试全绿）
    - 删死常量 baselineCRF/baselinePreset + 死测试
    - MediaLibrary.isInsideConverted 收敛三处重复
    - LockWatcher/DisplayWatcher/FullscreenDetector 观察者循环化
+3. ✅ **第一步：删验收脚手架**（净减 5022 行，327 测试全绿，0 新增告警）
+   - **产品代码 7118 → 6270（-848）**：删三个探针文件（457 行：LoopProbe/WindowProbe/FrameDriver）、
+     AppDelegate 695 → 438（-257，全部探针接线 + 5 个测试开关 + 35 处打点）、
+     清掉 80 处 `emit`、删 FullscreenDetector 里只服务探针的 4 个死方法（-73）、
+     删 `PIC_MAX_RES` 解码上限实验开关、删 `--open-settings`/`--quit-after` 与 `PIC_LOCK_SIGNAL_PREFIX` 分支
+   - **脚本层 4009 → 0**：`scripts/`(2875) + `test.sh`(689) + `UITests/`(445)
+   - **工程层 135 → 0**：`Pic.xcodeproj` 摘掉 PicUITests target（-123）、scheme 去掉 TestableReference（-12）
+   - **路线图漏掉的耦合点（本次补上）**：
+     ① `build.sh` 有第二遍「保留探针」构建产出 `PicProbe.app` + `probe_symbols` 符号计数，
+        删探针必须同步改，否则交付线直接断；
+     ② `AutoStartTests` 有 4 个用例直接断言 emit 出来的字符串，实测替身已记录了
+        `registerCount/unregisterCount/openSettingsCount` 与 launchctl 调用序列 → 断言改行为、不重写逻辑；
+     ③ `AutoStartManager` 的打点靠**注入闭包**，删打点要连构造参数一起摘；
+     ④ `FullscreenDetector.emit` 是**没人注入过的死参数**（AppDelegate 用的是默认空实现），打点从未触发过；
+     ⑤ 删 `--open-settings` 会连带收敛 `MenuBarLabel` 的 PicOpenSettings 通知桥（那桥只为它存在）
+   - **验证**：`swift test --disable-sandbox` 327 测试 / 2 skipped / 0 失败（与基线逐项一致）；
+     `git worktree` 另建 HEAD 基线全新构建比对，唯一告警 12 → 9，**新增 0**，
+     消失的 3 条是随 `LoopProbe.swift` 一起删掉的过时 AVFoundation API 告警
 
 ## 待执行（按负资产大小排序）
-
-### 第一步：删验收脚手架（约 -500 行产品 + -4000 行脚本）
-
-**目标**：整套「emit 字符串打点 + shell grep」验收体系，用 XCTest 替代。
-
-1. 删三个探针文件（-416 行）：
-   - `Sources/PicCore/Playback/LoopProbe.swift`（185）
-   - `Sources/PicCore/Playback/WindowProbe.swift`（148）
-   - `Sources/PicCore/Playback/FrameDriver.swift`（83）
-2. 删 AppDelegate 里的验收脚手架（-120 行）：
-   - `startFrameDriver` / `startLoopProbeIfRequested` / `startObservability` / `tick`
-   - `startHoldObserver` / `armHoldObservation` / `observeHold` / `lastHoldSnapshot` / `holdObserverTicks`
-   - `scheduleQuitAfterIfRequested` / `openSettingsIfRequested`（--quit-after / --open-settings 测试开关）
-   - `lockSignalNames` 里的 PIC_LOCK_SIGNAL_PREFIX 分支
-   - `applicationWillTerminate` 里的 emit 打点
-3. 删 80 处 `emit("PIC_xxx")` 打点（产品代码里的字符串锚点）
-4. 删 `scripts/`（2875 行）+ `test.sh`（689 行）+ `UITests`（445 行）
-   - 保留 `build.sh`（打包必需）
-
-**风险**：删 emit 后，test.sh 会全红 —— 所以要一起删，不能只删一半。
 
 ### 第二步：砍注释（约 -700 行）
 
@@ -54,7 +52,17 @@
 
 ## 目标
 
-产品代码 7172 → 约 5000 行，脚本 4000 → 0，测试保留核心回归锁。
+产品代码 7118 → 约 5000 行（第一步后为 6270），脚本 4009 → 0（**已达成**），测试保留核心回归锁。
+
+## 顺带发现的下一轮候选（第一步删除后新产生的「孤儿」）
+
+以下是**因为打点消失而失去全部产品调用方**的域类型/方法，目前只剩测试在用。
+它们不是 grep 脚手架，删它们要动测试断言语义，故本轮未动：
+
+- `HoldArbiter.holdStatus` 与整个 `HoldStatus` 类型（`HoldStatusTests` 锁着它）
+- `LibraryAvailability.token(_:)`（`reasonToken` 的冗余别名）与 `LibraryState.reasonToken`
+- `FFmpegAvailability.label(available:)`
+- `RotationController.advances` 历史数组 —— 产品侧原本只用 `.count`，现在**一个产品调用点都没有了**
 
 ## 执行方式
 

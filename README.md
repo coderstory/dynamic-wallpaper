@@ -46,11 +46,9 @@ xattr -dr com.apple.quarantine /Applications/Pic.app
 只想编译不想打包：
 
 ```bash
-swift build          # 编译
-./test.sh            # 单元测试 + 构建一致性检查
+swift build   # 编译
+swift test    # 单元测试
 ```
-
-> **关于 `test.sh` 与 `run-uitests.sh`**：这两个脚本会读 `.planning/` 下的内部规划文档做一致性检查，而该目录未随本仓库公开（见 `.gitignore`）。所以**外部 clone 后直接跑会失败**。要看测试逻辑请读 `Tests/` 下的用例，它们不依赖那套脚手架。
 
 ## 使用
 
