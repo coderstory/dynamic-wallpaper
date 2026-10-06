@@ -508,7 +508,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 取消不动现状 —— 当前文件夹继续生效，因此不发任何状态行。
     func requestFolderNow() {
         Task {
-            if await pickFolder() == .accepted { await rescanAndApply() }
+            if await pickFolder() == .accepted {
+                // 换目录后必须失效缓存再重扫。`scan` 的缓存现在按目录判等（换目录自然失效），
+                // 这里显式失效是纵深：让「切换目录」与「重新扫描」走同一条语义，不依赖缓存判等这一个闸。
+                library.invalidateCache()
+                await rescanAndApply()
+            }
         }
     }
 

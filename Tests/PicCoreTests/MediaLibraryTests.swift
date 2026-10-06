@@ -102,6 +102,20 @@ final class MediaLibraryTests: XCTestCase {
         XCTAssertEqual(second.playableCount, third.playableCount)
     }
 
+    func testSwitchingFolderBypassesCacheByRootKey() async throws {
+        // 换目录必须重扫，不能拿旧目录的缓存顶数 —— 设置窗「选择…」走的就是这条路径。
+        let library = MediaLibrary(probe: FakeAssetProbe())
+        let first = try await library.scan(folder: tree.rootURL)
+        XCTAssertEqual(library.scanCount, 1)
+        let other = tree.cjkDirectoryURL
+        let second = try await library.scan(folder: other)
+        XCTAssertEqual(library.scanCount, 2, "换目录必须重新遍历，而不是命中旧缓存")
+        XCTAssertEqual(second.rootPath, other.standardizedFileURL.path,
+                       "report 必须来自新目录")
+        XCTAssertEqual(second.playableCount, 1, "新目录的清单应与旧目录不同")
+        _ = first
+    }
+
     func testMissingFolderAndNonDirectoryRootThrowDistinctErrors() async throws {
         let library = MediaLibrary(probe: FakeAssetProbe())
 

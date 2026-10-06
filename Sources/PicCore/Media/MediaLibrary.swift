@@ -29,6 +29,8 @@ public final class MediaLibrary {
     private let entryCap: Int
 
     private var cached: MediaLibraryReport?
+    /// 缓存对应的目录（standardized 路径）。换目录后必须重扫，不能拿旧目录的 report 顶数。
+    private var cachedRootPath: String?
     private var lastError: NSError?
 
     /// 真正执行过的扫描次数（缓存命中不算）。
@@ -43,11 +45,14 @@ public final class MediaLibrary {
     /// 磁盘上有任何变化（新增/删除/转码或降帧产物落地）后必须先调它再重扫，否则 `scan` 默认吃缓存、拿回上一轮 report，新产物永远看不见。
     public func invalidateCache() {
         cached = nil
+        cachedRootPath = nil
     }
 
     /// 递归扫描一个目录。`useCache: true` 时第二次起直接返回内存缓存。
     public func scan(folder: URL, useCache: Bool = true) async throws -> MediaLibraryReport {
-        if useCache, let cached {
+        // 缓存必须**按目录**判等：只判「有没有」会让换了目录的调用方拿到旧目录的 report。
+        // 设置窗「选择…」换目录走的就是这条路径（`requestFolderNow` 不失效缓存）。
+        if useCache, let cached, cachedRootPath == folder.standardizedFileURL.path {
             return cached
         }
 
@@ -150,6 +155,7 @@ public final class MediaLibrary {
             items: items
         )
         cached = report
+        cachedRootPath = folder.standardizedFileURL.path
         scanCount += 1
         return report
     }
