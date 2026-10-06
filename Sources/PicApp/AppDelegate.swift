@@ -387,10 +387,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         arbiter.applyCurrentDecision()
         // 设置必须挂在 player 上（不是 item）、且在起播决策**之后**落位。
         // setRate 必须门在「应当播放」之后：非零 rate 会让已 hold 的播放器重新拉起。
+        // 但**两个分支都要记住速度** —— 启动即处于 hold 时也必须记下，否则解锁后
+        // `arbiterApply` 回放的是默认 1.0，用户设的速度在第一次锁屏前一直是错的。
         player.setVolume(store.volume)
         player.setMuted(store.isMuted)
         if arbiter.decision.shouldPlay {
             player.setRate(store.rate)
+        } else {
+            player.setDesiredRate(store.rate)
         }
     }
 

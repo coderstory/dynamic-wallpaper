@@ -69,10 +69,23 @@ public final class PlayerController: NSObject, PlaybackTarget {
         looper = AVPlayerLooper(player: player, templateItem: item)
     }
 
+    /// 用户设的速度。`AVPlayer.play()` 等价于把 rate 置 **1.0** 而不是置回这个值，
+    /// 所以恢复播放必须回放 `desiredRate`，不能调 `play()` —— 否则锁屏一次速度就丢了。
+    /// 与 `player.rate` 的区别：这个是「用户想要多少」，那个是「此刻实际多少」（hold 时为 0）。
+    public private(set) var desiredRate: Float = 1.0
+
     /// 速度。**必须挂在 player 上** —— `AVPlayerLooper` 的模板 item 属性在 init 时就冻结，
     /// 挂 item 会让「改设置当场生效」变成假的。AVPlayerItem 上也没有 rate 成员。
+    /// 记住 + 当场应用两个动作一起做：漏了记住，hold 解除时就没有可回放的值。
     public func setRate(_ r: Float) {
+        desiredRate = r
         player.rate = r
+    }
+
+    /// 只更新「用户想要的速度」，**不碰播放器**。hold 期间改速度走这条：改 `player.rate`
+    /// 会把已 hold 的播放器重新拉起，那是绕过仲裁器。
+    public func setDesiredRate(_ r: Float) {
+        desiredRate = r
     }
 
     public func setVolume(_ v: Float) {
@@ -97,9 +110,12 @@ public final class PlayerController: NSObject, PlaybackTarget {
     }
 
     /// 播放 / 暂停的唯一入口（暂停与恢复走同一个函数，否则唤醒路径与暂停路径会不对称）。
+    ///
+    /// 恢复分支用 `player.rate = desiredRate` 而不是 `play()`：后者把 rate 顶回 1.0，
+    /// 用户设的 0.5 / 1.5 在一次锁屏之后就没了。
     public func arbiterApply(_ decision: PlaybackDecision) {
         if decision.shouldPlay {
-            player.play()
+            player.rate = desiredRate
         } else {
             player.pause()
         }
