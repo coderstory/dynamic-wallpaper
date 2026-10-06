@@ -78,6 +78,25 @@ final class RotationControllerTests: XCTestCase {
         XCTAssertEqual(controller.current, Self.threeItems[0])
     }
 
+    func testLoopSingleRotationElapsedDoesNotReloadSameItem() {
+        let (controller, scheduler) = makeController(random: SeededRandomSource(seed: 42))
+        controller.setItems(Self.threeItems)
+        controller.setMode(.loopSingle)
+        var loaded: [String] = []
+        controller.onAdvance = { loaded.append($0.url.path) }
+        controller.start()
+
+        // start 装载首条一次；之后到点解析出的下标恒等于当前下标（=0），
+        // 绝不能再走 onAdvance —— 每一次 onAdvance 下游都是 player.load(url:)，
+        // 重建 item + looper、播放头归零，等于「每到一个间隔从头重播一次」。
+        for _ in 0..<3 { scheduler.fire() }
+
+        XCTAssertEqual(loaded, [Self.threeItems[0].url.path],
+                       "单循环到点只应装载一次（start 那次）；重载即播放头归零")
+        XCTAssertEqual(controller.advances.map(\.index), [0, 0, 0],
+                       "切换打点照旧落在同一条 —— 只砍装载，不动索引语义")
+    }
+
     func testLoopListWalksEveryItemThenWrapsToFirst() {
         let (controller, _) = makeController(random: SeededRandomSource(seed: 42))
         controller.setItems(Self.threeItems)

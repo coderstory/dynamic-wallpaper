@@ -175,6 +175,7 @@ public final class RotationController {
     private func advance(reason: AdvanceReason) {
         // 空列表：不打点、不回调、不崩，也**不重排程**（定时器自然熄火）。
         guard !items.isEmpty else { return }
+        let previousIndex = currentIndex
         let nextIndex: Int
         switch mode {
         case .loopSingle:
@@ -193,6 +194,15 @@ public final class RotationController {
         }
         currentIndex = nextIndex
         advances.append(RotationAdvance(reason: reason, index: nextIndex))
+
+        // 到点解析出的下标与切换前相同 → 只记一次切换、重排下一程，**不重新装载**。
+        // onAdvance 的下游是 player.load(url:)，它会重建 AVPlayerItem 与 looper、把播放头归零；
+        // 单循环下这就等于「每到一个间隔从头重播一次」。循环本身由 AVPlayerLooper 维持，
+        // 不需要靠重新装载续命。list 只有一条 / shuffle 洗牌袋边界撞回同下标时同理。
+        guard !(nextIndex == previousIndex && reason == .rotationElapsed) else {
+            reschedule()
+            return
+        }
         onAdvance?(items[nextIndex])
         reschedule()
     }
