@@ -68,8 +68,8 @@ skipped 由 2 归 0，干净 clone 与 CI 上现在真跑。
 | `.build/` | ❌ | SwiftPM 构建缓存（约 190M，本仓最大的本地目录） | 下次 `swift build/test` 从零编，约 1~2 分钟 |
 | `cpp-singleton-logger/` | ❌ | 某轮会话交付的 C++ 单例日志器示例，刻意不纳入本仓库 | 与 Pic 无关 |
 
-⚠️ `fixtures/real-*.mp4` 是 3 个**指向使用者真实片库的软链**（Oct 3 留下；使用者
-`RealLibraryPlaybackPoolTests` 已删，代码里零引用），已在 `.gitignore` 隔离，**不得入库**。
+⚠️ `fixtures/real-*.mp4` 是 3 个**指向使用者真实片库的软链**（不是夹具），已在 `.gitignore` 隔离。
+删不删见下面「待你决定」第 2 条。
 
 夹具重造（需要系统 `ffmpeg`）：
 
@@ -81,10 +81,17 @@ ffmpeg -y -f lavfi -i "testsrc2=size=640x360:rate=15:duration=2" -c:v libx264 -p
 **顺带修掉一个测试侧泄漏**：`UserDefaults(suiteName:)` 的域文件不会因 `removePersistentDomain`
 消失（cfprefsd 把空域写回磁盘），于是**每个用例在 `~/Library/Preferences/` 留一个 plist** ——
 实测已积压 3029 个 / 12M，占该目录九成。已加 `Tests/PicCoreTests/TestDefaults.swift`
-（清内存态 + 删域文件，带 `pic.tests.` 前缀守卫），实测跑完 321 个用例净增 3 个（此前约 321 个）。
+（清内存态 + 删域文件，带 `pic.tests.` 前缀守卫），实测跑完 324 个用例净增 3 个（此前约 +324 个）。
 
-⚠️ **历史积压的 3029 个还没清** —— 它们在你的用户目录里（`~/Library/Preferences/pic.tests.*.plist`），
-不属本仓库，要清得你点头。
+## 待你决定（都在仓库外或属流程约定，我不擅自动）
+
+1. **历史积压的 3029 个测试 plist 还没清** —— `~/Library/Preferences/pic.tests.*.plist`，12M，
+   占该目录九成。模式与真实偏好（`com.local.pic.plist`）不可能混淆，一条命令能清，但它在你的用户目录里。
+2. **`fixtures/real-*.mp4` 那 3 个软链删不删** —— 使用者 `RealLibraryPlaybackPoolTests` 上一轮已删、
+   代码里零引用，已是孤儿；已在 `.gitignore` 隔离，所以留着也不影响提交。删的只是软链，不碰你的真实视频。
+3. **`docs/agents/domain.md` 里那句约定没有落点** —— 它写「共用根目录一份 `CONTEXT.md`，架构决策放
+   `docs/adr/`」，但两者都不存在，且与「`STATUS.md` 是唯一活文档」相冲。要么建这两个位置，
+   要么把那句约定删掉。那是协作流程的契约文件（不是代码），改它可能让工具侧找不到预期文件，故没动。
 
 ## 相关文档
 
