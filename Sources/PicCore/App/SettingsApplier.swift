@@ -54,7 +54,6 @@ public final class SettingsApplier {
         WallpaperWindowController.emit("PIC_SETTINGS_APPLY key=muted value=\(store.isMuted ? 1 : 0) applied=1")
     }
 
-    // MARK: - 模式 / 轮换 / 电池三条接线
 
     /// 模式当场生效：`RotationController.mode` 可直写即生效（不存第二份）。
     public func applyMode() {

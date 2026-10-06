@@ -7,7 +7,6 @@ import Foundation
 import AppKit
 import CoreGraphics
 
-// MARK: - 判定
 
 /// 全屏判定的输入。全部由外部注入 —— 四种组合都能单测覆盖，
 /// 不需要真的切一次 Space 或激活一次应用。
@@ -44,7 +43,6 @@ public enum FullscreenVerdict {
     }
 }
 
-// MARK: - 采集
 
 /// 一次几何采样。屏幕与可见框由调用方注入，单测因此不必依赖窗口服务器。
 public struct ScreenGeometry: Equatable, Sendable {
@@ -195,7 +193,6 @@ public final class FullscreenDetector {
     }
 }
 
-// MARK: - 窗口枚举
 
 extension FullscreenDetector {
     /// 枚举 layer 0、alpha > 0、且**不属于本进程**的窗口矩形。

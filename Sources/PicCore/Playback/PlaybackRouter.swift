@@ -1,6 +1,5 @@
 import Foundation
 
-// MARK: - 注入 seam
 
 /// 装载 seam。标 `@MainActor`：conformer 是 `@MainActor` 类型，不标会让 Swift 6 报
 /// `#ConformanceIsolation`。方法名与产品侧刻意错开（那边「装载并遵守仲裁」）。
@@ -9,7 +8,6 @@ public protocol VideoLoading: AnyObject {
     func loadPlayback(url: URL)
 }
 
-// MARK: - 路由器
 
 /// 轮换 → 装载的路由器。只负责「下一条装载哪一条」；装载之后该不该播由产品侧的
 /// 适配器走仲裁器的当前决策决定（单向流：Watcher → 仲裁器 → 播放内核，router 不在链上）。

@@ -73,7 +73,6 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - TAB 1 · 播放
 
     private var playTab: some View {
         VStack(spacing: Metrics.blockGap) {
@@ -198,7 +197,6 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - TAB 2 · 转码
 
     private var transcodeTab: some View {
         TranscodeSection(viewModel: transcodeViewModel,
@@ -206,13 +204,11 @@ struct SettingsView: View {
                          refresh: { _ = refreshFFmpeg() })
     }
 
-    // MARK: - TAB 3 · 降帧
 
     private var fpsTab: some View {
         FpsTranscodeSection(viewModel: fpsViewModel, showingPathways: $showingPathways)
     }
 
-    // MARK: - TAB 4 · 关于
 
     private var aboutTab: some View {
         VStack(spacing: 0) {
@@ -242,7 +238,6 @@ struct SettingsView: View {
         return "版本 \(v ?? "1.0")"
     }
 
-    // MARK: - 状态读数
 
     private var isEmpty: Bool {
         session.lastLibraryState.map(SettingsPresentation.isEmptyState) ?? false
@@ -264,7 +259,6 @@ struct SettingsView: View {
             "PIC_FFMPEG available=\(available ? 1 : 0) label=\(FFmpegAvailability.label(available: available))")
     }
 
-    // MARK: - 真绑定（每个写入口都是 store → applier → persist）
 
     private var modeIndex: Binding<Int> {
         Binding(
@@ -329,7 +323,6 @@ struct SettingsView: View {
             })
     }
 
-    // MARK: - onAppear
 
     private func seedAndObserve() {
         rateDrag = Double(store.rate)

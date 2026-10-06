@@ -21,7 +21,6 @@ struct FpsTranscodeSection: View {
         }
     }
 
-    // MARK: - 帧率表卡
 
     private var tableBadge: String? {
         guard viewModel.tableTotal > 0 else { return nil }
@@ -59,7 +58,6 @@ struct FpsTranscodeSection: View {
         return "上次扫描 \(viewModel.scannedCount) 个 · \(viewModel.scannedCount - viewModel.tableTotal) 个探测不出帧率"
     }
 
-    // MARK: - 队列卡
 
     private var queueBadge: String? {
         if viewModel.isScanning { return "探测中" }
@@ -175,7 +173,6 @@ struct FpsTranscodeSection: View {
                                    : dim ? Color.pMuted : Color.pAccent)
     }
 
-    // MARK: - 状态条 / 提示 / 工具行
 
     private var availabilityBar: some View {
         StatusBar(text: statusText,

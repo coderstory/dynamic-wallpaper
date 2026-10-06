@@ -1,6 +1,5 @@
 import Foundation
 
-// MARK: - 注入 seam
 
 /// 轮换的调度 seam。**不标 `@MainActor`**：协议整体标会让 Swift 6 的 conformance 报
 /// `#ConformanceIsolation`，由持有它的 `@MainActor` 类负责隔离。
@@ -35,7 +34,6 @@ public final class SeededRandomSource: RandomSource {
     }
 }
 
-// MARK: - 轮换内核
 
 /// 轮换内核 ——「下一条播哪条、多久换一条」的唯一真相源。**与播放端彻底解耦**：
 /// `init` 里没有 player、文件里零播放进度读取，「到点就切」在结构上不可被绕过成
@@ -60,7 +58,6 @@ public final class RotationController {
         }
     }
 
-    // MARK: 状态
 
     public private(set) var items: [VideoItem] = []
     public private(set) var currentIndex: Int = 0
@@ -83,7 +80,6 @@ public final class RotationController {
 
     public var current: VideoItem? { items.isEmpty ? nil : items[currentIndex] }
 
-    // MARK: 生命周期
 
     /// **没有 player 参数，也没有 interval 参数** —— 这是让「到点就切 ≠ 播完才切」结构上不可绕过的关键。
     public init(scheduler: any RotationScheduling, random: any RandomSource,
@@ -160,7 +156,6 @@ public final class RotationController {
         onAdvance = nil
     }
 
-    // MARK: 切换
 
     /// 立即下一个（行为侧）。
     public func advanceNow() {

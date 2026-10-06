@@ -27,7 +27,6 @@ public enum SettingsPresentation {
         min(max(Float(percent) / 100, 0), 1)
     }
 
-    // MARK: - 轮换值表与两条置灰联动
 
     /// 轮换间隔的封闭值表（分钟）。换算只落在下面两个函数（视图里不出现第二份 ×60）。
     public static let rotationChoicesMinutes: [Int] = [5, 10, 15, 30, 60, 120]
@@ -69,7 +68,6 @@ public enum SettingsPresentation {
         }
     }
 
-    // MARK: - 空态 / 运行状态卡的文案映射
 
     /// 空态副行（逐字硬需求）。全仓唯一一份：视图与探针都引用它。
     public static let emptyStateBody = "没找到能播的文件。壁纸已隐藏，桌面显示的是系统原壁纸。"

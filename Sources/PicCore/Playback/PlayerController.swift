@@ -96,7 +96,6 @@ public final class PlayerController: NSObject, PlaybackTarget {
         player.isMuted = m
     }
 
-    // MARK: - PlaybackTarget
 
     public func arbiterCurrentPosition() -> TimeInterval {
         let t = player.currentTime()

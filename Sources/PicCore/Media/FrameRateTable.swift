@@ -71,7 +71,6 @@ public struct FrameRateTable: Codable, Equatable, Sendable {
         self.entries = entries
     }
 
-    // MARK: - 查询
 
     /// 路径比统一走 `standardized`：`FileManager.enumerator` 返回的是 `/private/var/...`，而调用方给的可能是 `/var/...` 或 `/Users/...`。直接 `==` 比 path 会永远命中不了 —— 症状是增量扫描静默退化成全量重探。
     public func entry(for source: URL) -> FrameRateEntry? {
@@ -100,7 +99,6 @@ public struct FrameRateTable: Codable, Equatable, Sendable {
         entries.filter { $0.state.recovered == .okAt30 }.count
     }
 
-    // MARK: - 变更（每个口都落盘 —— 只在状态跃迁时调用，不是每 tick）
 
     public mutating func upsert(_ entry: FrameRateEntry, to url: URL = FrameRateTable.defaultURL()) throws {
         upsertInMemory(entry)
@@ -142,7 +140,6 @@ public struct FrameRateTable: Codable, Equatable, Sendable {
         if entries.count != before { try save(to: url) }
     }
 
-    // MARK: - 落盘
 
     /// 与磁盘对账：「源 ↔ 产物」的关系重建口。
     ///

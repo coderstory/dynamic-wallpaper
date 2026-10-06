@@ -88,14 +88,12 @@ struct TranscodeSection: View {
             }
     }
 
-    // MARK: - 状态
 
     private var isAvailable: Bool {
         if case .available = viewModel.availability { return true }
         return false
     }
 
-    // MARK: - 队列行
 
     private func jobRow(_ job: TranscodeJob) -> some View {
         HStack(spacing: Metrics.rowGap) {
@@ -168,14 +166,12 @@ struct TranscodeSection: View {
         return false
     }
 
-    // MARK: - 命令
 
     private var commandOwner: TranscodeJob? {
         viewModel.jobs.first { $0.state == .running }
             ?? viewModel.jobs.first { $0.id == selectedJobID }
     }
 
-    // MARK: - 工具行
 
     private var toolbar: some View {
         HStack(spacing: 9) {

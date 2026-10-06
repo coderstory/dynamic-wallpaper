@@ -6,7 +6,6 @@
 
 import Foundation
 
-// MARK: - 值类型
 
 /// 一个矩形。坐标系的原点由调用方的字段名语义决定：
 /// `raw`（`WindowRectSample` 里）是左上角，`visible`（`aggregate` 参数）是左下角。
@@ -81,12 +80,10 @@ public struct CoverageResult: Equatable, Sendable {
     }
 }
 
-// MARK: - 几何
 
 /// 全屏几何的纯函数集合：输入是调用方传进来的数，输出是数。无读取、无全局状态、无副作用。
 public enum FullscreenGeometry {
 
-    // MARK: 原子操作
 
     /// 左上角原点 → 左下角原点。方向固定，写反会让 coverage 恒为 0。
     public static func flipTopLeftToBottomLeft(_ b: ScreenRect, screenH: Double) -> ScreenRect {
@@ -112,7 +109,6 @@ public enum FullscreenGeometry {
                    h: raw.h + inset.top + inset.bottom)
     }
 
-    // MARK: 聚合
 
     /// 内缩补偿 + 翻转 + 按 pid 聚合，三件事在这里一次做完。**这里不判全屏。**
     ///

@@ -258,7 +258,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         autostart.setEnabled(enabled)
     }
 
-    // MARK: - ffmpeg 判定与转码队列
 
     /// ffmpeg 判定的**唯一**写入口：启动查一次 + 每次点「打开…」重查。
     func refreshFFmpegAvailability() {
@@ -362,7 +361,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         emit(String(format: "PIC_ROT_ADVANCES_TOTAL=%d", rotation.advances.count))
     }
 
-    // MARK: - 竖切主体
 
     /// 异步化 + 走 `MediaLibrary.scan` + `router.start`。装载分派由 router 内部的 `onAdvance`
     /// 完成（内部装载 `items[0]` 并重放仲裁决策）。
@@ -441,7 +439,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         WallpaperWindowController.emit(line)
     }
 
-    // MARK: - 菜单动作与首启引导
 
     /// 首启引导：装上状态打点，然后「按需弹框 → 扫描起播」。
     /// 取消 / 被拒时不再扫描：取消分支已经打过未配置那一行读数，再扫会对同一件事打第二遍。
@@ -647,7 +644,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-// MARK: - seam 的产品侧适配
 
 /// `WallpaperPresenting` 的极薄适配。刻意**不**给 `WallpaperWindowController`
 /// 直接加 conformance —— 那会让 PicCore 的类型背上 AppKit 依赖。

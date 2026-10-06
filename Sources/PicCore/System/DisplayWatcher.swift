@@ -8,7 +8,6 @@ import Foundation
 import AppKit
 import CoreGraphics
 
-// MARK: - 信号（纯值，零依赖）
 
 /// 熄屏与睡眠的当前值。接线方拆成两次 `set`。
 public struct DisplaySignals: Equatable, Sendable {
@@ -23,7 +22,6 @@ public struct DisplaySignals: Equatable, Sendable {
     }
 }
 
-// MARK: - 重配置回调的注入缝
 
 /// 重配置回调的注册 / 摘除口。抽成协议是为了让「重配置 → 重算」这条路径可被单测驱动：
 /// 真机跑一次热插拔才能验，但单测必须能在**不拔线**的情况下打同一条路径。
@@ -67,7 +65,6 @@ public final class SystemDisplayReconfigurationHook: DisplayReconfigurationHook 
     }
 }
 
-// MARK: - Watcher
 
 /// 熄屏 + 睡眠的唯一信号源（只产出信号，不碰仲裁器、不碰播放器）。
 @MainActor

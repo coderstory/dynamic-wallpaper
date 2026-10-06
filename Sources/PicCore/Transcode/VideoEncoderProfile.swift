@@ -5,7 +5,6 @@ import Foundation
 /// 但「用哪个编码器、什么质量档」是同一个决定 —— 只留这一处，改降帧时转码自动同步。
 public enum VideoEncoderProfile {
 
-    // MARK: - 硬件编码器
 
     public enum Encoder: Equatable, Sendable {
         /// CPU 软编。质量最好（能做完整 RDO + 4×4 块划分），慢。
@@ -28,7 +27,6 @@ public enum VideoEncoderProfile {
         var isHardwareAccelerated: Bool { self == .videotoolboxHEVC }
     }
 
-    // MARK: - 档位
 
     /// 改这里会同时影响降帧与转码。
     public static let encoder = Encoder.videotoolboxHEVC

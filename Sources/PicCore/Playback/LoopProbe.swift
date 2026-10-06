@@ -80,7 +80,6 @@ public final class LoopProbe {
         }
     }
 
-    // MARK: - 采样
 
     private func sample() {
         let t = player.currentTime().seconds
@@ -102,7 +101,6 @@ public final class LoopProbe {
         emit("LOOP_SAMPLE n=\(s.n) t=\(String(format: "%.1f", s.wall)) pos=\(String(format: "%.3f", s.pos)) status=\(s.status) items=\(s.items) hasItem=\(s.hasCurrentItem ? 1 : 0)")
     }
 
-    // MARK: - 收尾
 
     private func finish() {
         guard !finished else { return }
@@ -151,7 +149,6 @@ public final class LoopProbe {
         }
     }
 
-    // MARK: - 通知
 
     private func registerObservers() {
         let center = NotificationCenter.default
@@ -180,7 +177,6 @@ public final class LoopProbe {
         tokens.removeAll()
     }
 
-    // MARK: - 公共
 
     /// 映射成固定词，判定与验收脚本都按这个词读。
     public static func statusToken(_ s: AVPlayer.TimeControlStatus) -> String {

@@ -6,7 +6,6 @@ import Foundation
 @MainActor
 public final class FpsTranscodeQueue {
 
-    // MARK: - 状态
 
     public enum JobState: Equatable, Sendable {
         case pending, running, done
@@ -43,7 +42,6 @@ public final class FpsTranscodeQueue {
     public var onJobsChanged: (() -> Void)?
     public var onBatchFinished: (() -> Void)?
 
-    // MARK: - 依赖
 
     private let runner: any TranscodeRunning
     /// 壁纸目录。**取成闭包而不是值**：用户可以不重启 app 就换目录，构造时固化的话
@@ -89,7 +87,6 @@ public final class FpsTranscodeQueue {
     public var isPaused: Bool { controlLock.withLock { _pauseRequested } }
     public var isRunning = false
 
-    // MARK: - 控制
 
     public func pause() {
         controlLock.withLock { _pauseRequested = true }
@@ -120,7 +117,6 @@ public final class FpsTranscodeQueue {
         }
     }
 
-    // MARK: - 扫描
 
     /// 遍历壁纸目录，把超过 30fps 的文件排进队列。走帧率表做增量：表里有效的行不重开 `AVURLAsset`。
     public func scan() async {
@@ -222,7 +218,6 @@ public final class FpsTranscodeQueue {
         return entry.state == .needsConvert ? fps : nil
     }
 
-    // MARK: - 路径
 
     private var convertedDirectory: URL {
         rootProvider().appendingPathComponent(MediaLibrary.excludedDirectoryName, isDirectory: true)
@@ -236,7 +231,6 @@ public final class FpsTranscodeQueue {
         derivativeURL(for: source).appendingPathExtension("tmp")
     }
 
-    // MARK: - drain
 
     /// 串行 drain。用 `while` 重取下标而不是 `for in jobs.indices` —— 索引范围在循环开始时求值一次，运行中追加的 job 本轮看不到。
     ///

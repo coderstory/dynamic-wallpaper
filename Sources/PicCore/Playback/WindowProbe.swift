@@ -30,7 +30,6 @@ public enum WindowProbe {
         let bounds: CGRect
     }
 
-    // MARK: - 按 PID 认领
 
     public static func claimReport(targetPid: Int) -> [String] {
         let all = listWindows()
@@ -63,7 +62,6 @@ public enum WindowProbe {
         ]
     }
 
-    // MARK: - 几何内缩（D-08）
 
     /// 桌面层窗口相对 `NSScreen.main.frame` 的四个内缩整数（允许为负）。
     ///
@@ -99,7 +97,6 @@ public enum WindowProbe {
         ]
     }
 
-    // MARK: - 私有
 
     static func listWindows() -> [Entry] {
         let raw = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] ?? []
@@ -138,7 +135,6 @@ public enum WindowProbe {
     }
 }
 
-// MARK: - 独立可执行体
 //
 // 同一个文件在两处以不同方式编译：进产品库时下面这段被条件编译剥掉；
 // `scripts/run-probe.sh` 加 -DPIC_WINDOW_PROBE_MAIN 现编译成一次性可执行文件，

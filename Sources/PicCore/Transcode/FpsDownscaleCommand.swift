@@ -5,7 +5,6 @@ import Foundation
 /// argv 一律逐 token 数组，绝不拼字符串：含空格中文的路径拼成串会被解释器切成两半。
 public enum FpsDownscaleCommand {
 
-    // MARK: - 档位常量（不做配置化 —— 用户不调这个）
 
     /// 帧率封顶：恰好等于它不降，高于才降。
     public static let maxFrameRate: Double = 30

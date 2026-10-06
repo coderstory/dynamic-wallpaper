@@ -13,7 +13,6 @@ import IOKit.ps
 @_silgen_name("CFRelease")
 private func _CFRelease(_ cf: CFTypeRef!)
 
-// MARK: - 判定纯函数
 
 /// 「要不要因为电池而暂停」的**唯一**判定处。纯函数，两个 `Bool` 的四种组合谁都能测，
 /// 不必真拔电源。
@@ -25,7 +24,6 @@ public enum BatteryHoldPolicy {
     }
 }
 
-// MARK: - 电源读数（三态）
 
 /// 当前电源读数的三态。「读不到」与「在 AC 上」折成同一个 `false` 会抹掉一次真实的
 /// 读数失败，三态让「读不到」有它自己的名字。
@@ -38,7 +36,6 @@ public enum PowerReadState: Equatable, Sendable {
     case failed
 }
 
-// MARK: - Watcher
 
 /// 电池供电信号的唯一来源（只产出 `Bool`，不碰仲裁器、不碰播放器）。
 @MainActor
@@ -80,7 +77,6 @@ public final class PowerWatcher {
         isRunning = false
     }
 
-    // MARK: 读数
 
     /// 此刻是否在电池上。**读失败时返回 `false` 并打一行 `POWER_READ_FAILED=1`**。
     public static func currentIsOnBattery() -> Bool {
@@ -141,7 +137,6 @@ public final class PowerWatcher {
         return description.allKeys.compactMap { $0 as? String }.sorted()
     }
 
-    // MARK: 事件源
 
     private func registerRunLoopSource(_ onChange: @escaping (Bool) -> Void) {
         powerCallbackLock.withLock {
@@ -160,7 +155,6 @@ public final class PowerWatcher {
     }
 }
 
-// MARK: - C 回调 → Swift 闭包的桥
 
 /// C 函数指针带不了 Swift 上下文，所以用一张进程级单槽表把回调转回来 ——
 /// `IOPSNotificationCreateRunLoopSource` 的注册本来就是进程级的，一张单槽表正好对上真实语义。
