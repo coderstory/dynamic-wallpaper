@@ -137,10 +137,20 @@ public final class RotationController {
     /// `setItems` 之后调一次：把首条交给 `onAdvance`，并用 `interval` 排下一程。
     /// 首条装载**不记进 `advances`** —— 它不是一次切换。空列表时直接返回：不打点、
     /// 不回调、不排程（降级路径的共同前置）。
+    ///
+    /// **shuffle 下首条必须从洗牌袋取**，不能写死 `items[0]`：写死就是「每次开 app
+    /// 第一个壁纸都一样」。取走的那一条**不回袋** —— 一轮内每条恰好一次的语义才会成立
+    ///（固定 items[0] 的话，它在第一轮里会被播两次）。
     public func start() {
         guard !items.isEmpty else { return }
         isRunning = true
-        onAdvance?(items[0])
+        if mode == .shuffle {
+            if bag.isEmpty { refillBag() }
+            currentIndex = bag.removeFirst()
+        } else {
+            currentIndex = 0
+        }
+        onAdvance?(items[currentIndex])
         reschedule()
     }
 

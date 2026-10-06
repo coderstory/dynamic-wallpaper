@@ -91,15 +91,55 @@ final class RotationControllerTests: XCTestCase {
         XCTAssertEqual(controller.currentIndex, 0)
     }
 
+    /// 随机模式的首条必须是抽出来的。`start()` 写死 `items[0]` 的症状是：
+    /// 每次启动 app 看到的第一个壁纸都一样，且它在第一轮里会再出现一次。
+    func testShuffleFirstItemVariesAcrossSeeds() {
+        var firstItems: Set<String> = []
+        for seed in 1...12 {
+            let (controller, _) = makeController(random: SeededRandomSource(seed: UInt64(seed)))
+            controller.setItems(Self.threeItems)
+            controller.setMode(.shuffle)
+            var played: [VideoItem] = []
+            controller.onAdvance = { played.append($0) }
+            controller.start()
+            XCTAssertEqual(played.count, 1, "start() 必须交出首条")
+            firstItems.insert(played[0].url.path)
+        }
+        XCTAssertGreaterThan(firstItems.count, 1,
+                             "随机模式的首条不得恒定 —— 恒为 items[0] 就是「每次开 app 第一张壁纸都一样」")
+    }
+
+    /// 首条必须取自洗牌袋，且取走后不回袋 —— 否则第一轮里它会播两次。
+    /// 判据用注入序列（`CountingRandomSource` 给 [0,1,2]）：洗完袋顺序为 [2,1,0]，
+    /// 于是首条是索引 2，紧接着的两次切换必须正好是剩下的 1 和 0。
+    func testShuffleFirstItemIsDrawnFromTheBagAndNotRepeated() {
+        let (controller, _) = makeController(random: CountingRandomSource())
+        controller.setItems(Self.threeItems)
+        controller.setMode(.shuffle)
+        var played: [VideoItem] = []
+        controller.onAdvance = { played.append($0) }
+        controller.start()
+        controller.advanceNow()
+        controller.advanceNow()
+
+        let indices = played.map { item in Self.threeItems.firstIndex(of: item)! }
+        XCTAssertEqual(indices[0], 2, "首条按注入的洗牌结果取 items[2]，不是写死的 items[0]")
+        XCTAssertEqual(indices, [2, 1, 0], "第一轮三条互不重复 —— 首条已从袋里取走")
+    }
+
     func testShuffleVisitsEveryItemExactlyOncePerRound() {
         let (controller, _) = makeController(random: SeededRandomSource(seed: 42))
         controller.setItems(Self.threeItems)
         controller.setMode(.shuffle)
+        // 一轮的边界从**首条**起算：`start()` 交出的那一条是这一轮的第一条，
+        // 只是不计进 `advances`。只统计 advances 会把首条漏在读数的外面。
+        var played: [VideoItem] = []
+        controller.onAdvance = { played.append($0) }
         controller.start()
 
-        for _ in 0..<6 { controller.advanceNow() }
+        for _ in 0..<5 { controller.advanceNow() }
 
-        let idx = controller.advances.map(\.index)
+        let idx = played.map { item in Self.threeItems.firstIndex(of: item)! }
         XCTAssertEqual(idx.count, 6)
         let round1 = Array(idx[0..<3])
         let round2 = Array(idx[3..<6])
