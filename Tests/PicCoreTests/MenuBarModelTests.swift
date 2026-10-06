@@ -8,33 +8,9 @@ final class MenuBarModelTests: XCTestCase {
 
     private static let sentinelFilename = "clip-sentinel.mp4"
 
-    /// 一个不存在于磁盘、但绝不会出现在菜单里的目录名 —— 用来证明「菜单不依赖 SettingsStore 的当前值」。
+    /// 一个不存在于磁盘的哨兵目录名 —— 用来证明菜单文案不泄露目录。
     /// 不建这个目录，测试不依赖任何文件系统状态，换台机器也照样过。
     private static let fakeFolder = "/tmp/pic-menu-sentinel-dir-4242"
-
-    private var defaults: UserDefaults!
-    private var suiteName: String!
-
-    override func setUp() async throws {
-        try await super.setUp()
-        suiteName = "pic.tests.menubar.\(UUID().uuidString)"
-        defaults = UserDefaults(suiteName: suiteName)
-    }
-
-    override func tearDown() async throws {
-        if let suiteName {
-            defaults?.removePersistentDomain(forName: suiteName)
-        }
-        defaults = nil
-        suiteName = nil
-        try await super.tearDown()
-    }
-
-    private func makeStore() -> SettingsStore {
-        var seed = SettingsStore.Seed()
-        seed.sourceFolder = Self.fakeFolder
-        return SettingsStore(defaults: defaults!, seed: seed)
-    }
 
     /// 假播放端只记录 `applies`。`HoldArbiter` 是 final class 不能用子类替身，所以改用真仲裁器 + 假播放端：
     /// 断言的是仲裁器真的被驱动了，不是某个 mock 的调用计数。
@@ -100,7 +76,7 @@ final class MenuBarModelTests: XCTestCase {
         let arbiter = HoldArbiter(target: target)
         var quitCalls = 0
 
-        MenuBarModel.perform(.quit, isPaused: false, store: makeStore(),
+        MenuBarModel.perform(.quit, isPaused: false,
                              arbiter: arbiter, quit: { quitCalls += 1 })
 
         XCTAssertEqual(quitCalls, 1, "「退出」必须调注入的闭包，且只调一次")
@@ -112,14 +88,14 @@ final class MenuBarModelTests: XCTestCase {
         let target = SpyTarget()
         let arbiter = HoldArbiter(target: target)
 
-        MenuBarModel.perform(.pauseResume, isPaused: false, store: makeStore(),
+        MenuBarModel.perform(.pauseResume, isPaused: false,
                              arbiter: arbiter, quit: {})
         XCTAssertEqual(arbiter.decision.holds, [.manualPause],
                        "第一次点应进入手动暂停 —— 走的必须是仲裁器")
         XCTAssertFalse(arbiter.decision.shouldPlay)
         XCTAssertEqual(target.applies.count, 1, "仲裁器应把决策推给播放端一次")
 
-        MenuBarModel.perform(.pauseResume, isPaused: true, store: makeStore(),
+        MenuBarModel.perform(.pauseResume, isPaused: true,
                              arbiter: arbiter, quit: {})
         XCTAssertEqual(arbiter.decision.holds, [], "第二次点应解除暂停")
         XCTAssertTrue(arbiter.decision.shouldPlay)
@@ -130,7 +106,7 @@ final class MenuBarModelTests: XCTestCase {
         let arbiter = HoldArbiter(target: target)
         var quitCalls = 0
 
-        MenuBarModel.perform(.openSettings, isPaused: false, store: makeStore(),
+        MenuBarModel.perform(.openSettings, isPaused: false,
                              arbiter: arbiter, quit: { quitCalls += 1 })
 
         XCTAssertEqual(quitCalls, 0, "打开设置不得触发退出")
@@ -161,7 +137,7 @@ final class MenuBarModelTests: XCTestCase {
         var quitCalls = 0
         var nextCalls = 0
 
-        MenuBarModel.perform(.nextVideo, isPaused: false, store: makeStore(),
+        MenuBarModel.perform(.nextVideo, isPaused: false,
                              arbiter: arbiter, quit: { quitCalls += 1 },
                              nextVideo: { nextCalls += 1 })
 
@@ -177,7 +153,7 @@ final class MenuBarModelTests: XCTestCase {
         var quitCalls = 0
         var rescanCalls = 0
 
-        MenuBarModel.perform(.rescanFolder, isPaused: false, store: makeStore(),
+        MenuBarModel.perform(.rescanFolder, isPaused: false,
                              arbiter: arbiter, quit: { quitCalls += 1 },
                              rescanFolder: { rescanCalls += 1 })
 
@@ -199,7 +175,7 @@ final class MenuBarModelTests: XCTestCase {
             let arbiter = HoldArbiter(target: target)
             var deletes = 0
             MenuBarModel.perform(.deleteCurrent, isPaused: isPaused,
-                                 store: makeStore(), arbiter: arbiter,
+                                 arbiter: arbiter,
                                  quit: {},
                                  deleteCurrent: { deletes += 1 })
             XCTAssertEqual(deletes, 1, "删除当前壁纸必须走注入的闭包")

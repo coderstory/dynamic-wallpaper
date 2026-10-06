@@ -145,11 +145,4 @@ final class SettingsPresentationTests: XCTestCase {
     func testJoinedReasonsSingleReasonHasNoSeparator() {
         XCTAssertEqual(SettingsPresentation.joinedReasons([.manualPause]), "手动暂停")
     }
-
-    func testPlaybackTitlesAreDistinctConstants() {
-        XCTAssertFalse(SettingsPresentation.playbackPausedTitle.isEmpty)
-        XCTAssertFalse(SettingsPresentation.playbackRunningTitle.isEmpty)
-        XCTAssertNotEqual(SettingsPresentation.playbackPausedTitle,
-                          SettingsPresentation.playbackRunningTitle)
-    }
 }

@@ -16,9 +16,6 @@ public struct TranscodeOutputNaming {
         self.rootProvider = { root }
     }
 
-    /// 当前壁纸目录。
-    public var root: URL { rootProvider() }
-
     /// 产物目录名 —— 必须引用 `MediaLibrary` 的同一常量（同模块无循环）：两个名字漂移的那天就是回流闸门失效的那天。
     public static let convertedDirectoryName = MediaLibrary.excludedDirectoryName
 

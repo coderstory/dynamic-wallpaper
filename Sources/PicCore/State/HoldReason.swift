@@ -1,4 +1,4 @@
-/// 暂停否决原因（veto 集合，不是优先级链）。六个 case 的 `uiLabel` 必须两两不等且非空。
+/// 暂停否决原因（veto 集合，不是优先级链）。文案映射在 `SettingsPresentation.holdReasonLabel`。
 public enum HoldReason: Hashable, Comparable, CaseIterable, Sendable {
     case manualPause
 

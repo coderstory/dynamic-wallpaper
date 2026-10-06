@@ -41,7 +41,6 @@ struct PicApp: App {
                 rescanFolder: { appDelegate.rescanLibrary() },
                 deleteCurrent: { appDelegate.deleteCurrentWallpaperNow() }
             )
-            .environment(appDelegate.store)
             .environment(appDelegate.arbiter)
         } label: {
             MenuBarLabel()

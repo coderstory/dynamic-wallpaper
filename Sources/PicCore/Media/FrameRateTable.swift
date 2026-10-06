@@ -91,14 +91,6 @@ public struct FrameRateTable: Codable, Equatable, Sendable {
         return entry
     }
 
-    public var needsConvertCount: Int {
-        entries.filter { $0.state.recovered == .needsConvert }.count
-    }
-
-    public var okAt30Count: Int {
-        entries.filter { $0.state.recovered == .okAt30 }.count
-    }
-
 
     /// 变更口都落盘。只在状态跃迁时调用，**不是每 tick**——高频路径用下面的 `upsertInMemory`，
     /// 否则每次全量 JSON 编码 + 原子写是写放大。

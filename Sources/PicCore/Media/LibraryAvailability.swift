@@ -15,12 +15,7 @@ public enum LibraryState: String, Equatable, Sendable, CaseIterable {
 
     /// 恰好三个 false、一个 true。
     public var shouldShowWallpaper: Bool {
-        switch self {
-        case .folderUnconfigured, .folderMissing, .noPlayableVideos:
-            return false
-        case .playing:
-            return true
-        }
+        self == .playing
     }
 
     /// 机器可读的小写 token。固定单词，**不得夹带路径或文件名**。

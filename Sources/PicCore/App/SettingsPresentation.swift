@@ -96,7 +96,4 @@ public enum SettingsPresentation {
         guard !reasons.isEmpty else { return "" }
         return reasons.sorted().map(holdReasonLabel).joined(separator: "、")
     }
-
-    public static let playbackPausedTitle = "已暂停"
-    public static let playbackRunningTitle = "播放中"
 }

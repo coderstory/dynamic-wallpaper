@@ -245,14 +245,4 @@ final class FrameRateTableTests: XCTestCase {
         XCTAssertNoThrow(try table.reconcileWithDerivatives(to: tableURL))
         XCTAssertEqual(table.entries[0].state, .needsConvert)
     }
-
-    func testCountsSplitNeedsConvertFromOkAt30() {
-        let table = FrameRateTable(entries: [makeEntry(state: .needsConvert)])
-        XCTAssertEqual(table.needsConvertCount, 1)
-        XCTAssertEqual(table.okAt30Count, 0)
-
-        let ok = FrameRateTable(entries: [makeEntry(state: .okAt30)])
-        XCTAssertEqual(ok.needsConvertCount, 0)
-        XCTAssertEqual(ok.okAt30Count, 1)
-    }
 }

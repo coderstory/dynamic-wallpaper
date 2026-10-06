@@ -34,7 +34,7 @@ public struct MenuBarModel {
 
     @MainActor
     public static func perform(_ id: MenuItemID, isPaused: Bool,
-                               store: SettingsStore, arbiter: HoldArbiter,
+                               arbiter: HoldArbiter,
                                quit: () -> Void,
                                nextVideo: () -> Void = {},
                                rescanFolder: () -> Void = {},

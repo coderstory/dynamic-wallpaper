@@ -334,7 +334,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         // 模式与间隔从设置带过来（当场生效，不存第二份真相）。
-        rotation.setMode(store.playMode)
+        rotation.mode = store.playMode
         rotation.setInterval(store.rotationInterval)
         do {
             let report = try await library.scan(folder: folder)

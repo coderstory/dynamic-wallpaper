@@ -1,9 +1,9 @@
 import XCTest
 @testable import PicCore
 
-/// 本文件**零** AVFoundation / AppKit / SwiftUI：验证的是「起播路径的调用序列」与「派生量的形状」，不碰 `AVPlayer.timeControlStatus`。
+/// 本文件**零** AVFoundation / AppKit / SwiftUI：验证的是暂停原因文案与排序契约、起播路径的调用序列，不碰 `AVPlayer.timeControlStatus`。
 @MainActor
-final class HoldStatusTests: XCTestCase {
+final class HoldArbiterContractTests: XCTestCase {
 
     /// 文件内替身，不要与 `HoldArbiterTests.swift` 里那份合并 —— 跨文件耦合后失败时分不清是替身坏了还是被测代码坏了。
     private final class FakeTarget: PlaybackTarget {
@@ -42,20 +42,13 @@ final class HoldStatusTests: XCTestCase {
         try await super.tearDown()
     }
 
-    func testSummaryIsNilWhenPlaying() {
-        let status = arbiter.holdStatus
-        XCTAssertTrue(status.shouldPlay, "空 holds 应当播放")
-        XCTAssertNil(status.summary, "播放时 summary 必须为 nil —— 空串会让下游 grep 同时匹配两种情况")
-        XCTAssertTrue(status.labels.isEmpty)
-    }
-
     func testSixReasonsHaveDistinctChineseLabels() {
-        let labels = HoldReason.allCases.map(\.uiLabel)
+        let labels = HoldReason.allCases.map(SettingsPresentation.holdReasonLabel)
         XCTAssertEqual(labels.count, 6, "HoldReason 应为 6 个 case（幂集 2^6 = 64）")
 
         let unique = Set(labels)
         XCTAssertEqual(unique.count, labels.count,
-                       "六个 uiLabel 必须两两不同，实际得到 \(labels)")
+                       "六个文案必须两两不同，实际得到 \(labels)")
 
         for label in labels {
             XCTAssertGreaterThanOrEqual(label.count, 2,
@@ -63,37 +56,24 @@ final class HoldStatusTests: XCTestCase {
         }
     }
 
-    func testSummaryJoinsReasonsInOrderWithFullscreenFirstAmongSystemReasons() {
+    func testActiveReasonsAreOrderedAndJoinedInHoldOrder() {
         for reason in HoldReason.allCases {
             arbiter.set(reason, active: true)
         }
 
-        let expected = HoldReason.allCases.sorted().map(\.uiLabel)
-        XCTAssertEqual(arbiter.holdStatus.reasons.map(\.uiLabel), expected,
-                       "reasons 必须按 order 升序：D-10 的 order 只用于文案排序")
-        XCTAssertEqual(arbiter.holdStatus.summary, expected.joined(separator: ","))
+        XCTAssertEqual(arbiter.decision.activeReasons, HoldReason.allCases.sorted(),
+                       "activeReasons 必须按 order 升序：order 只用于文案排序，不参与决策")
+        XCTAssertEqual(SettingsPresentation.joinedReasons(arbiter.decision.activeReasons),
+                       HoldReason.allCases.sorted().map(SettingsPresentation.holdReasonLabel)
+                           .joined(separator: "、"),
+                       "叠加原因必须全列且按 order 排序（只列一个会让用户误判成 bug）")
 
-        // 上面的 expected 已经间接锁住排序；这里把「全屏排在系统类原因之前」单拎出来直接断。
+        // 全屏必须排在系统类原因之前 —— order 的取值契约。
         let systemReasons: [HoldReason] = [.screenLocked, .displayAsleep, .systemSleeping, .battery]
-        let fullscreenIdx = arbiter.holdStatus.labels.firstIndex(of: HoldReason.fullscreen.uiLabel)
         for reason in systemReasons {
-            let idx = arbiter.holdStatus.labels.firstIndex(of: reason.uiLabel)
-            XCTAssertNotNil(idx)
-            XCTAssertLessThan(fullscreenIdx!, idx!, "全屏必须排在 \(reason) 之前")
+            XCTAssertLessThan(HoldReason.fullscreen.order, reason.order,
+                              "全屏必须排在 \(reason) 之前")
         }
-    }
-
-    func testHoldStatusIsDerivedFromDecisionNotStoredSeparately() {
-        arbiter.set(.screenLocked, active: true)
-        XCTAssertEqual(arbiter.holdStatus.reasons, [.screenLocked])
-        XCTAssertEqual(arbiter.holdStatus.labels, ["锁屏"])
-        XCTAssertEqual(arbiter.holdStatus.summary, "锁屏")
-        XCTAssertFalse(arbiter.holdStatus.shouldPlay)
-
-        arbiter.set(.screenLocked, active: false)
-        XCTAssertTrue(arbiter.holdStatus.reasons.isEmpty, "holdStatus 必须跟着 decision 走")
-        XCTAssertNil(arbiter.holdStatus.summary)
-        XCTAssertTrue(arbiter.holdStatus.shouldPlay)
     }
 
     func testApplyCurrentDecisionForwardsCurrentDecisionWithoutTouchingAnchor() {

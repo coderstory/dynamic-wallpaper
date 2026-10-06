@@ -253,12 +253,7 @@ public final class TranscodeQueue {
     }
 
     private static func isActive(_ state: TranscodeJobState) -> Bool {
-        switch state {
-        case .pending, .running:
-            return true
-        case .succeeded, .skipped, .failed:
-            return false
-        }
+        state == .pending || state == .running
     }
 
     /// 入队时的审计串路径：可用用真路径，不可用用裸名占位（串只是展示，不是执行物）。

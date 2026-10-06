@@ -39,7 +39,7 @@ final class PlaybackRouterTests: XCTestCase {
         -> (rotate: RotationController, loader: RecordingLoader, router: PlaybackRouter) {
         let rotate = RotationController(scheduler: NoopScheduler(),
                                         random: SeededRandomSource(seed: 42))
-        rotate.setMode(mode)
+        rotate.mode = mode
         let loader = RecordingLoader()
         let router = PlaybackRouter(rotation: rotate, loader: loader)
         return (rotate, loader, router)

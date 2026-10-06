@@ -108,15 +108,4 @@ final class ConvertedLibraryTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: nested.path),
                       "只清顶层：两个队列的 tmp 都直接写在 Converted/ 下，子目录里的不碰")
     }
-
-    func testPlaybackItemsMergeRootsFirstConvertedAppendedDeduped() {
-        let r1 = VideoItem(url: URL(fileURLWithPath: "/w/root-a.mp4"))
-        let r2 = VideoItem(url: URL(fileURLWithPath: "/w/root-b.mp4"))
-        let r3 = VideoItem(url: URL(fileURLWithPath: "/w/root-c.mp4"))
-        let c1 = VideoItem(url: URL(fileURLWithPath: "/w/root-b.mp4"))   // 与 root 重复的路径
-        let c2 = VideoItem(url: URL(fileURLWithPath: "/w/Converted/out.mp4"))
-        let merged = ConvertedLibrary.playbackItems(root: [r1, r2, r3], converted: [c1, c2])
-        XCTAssertEqual(merged, [r1, r2, r3, c2],
-                       "root 顺序保留在前、converted 去重后追加在后（按 url.path 去重）")
-    }
 }

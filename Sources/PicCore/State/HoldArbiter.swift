@@ -68,9 +68,4 @@ public final class HoldArbiter {
     public func invalidateResumeAnchor() {
         resumeAnchor = nil
     }
-
-    /// 「当前为什么暂停」的对外读数。**纯派生量**：`decision` 是唯一真相源，不缓存、不另存。
-    public var holdStatus: HoldStatus {
-        HoldStatus(shouldPlay: decision.shouldPlay, reasons: decision.activeReasons)
-    }
 }

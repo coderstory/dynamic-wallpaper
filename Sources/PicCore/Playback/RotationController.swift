@@ -96,11 +96,6 @@ public final class RotationController {
         bag = []
     }
 
-    /// 与 `mode` 属性共用同一个真相源，不另存副本。
-    public func setMode(_ newMode: PlayMode) {
-        mode = newMode
-    }
-
     /// 重扫换列表 —— 与 `setItems` 的差别是：**正在播的那条还在就不打断它**。
     ///
     /// 返回 true = 那条片子还在（已挪到新下标），调用方什么都不用做，播放继续；
@@ -168,7 +163,7 @@ public final class RotationController {
     }
 
     private func advance(reason: AdvanceReason) {
-        // 空列表：不打点、不回调、不崩，也**不重排程**（定时器自然熄火）。
+        // 空列表：不回调、不崩，也**不重排程**（定时器自然熄火）。
         guard !items.isEmpty else { return }
         let previousIndex = currentIndex
         let nextIndex: Int

@@ -131,12 +131,6 @@ public final class PowerWatcher {
         return described as NSDictionary
     }
 
-    /// 电源源列表的**实测**键名集合（供探针逐字打印）。
-    public static func currentPowerSourceKeys() -> [String] {
-        guard let description = firstPowerSourceDescription() else { return [] }
-        return description.allKeys.compactMap { $0 as? String }.sorted()
-    }
-
 
     private func registerRunLoopSource(_ onChange: @escaping (Bool) -> Void) {
         powerCallbackLock.withLock {

@@ -63,15 +63,4 @@ public final class ConvertedLibrary {
             try? fm.removeItem(atPath: path)
         }
     }
-
-    /// 合并纯函数：`router.start(with:)` 的入参由它产出。root 顺序保留在前，converted 按序追加在后，按 `url.path` 去重。
-    public static func playbackItems(root: [VideoItem], converted: [VideoItem]) -> [VideoItem] {
-        var seen = Set(root.map { $0.url.path })
-        var merged = root
-        for item in converted where !seen.contains(item.url.path) {
-            seen.insert(item.url.path)
-            merged.append(item)
-        }
-        return merged
-    }
 }

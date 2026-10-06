@@ -40,19 +40,6 @@ public final class LaunchAgentWriter {
         try data.write(to: plistURL(), options: .atomic)
     }
 
-    /// 读回已落盘 plist 的 `ProgramArguments` 首元素，文件不存在或读不出返回 `nil`。
-    ///
-    /// app 被移动后这里的旧路径会让已加载的作业指向一个不存在的可执行文件；
-    /// 漂移检测据此判定「要重写」。
-    public func existingExecutablePath() -> String? {
-        guard let data = try? Data(contentsOf: plistURL()),
-              let plist = try? PropertyListSerialization.propertyList(from: data, options: [], format: nil),
-              let plist = plist as? [String: Any],
-              let arguments = plist["ProgramArguments"] as? [String]
-        else { return nil }
-        return arguments.first
-    }
-
     /// 删 plist；文件不存在时静默成功（禁用路径要能重复跑）。
     public func remove() {
         try? FileManager.default.removeItem(at: plistURL())

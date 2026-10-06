@@ -5,7 +5,6 @@ import PicCore
 // 菜单栏菜单体。菜单项只由 `MenuItemID.allCases` 遍历产出（手写 Button 会绕过哨兵单测），
 // 暂停/继续一律走仲裁器 `set(.manualPause, active:)` —— 本文件不直连播放器、不出现文件名。
 struct MenuContentView: View {
-    @Environment(SettingsStore.self) private var store
     @Environment(HoldArbiter.self) private var arbiter
     @Environment(\.openWindow) private var openWindow
 
@@ -51,26 +50,26 @@ struct MenuContentView: View {
         case .pauseResume:
             // 唯一入口是模型层 perform：消掉这里与 MenuItem.perform 重复的 arbiter.set(.manualPause)，
             // 否则「暂停/继续」语义有两份实现，测试测 perform、UI 走这里，改一处漏一处。
-            MenuBarModel.perform(id, isPaused: isPaused, store: store, arbiter: arbiter, quit: terminate)
+            MenuBarModel.perform(id, isPaused: isPaused, arbiter: arbiter, quit: terminate)
         case .nextVideo:
             // 只调模型；行为体（轮换器）由 AppDelegate 的闭包注入。
-            MenuBarModel.perform(id, isPaused: isPaused, store: store, arbiter: arbiter,
+            MenuBarModel.perform(id, isPaused: isPaused, arbiter: arbiter,
                                  quit: terminate, nextVideo: nextVideo)
         case .rescanFolder:
             // 同上：失效缓存与重扫是 AppDelegate 的活，菜单只转交意图。
-            MenuBarModel.perform(id, isPaused: isPaused, store: store, arbiter: arbiter,
+            MenuBarModel.perform(id, isPaused: isPaused, arbiter: arbiter,
                                  quit: terminate, rescanFolder: rescanFolder)
         case .deleteCurrent:
             // 「先切下一个再删旧的」整个语义在 AppDelegate 那一侧，菜单只转交意图。
-            MenuBarModel.perform(id, isPaused: isPaused, store: store, arbiter: arbiter,
+            MenuBarModel.perform(id, isPaused: isPaused, arbiter: arbiter,
                                  quit: terminate, deleteCurrent: deleteCurrent)
         case .openSettings:
             // PicCore 不依赖 AppKit 的全局应用对象，所以窗口这一侧由调用方处理。
-            MenuBarModel.perform(id, isPaused: isPaused, store: store, arbiter: arbiter, quit: terminate)
+            MenuBarModel.perform(id, isPaused: isPaused, arbiter: arbiter, quit: terminate)
             presentSettings()
             openWindow(id: "settings")
         case .quit:
-            MenuBarModel.perform(id, isPaused: isPaused, store: store, arbiter: arbiter, quit: terminate)
+            MenuBarModel.perform(id, isPaused: isPaused, arbiter: arbiter, quit: terminate)
         }
     }
 }

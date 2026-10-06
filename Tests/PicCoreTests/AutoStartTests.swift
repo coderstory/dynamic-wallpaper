@@ -81,6 +81,12 @@ final class AutoStartTests: XCTestCase {
         return try XCTUnwrap(plist as? [String: Any])
     }
 
+    /// 直接读落盘 plist 的可执行路径 —— 断言真实产物，不经过产品侧的读回方法。
+    private func plistExecutablePath() -> String? {
+        guard let plist = try? plistKeys() else { return nil }
+        return (plist["ProgramArguments"] as? [String])?.first
+    }
+
     /// KeepAlive 会让 launchd 在 app 崩溃后无限拉起它，与「退出」菜单项直接冲突；壁纸 app 不该被系统当守护进程。
     func testPlistHasLabelRunAtLoadAndNoKeepAlive() throws {
         try writer.write(executablePath: "/tmp/Pic")
@@ -102,7 +108,7 @@ final class AutoStartTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: writer.plistURL().path))
 
         writer.remove()
-        XCTAssertNil(writer.existingExecutablePath())
+        XCTAssertNil(plistExecutablePath())
     }
 
     func testRouteAFailureFallsBackToLaunchAgentWriter() {
@@ -113,7 +119,7 @@ final class AutoStartTests: XCTestCase {
 
         manager.setEnabled(true)
 
-        XCTAssertEqual(writer.existingExecutablePath(), "/Applications/Pic.app/Contents/MacOS/Pic",
+        XCTAssertEqual(plistExecutablePath(), "/Applications/Pic.app/Contents/MacOS/Pic",
                        "A 失败必须自动落 B：plist 里的可执行路径就是 manager 持有的那个")
         XCTAssertEqual(runner.subcommands, ["bootout", "bootstrap"],
                        "routeB 固定是 bootout → 写盘 → bootstrap 的顺序")
@@ -130,7 +136,7 @@ final class AutoStartTests: XCTestCase {
 
         XCTAssertEqual(registration.openSettingsCount, 1,
                        "requiresApproval 必须引导用户在「登录项与扩展」里手动批准")
-        XCTAssertNil(writer.existingExecutablePath(),
+        XCTAssertNil(plistExecutablePath(),
                      "requiresApproval 不落路线 B —— 一次开启只对应一套登录项")
         XCTAssertTrue(runner.calls.isEmpty, "留在 A 就不该有任何 launchctl 调用")
     }
@@ -143,7 +149,7 @@ final class AutoStartTests: XCTestCase {
 
         manager.setEnabled(true)
 
-        XCTAssertNil(writer.existingExecutablePath(), "A 成功时不许留下任何路线 B 产物")
+        XCTAssertNil(plistExecutablePath(), "A 成功时不许留下任何路线 B 产物")
         XCTAssertTrue(runner.calls.isEmpty)
     }
 
@@ -164,7 +170,7 @@ final class AutoStartTests: XCTestCase {
     /// plist 存的是绝对路径：app 挪位置后 launchd 会照着旧路径拉一个不存在的可执行文件。
     func testStalePlistPathIsRewrittenOnEnable() {
         try? writer.write(executablePath: "/old/location/Pic")
-        XCTAssertEqual(writer.existingExecutablePath(), "/old/location/Pic")
+        XCTAssertEqual(plistExecutablePath(), "/old/location/Pic")
 
         let registration = FakeRegistration()
         registration.registerError = FakeRegisterError()
@@ -174,7 +180,7 @@ final class AutoStartTests: XCTestCase {
 
         manager.setEnabled(true)
 
-        XCTAssertEqual(writer.existingExecutablePath(), "/new/location/Pic",
+        XCTAssertEqual(plistExecutablePath(), "/new/location/Pic",
                        "plist 里的旧路径必须被当前可执行路径覆盖")
         XCTAssertEqual(runner.subcommands, ["bootout", "bootstrap"],
                        "必须先 bootout 掉旧作业再 bootstrap 新 plist")

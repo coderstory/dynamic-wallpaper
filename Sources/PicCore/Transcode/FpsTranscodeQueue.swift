@@ -81,9 +81,6 @@ public final class FpsTranscodeQueue {
                   specProvider: specProvider, tableURL: tableURL)
     }
 
-    /// 当前壁纸目录。
-    public var root: URL { rootProvider() }
-
     public var isPaused: Bool { controlLock.withLock { _pauseRequested } }
     public var isRunning = false
 

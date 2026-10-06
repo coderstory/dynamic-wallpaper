@@ -65,7 +65,7 @@ final class RotationControllerTests: XCTestCase {
     func testLoopSingleAlwaysReturnsTheSameItem() {
         let (controller, scheduler) = makeController(random: SeededRandomSource(seed: 42))
         controller.setItems(Self.threeItems)
-        controller.setMode(.loopSingle)
+        controller.mode = .loopSingle
         controller.start()
 
         // 只驱动「到点」这一路：用户显式「立即下一个」是另一条路径，按 reason 分流到用例 8
@@ -81,7 +81,7 @@ final class RotationControllerTests: XCTestCase {
     func testLoopSingleRotationElapsedDoesNotReloadSameItem() {
         let (controller, scheduler) = makeController(random: SeededRandomSource(seed: 42))
         controller.setItems(Self.threeItems)
-        controller.setMode(.loopSingle)
+        controller.mode = .loopSingle
         var loaded: [String] = []
         controller.onAdvance = { loaded.append($0.url.path) }
         controller.start()
@@ -100,7 +100,7 @@ final class RotationControllerTests: XCTestCase {
     func testLoopListWalksEveryItemThenWrapsToFirst() {
         let (controller, _) = makeController(random: SeededRandomSource(seed: 42))
         controller.setItems(Self.threeItems)
-        controller.setMode(.loopList)
+        controller.mode = .loopList
         controller.start()
 
         for _ in 0..<6 { controller.advanceNow() }
@@ -117,7 +117,7 @@ final class RotationControllerTests: XCTestCase {
         for seed in 1...12 {
             let (controller, _) = makeController(random: SeededRandomSource(seed: UInt64(seed)))
             controller.setItems(Self.threeItems)
-            controller.setMode(.shuffle)
+            controller.mode = .shuffle
             var played: [VideoItem] = []
             controller.onAdvance = { played.append($0) }
             controller.start()
@@ -134,7 +134,7 @@ final class RotationControllerTests: XCTestCase {
     func testShuffleFirstItemIsDrawnFromTheBagAndNotRepeated() {
         let (controller, _) = makeController(random: CountingRandomSource())
         controller.setItems(Self.threeItems)
-        controller.setMode(.shuffle)
+        controller.mode = .shuffle
         var played: [VideoItem] = []
         controller.onAdvance = { played.append($0) }
         controller.start()
@@ -149,7 +149,7 @@ final class RotationControllerTests: XCTestCase {
     func testShuffleVisitsEveryItemExactlyOncePerRound() {
         let (controller, _) = makeController(random: SeededRandomSource(seed: 42))
         controller.setItems(Self.threeItems)
-        controller.setMode(.shuffle)
+        controller.mode = .shuffle
         // 一轮的边界从**首条**起算：`start()` 交出的那一条是这一轮的第一条，
         // 只是不计进 `advances`。只统计 advances 会把首条漏在读数的外面。
         var played: [VideoItem] = []
@@ -177,7 +177,7 @@ final class RotationControllerTests: XCTestCase {
         func order(seed: UInt64) -> [Int] {
             let (controller, _) = makeController(random: SeededRandomSource(seed: seed))
             controller.setItems(Self.threeItems)
-            controller.setMode(.shuffle)
+            controller.mode = .shuffle
             controller.start()
             for _ in 0..<3 { controller.advanceNow() }
             return controller.advances.map(\.index)
@@ -195,7 +195,7 @@ final class RotationControllerTests: XCTestCase {
         let counting = CountingRandomSource()
         let (controller, _) = makeController(random: counting)
         controller.setItems(Self.threeItems)
-        controller.setMode(.shuffle)
+        controller.mode = .shuffle
         controller.start()
         controller.advanceNow()
         XCTAssertGreaterThan(counting.calls, 0, "洗袋必须调用注入的随机源")
@@ -204,7 +204,7 @@ final class RotationControllerTests: XCTestCase {
     func testRotationElapsedAdvancesWithoutWaitingForPlayback() {
         let (controller, scheduler) = makeController(random: SeededRandomSource(seed: 42))
         controller.setItems(Self.threeItems)
-        controller.setMode(.loopList)
+        controller.mode = .loopList
         controller.setInterval(5)
         controller.start()
 
@@ -238,7 +238,7 @@ final class RotationControllerTests: XCTestCase {
     func testModeAndIntervalChangesTakeEffectOnNextAdvance() {
         let (controller, scheduler) = makeController(random: SeededRandomSource(seed: 42))
         controller.setItems(Self.threeItems)
-        controller.setMode(.loopList)
+        controller.mode = .loopList
         controller.start()
 
         // 停在 1：从 1 出发时列表循环给 2、单循环给 0，这是「切换生效」的判别点
@@ -246,12 +246,12 @@ final class RotationControllerTests: XCTestCase {
         XCTAssertEqual(controller.currentIndex, 1)
 
         // 用 fire() 而非 advanceNow()：advanceNow 是用户路径，锁定的语义只约束到点那一路
-        controller.setMode(.loopSingle)
+        controller.mode = .loopSingle
         scheduler.fire()
         XCTAssertEqual(controller.currentIndex, 0,
                        "从 1 出发，单循环必须回到 0 —— 列表循环会给 2，被这条区分")
 
-        controller.setMode(.loopList)
+        controller.mode = .loopList
         controller.advanceNow()
         controller.advanceNow()
         XCTAssertEqual(controller.currentIndex, 2)
@@ -267,7 +267,7 @@ final class RotationControllerTests: XCTestCase {
     func testUserRequestedAdvancesInLoopSingle() {
         let (controller, _) = makeController(random: SeededRandomSource(seed: 42))
         controller.setItems(Self.threeItems)
-        controller.setMode(.loopSingle)
+        controller.mode = .loopSingle
         controller.start()
 
         for _ in 0..<3 { controller.advanceNow() }
@@ -282,7 +282,7 @@ final class RotationControllerTests: XCTestCase {
     func testRotationElapsedHoldsLoopSingleLocked() {
         let (controller, scheduler) = makeController(random: SeededRandomSource(seed: 42))
         controller.setItems(Self.threeItems)
-        controller.setMode(.loopSingle)
+        controller.mode = .loopSingle
         controller.setInterval(5)
         controller.start()
 
