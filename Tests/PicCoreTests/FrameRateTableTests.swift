@@ -92,7 +92,7 @@ final class FrameRateTableTests: XCTestCase {
     /// 直接 `==` 比 path 会永远命中不了 —— 症状是增量扫描静默退化成全量重探，没有任何报错。
     func testLookupTolerantToPathPrefixDifference() throws {
         let entry = makeEntry()
-        var table = FrameRateTable(entries: [entry])
+        let table = FrameRateTable(entries: [entry])
         // 临时目录在 /var/folders/... 下；换前缀即模拟 enumerator 的写法。
         let mangled = URL(fileURLWithPath: entry.sourcePath
             .replacingOccurrences(of: "/var/", with: "/private/var/"))

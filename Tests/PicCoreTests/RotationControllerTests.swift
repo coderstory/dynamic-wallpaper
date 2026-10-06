@@ -9,11 +9,11 @@ final class RotationControllerTests: XCTestCase {
 
     /// 不挂 runloop、不读片长，时长完全由测试掌控。
     final class ManualScheduler: RotationScheduling {
-        private(set) var pending: (() -> Void)?
+        private(set) var pending: (@MainActor () -> Void)?
         private(set) var scheduleCount = 0
         private(set) var cancelCount = 0
 
-        func schedule(after interval: TimeInterval, _ body: @escaping () -> Void) {
+        func schedule(after interval: TimeInterval, _ body: @escaping @MainActor () -> Void) {
             pending = body
             scheduleCount += 1
         }
@@ -24,6 +24,9 @@ final class RotationControllerTests: XCTestCase {
         }
 
         /// 触发后清空 `pending`，与一次性定时器同语义。
+        /// 标 `@MainActor`：本类不能整体标（协议 `RotationScheduling` 是非隔离的，标了会报
+        /// `#ConformanceIsolation`），但调 `pending` 必须回到主线程 —— 那正是它被注入的契约。
+        @MainActor
         func fire() {
             let body = pending
             pending = nil

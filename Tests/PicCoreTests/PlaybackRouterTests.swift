@@ -19,9 +19,9 @@ final class PlaybackRouterTests: XCTestCase {
 
     /// 只存闭包不触发：本文件不需要到点回调驱动，`advanceNow()` 足够。
     final class NoopScheduler: RotationScheduling {
-        private var body: (() -> Void)?
+        private var body: (@MainActor () -> Void)?
 
-        func schedule(after interval: TimeInterval, _ body: @escaping () -> Void) {
+        func schedule(after interval: TimeInterval, _ body: @escaping @MainActor () -> Void) {
             self.body = body
         }
 

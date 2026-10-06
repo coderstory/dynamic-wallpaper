@@ -15,19 +15,19 @@ final class ConvertedLibraryTests: XCTestCase {
     private var root: URL!
     private var library: ConvertedLibrary!
 
-    override func setUp() {
-        super.setUp()
+    override func setUp() async throws {
+        try await super.setUp()
         root = FileManager.default.temporaryDirectory
             .appendingPathComponent("p6-conv-\(UUID().uuidString)", isDirectory: true)
         try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         library = ConvertedLibrary(probe: FakeProbe())
     }
 
-    override func tearDown() {
+    override func tearDown() async throws {
         try? FileManager.default.removeItem(at: root)
         root = nil
         library = nil
-        super.tearDown()
+        try await super.tearDown()
     }
 
     @discardableResult

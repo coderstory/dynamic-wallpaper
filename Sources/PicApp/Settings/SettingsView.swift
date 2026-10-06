@@ -22,7 +22,7 @@ struct SettingsView: View {
     /// 降帧视图模型，同样由 PicApp 注入，生命周期跟 AppDelegate。
     let fpsViewModel: FpsTranscodeViewModel
     /// 安装途径弹层的「重新检测」：重查并回填最新读数。
-    let refreshFFmpeg: () -> Bool
+    let refreshFFmpeg: () -> Void
 
     /// ffmpeg 不可用时的安装途径弹层（置灰之外还得给出途径）。
     @State private var showingPathways = false
@@ -69,7 +69,7 @@ struct SettingsView: View {
         .preferredColorScheme(.light)
         .onAppear(perform: seedAndObserve)
         .sheet(isPresented: $showingPathways) {
-            InstallPathwaysView(onRecheck: { _ = refreshFFmpeg() })
+            InstallPathwaysView(onRecheck: { refreshFFmpeg() })
         }
     }
 
@@ -206,7 +206,7 @@ struct SettingsView: View {
     private var transcodeTab: some View {
         TranscodeSection(viewModel: transcodeViewModel,
                          showingPathways: $showingPathways,
-                         refresh: { _ = refreshFFmpeg() })
+                         refresh: { refreshFFmpeg() })
     }
 
 

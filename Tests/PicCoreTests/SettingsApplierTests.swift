@@ -80,10 +80,10 @@ final class SettingsApplierTests: XCTestCase {
 
     /// 手动调度器；测试替身不跨文件共用 —— 共用后失败时分不清是替身坏了还是被测代码坏了。
     final class ManualScheduler: RotationScheduling {
-        private(set) var pending: (() -> Void)?
+        private(set) var pending: (@MainActor () -> Void)?
         private(set) var scheduleCount = 0
 
-        func schedule(after interval: TimeInterval, _ body: @escaping () -> Void) {
+        func schedule(after interval: TimeInterval, _ body: @escaping @MainActor () -> Void) {
             pending = body
             scheduleCount += 1
         }

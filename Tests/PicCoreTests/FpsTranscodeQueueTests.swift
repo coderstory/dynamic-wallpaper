@@ -34,19 +34,19 @@ final class FpsTranscodeQueueTests: XCTestCase {
     private var root: URL!
     private var runner: FakeRunner!
 
-    override func setUp() {
-        super.setUp()
+    override func setUp() async throws {
+        try await super.setUp()
         root = FileManager.default.temporaryDirectory
             .appendingPathComponent("p6-fpsq-\(UUID().uuidString)", isDirectory: true)
         try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         runner = FakeRunner()
     }
 
-    override func tearDown() {
+    override func tearDown() async throws {
         try? FileManager.default.removeItem(at: root)
         root = nil
         runner = nil
-        super.tearDown()
+        try await super.tearDown()
     }
 
     @discardableResult
@@ -81,7 +81,7 @@ final class FpsTranscodeQueueTests: XCTestCase {
     }
 
     func testScanSkipsSourcesAtOrBelowThirtyFps() async {
-        let source = makeSource("ok.mp4")
+        makeSource("ok.mp4")
         let queue = makeQueue { _ in
             VideoAssetMetadata(hasVideoTrack: true, frameRate: 30, durationSeconds: 10)
         }
@@ -90,7 +90,7 @@ final class FpsTranscodeQueueTests: XCTestCase {
     }
 
     func testScanEnqueuesSourcesAboveThirtyFps() async {
-        let source = makeSource("hi.mp4")
+        makeSource("hi.mp4")
         let queue = makeQueue()
         await queue.scan()
         XCTAssertEqual(queue.jobs.count, 1)

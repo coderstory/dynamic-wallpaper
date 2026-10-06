@@ -5,6 +5,11 @@ import AVFoundation
 ///
 /// 窗口**不进 SwiftUI 的 body**：`MenuBarExtra` 只负责菜单栏图标，桌面层窗口由
 /// `AppDelegate` 持有本控制器再建。屏幕只取 `NSScreen.main` —— 多屏不在本项目范围内。
+///
+/// 整类标 `@MainActor`：本类只做窗口操作，而 AppKit 那套（建窗 / `orderFrontRegardless` /
+/// `collectionBehavior`）全是 MainActor 隔离的。不标的话每一处调用都是一条并发告警，
+/// 而且真从后台线程调过去就是 UB。
+@MainActor
 public final class WallpaperWindowController {
 
     public private(set) var window: WallpaperWindow?

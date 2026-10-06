@@ -16,10 +16,7 @@ struct PicApp: App {
                          setLaunchAtLogin: { appDelegate.setLaunchAtLogin($0) },
                          transcodeViewModel: appDelegate.transcodeViewModel,
                          fpsViewModel: appDelegate.fpsTranscodeViewModel,
-                         refreshFFmpeg: {
-                             appDelegate.refreshFFmpegAvailability()
-                             return appDelegate.ffmpegIsAvailable
-                         })
+                         refreshFFmpeg: { appDelegate.refreshFFmpegAvailability() })
                 .environment(appDelegate.store)
                 .environment(appDelegate.arbiter)
                 .environment(appDelegate.settingsApplier)

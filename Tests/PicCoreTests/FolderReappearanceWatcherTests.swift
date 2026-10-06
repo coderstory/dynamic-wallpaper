@@ -28,6 +28,13 @@ final class FolderReappearanceWatcherTests: XCTestCase {
         func tick() { body?() }
     }
 
+    /// 「目录回来了」的可变标志。**不能用捕获的局部 `var`**：那个读闭包会被存进调度器的
+    /// sendable 上下文，之后测试再改局部变量就成了「捕获后修改」，Swift 6 直接告警。
+    @MainActor
+    private final class Flag {
+        var value = false
+    }
+
     func testIntervalIsHandedToTheSchedulerVerbatim() {
         let clock = ManualClock()
         let watcher = FolderReappearanceWatcher(scheduler: clock.scheduler)
@@ -53,13 +60,13 @@ final class FolderReappearanceWatcherTests: XCTestCase {
         let clock = ManualClock()
         let watcher = FolderReappearanceWatcher(scheduler: clock.scheduler)
         var returned = 0
-        var isBack = false
+        let back = Flag()
 
-        watcher.awaitReturn(isBack: { isBack }, onReturned: { returned += 1 })
+        watcher.awaitReturn(isBack: { back.value }, onReturned: { returned += 1 })
         clock.tick()
         XCTAssertEqual(returned, 0)
 
-        isBack = true
+        back.value = true
         clock.tick()
         XCTAssertEqual(returned, 1)
         XCTAssertFalse(watcher.isWaiting, "回调后必须自动停 —— 留着它会让定时器永久空转")
@@ -72,15 +79,15 @@ final class FolderReappearanceWatcherTests: XCTestCase {
         let clock = ManualClock()
         let watcher = FolderReappearanceWatcher(scheduler: clock.scheduler)
         var returned = 0
-        var isBack = false
+        let back = Flag()
 
-        watcher.awaitReturn(isBack: { isBack }, onReturned: { returned += 1 })
+        watcher.awaitReturn(isBack: { back.value }, onReturned: { returned += 1 })
         watcher.stop()
         XCTAssertFalse(watcher.isWaiting)
         XCTAssertEqual(clock.stopCount, 1, "stop 必须把停止闭包调下去，否则定时器还在跑")
 
         // 目录后来又回来了，但已经没人等 —— 必须一声不响。
-        isBack = true
+        back.value = true
         clock.tick()
         XCTAssertEqual(returned, 0)
     }
@@ -99,18 +106,18 @@ final class FolderReappearanceWatcherTests: XCTestCase {
     func testProductionSchedulerTicksAndStops() async {
         let watcher = FolderReappearanceWatcher()
         var returned = 0
-        var isBack = false
+        let back = Flag()
         let fired = expectation(description: "目录回来后必须回调")
 
         watcher.awaitReturn(interval: 0.02,
-                            isBack: { isBack },
+                            isBack: { back.value },
                             onReturned: { returned += 1; fired.fulfill() })
 
         try? await Task.sleep(for: .milliseconds(80))
         XCTAssertEqual(returned, 0, "目录还没回来就回调了")
         XCTAssertTrue(watcher.isWaiting)
 
-        isBack = true
+        back.value = true
         await fulfillment(of: [fired], timeout: 2)
         XCTAssertEqual(returned, 1)
         XCTAssertFalse(watcher.isWaiting, "回调后必须自动停")

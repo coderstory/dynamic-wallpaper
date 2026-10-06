@@ -39,7 +39,8 @@ public struct SMAppServiceAdapter: LoginItemRegistration {
 
 /// 路线 B 的进程执行面。抽出来是为了单测能断言命令与顺序，而不是真去动用户会话的 launchd 域。
 public protocol ShellRunner {
-    /// 返回终止状态（调用方按需忽略，见 `routeB()`）。
+    /// 返回终止状态。**按需忽略**（见 `routeB()` 的 bootout）：忽略是刻意的，不是漏看。
+    @discardableResult
     func run(_ path: String, _ arguments: [String]) -> Int32
 }
 

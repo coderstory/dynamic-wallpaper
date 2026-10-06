@@ -39,17 +39,17 @@ final class TranscodeQueueTests: XCTestCase {
 
     private var root: URL!
 
-    override func setUp() {
-        super.setUp()
+    override func setUp() async throws {
+        try await super.setUp()
         root = FileManager.default.temporaryDirectory
             .appendingPathComponent("p6-0603-q-\(UUID().uuidString)", isDirectory: true)
         try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
     }
 
-    override func tearDown() {
+    override func tearDown() async throws {
         try? FileManager.default.removeItem(at: root)
         root = nil
-        super.tearDown()
+        try await super.tearDown()
     }
 
     @discardableResult
