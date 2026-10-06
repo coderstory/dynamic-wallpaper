@@ -145,4 +145,51 @@ final class MediaLibraryTests: XCTestCase {
         XCTAssertTrue(report.skippedByEntryCap, "超过上限必须如实上报，不静默少给")
         XCTAssertLessThanOrEqual(report.items.count, 3, "超出上限后应被截断")
     }
+
+    // MARK: - 探测并发度
+
+    /// 记录同时「在飞」探测数的假探针。`@unchecked Sendable`：真并发下被多个任务同时调用，计数用锁护住。
+    private final class ConcurrencyProbe: @unchecked Sendable, VideoAssetProbe {
+        private let lock = NSLock()
+        private var inFlight = 0
+        private var peakInFlight = 0
+        private var callCount = 0
+
+        var peak: Int { lock.withLock { peakInFlight } }
+        var calls: Int { lock.withLock { callCount } }
+
+        func metadata(_ url: URL) async -> VideoAssetMetadata {
+            lock.withLock {
+                inFlight += 1
+                callCount += 1
+                peakInFlight = max(peakInFlight, inFlight)
+            }
+            // 必须真的挂起：不挂起的话每个任务瞬间跑完，并发度永远是 1，这条判据就成了空断言。
+            try? await Task.sleep(for: .milliseconds(20))
+            lock.withLock { inFlight -= 1 }
+            return VideoAssetMetadata(hasVideoTrack: true)
+        }
+    }
+
+    /// 探测是**有界并发**。上限刻意是常数而不是「有多少发多少」：探测受磁盘 IO 限制、本机只有一块盘，
+    /// 放开并发只会把 IO/CPU 打满而不更快。这条同时锁住「并发没把结果算错」。
+    func testProbeRunsConcurrentlyButBounded() async throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("pic-probe-bound-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        for index in 0..<16 {
+            FileManager.default.createFile(
+                atPath: dir.appendingPathComponent("clip-\(index).mp4").path,
+                contents: Data("x".utf8))
+        }
+
+        let probe = ConcurrencyProbe()
+        let report = try await MediaLibrary(probe: probe).scan(folder: dir)
+
+        XCTAssertEqual(report.playableCount, 16, "并发只该改变耗时，不该改变结果")
+        XCTAssertEqual(probe.calls, 16, "每个候选恰好探测一次")
+        XCTAssertGreaterThan(probe.peak, 1, "串行的话首屏延迟对视频数是线性的，这条就是那个回归锁")
+        XCTAssertLessThanOrEqual(probe.peak, 4, "并发度超过上限 = 把 IO/CPU 打满（与 probeConcurrency 一致）")
+    }
 }

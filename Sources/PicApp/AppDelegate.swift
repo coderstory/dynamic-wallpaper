@@ -23,6 +23,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var screenObserver: NSObjectProtocol?
     // rotation 必须强持有，它持 onAdvance 闭包与 Timer 调度器
     let library = MediaLibrary()
+    /// 拔盘 / 目录消失后的重生看护。只在 `folderMissing` 期间活着（见 `updateFolderWatch`）。
+    private let folderWatch = FolderReappearanceWatcher()
     /// 面板 seam：全仓唯一碰 NSOpenPanel 的地方注入进来的句柄。
     let picker: any FolderPicker = NSOpenPanelFolderPicker()
     let rotation = RotationController(
@@ -243,6 +245,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         fullscreenDetector.stop()
         displayWatcher.stop()
         powerWatcher.stop()
+        folderWatch.stop()
         if let screenObserver {
             NotificationCenter.default.removeObserver(screenObserver)
             self.screenObserver = nil
@@ -348,8 +351,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         sessionState.isScanning = true
         defer { sessionState.isScanning = false }
         guard let folder = store.resolvedFolderURL() else {
-            await dispatchPlayback(for: coordinator.apply(scanOutcome: .success(0),
-                                                          folderConfigured: false), report: nil)
+            await applyAndDispatch(scanOutcome: .success(0), folderConfigured: false, report: nil)
             return
         }
         // 模式与间隔从设置带过来（当场生效，不存第二份真相）。
@@ -358,17 +360,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         do {
             let report = try await library.scan(folder: folder)
             sessionState.playableCount = report.playableCount
-            await dispatchPlayback(for: coordinator.apply(scanOutcome: .success(report.playableCount),
-                                                           folderConfigured: true),
-                                   report: report)
+            await applyAndDispatch(scanOutcome: .success(report.playableCount),
+                                   folderConfigured: true, report: report)
         } catch let error as MediaLibrary.MediaLibraryError {
-            await dispatchPlayback(for: coordinator.apply(scanOutcome: .failure(error),
-                                                           folderConfigured: true), report: nil)
+            await applyAndDispatch(scanOutcome: .failure(error), folderConfigured: true, report: nil)
         } catch {
             // scan 只抛 MediaLibraryError，这里是编译器要的兜底；真到了这一步按「目录读不了」处理。
-            await dispatchPlayback(for: coordinator.apply(scanOutcome: .failure(.folderUnreadable),
-                                                           folderConfigured: true), report: nil)
+            await applyAndDispatch(scanOutcome: .failure(.folderUnreadable),
+                                   folderConfigured: true, report: nil)
         }
+    }
+
+    /// `apply` → 分派 → 看护。三件事必须捆在一起：分开写时，总会有一条分支漏掉看护 ——
+    /// 漏掉的表现是「拔盘再插回，界面永远停在缺失态」。
+    private func applyAndDispatch(scanOutcome: Result<Int, MediaLibrary.MediaLibraryError>,
+                                  folderConfigured: Bool,
+                                  report: MediaLibraryReport?) async {
+        let state = coordinator.apply(scanOutcome: scanOutcome, folderConfigured: folderConfigured)
+        await dispatchPlayback(for: state, report: report)
+        updateFolderWatch(for: state)
+    }
+
+    /// 目录缺失时才开看护，其余状态一律停 —— 看护只在坏状态下活着，目录正常时一次都不跑。
+    private func updateFolderWatch(for state: LibraryState) {
+        guard state == .folderMissing else {
+            folderWatch.stop()
+            return
+        }
+        // 路径在**发起等待时**取一次快照：回调里再取会拿到换目录之后的值，等于盯错了目录。
+        let folderPath = store.resolvedFolderURL()?.path
+        folderWatch.awaitReturn(
+            isBack: { folderPath.map { FileManager.default.fileExists(atPath: $0) } ?? false },
+            onReturned: { [weak self] in
+                guard let self else { return }
+                // 与「重新扫描」同一条语义：先失效缓存再重扫，否则拿回的是缺失态那一轮的 report。
+                self.library.invalidateCache()
+                Task { await self.rescanAndApply() }
+            })
     }
 
     /// `LibraryState` → 装载分派。只看 `coordinator.apply` 的返回值，不在这里再判「有没有视频」。

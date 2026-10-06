@@ -33,6 +33,10 @@ public final class MediaLibrary {
         }
     }
 
+    /// 探测阶段的并发上限。**别调大**：探测受磁盘 IO 限制，本机只有一块盘，
+    /// 放开并发只会把 IO/CPU 打满而不更快；调小则首屏延迟线性变长。
+    private static let probeConcurrency = 4
+
     private let probe: any VideoAssetProbe
     private let entryCap: Int
 
@@ -104,6 +108,9 @@ public final class MediaLibrary {
             throw MediaLibraryError.folderUnreadable
         }
 
+        // 第一段：纯同步筛选，把候选收齐。与探测分开是因为探测是这趟扫描唯一的重活，
+        // 混在一起就没法给它定并发度。
+        var candidates: [URL] = []
         while let entry = enumerator.nextObject() as? URL {
             scanned += 1
             if scanned > entryCap {
@@ -138,10 +145,32 @@ public final class MediaLibrary {
                 continue
             }
 
-            if await probe.metadata(entry).hasVideoTrack {
-                items.append(VideoItem(url: entry))
-            } else {
-                rejectedByProbe += 1
+            candidates.append(entry)
+        }
+
+        // 第二段：有界并发探测。首屏「壁纸出现」的延迟 = 候选数 × 单文件探测，串行时对视频数是**线性**的；
+        // 这里把斜率压到 1/4。上限刻意是固定常数而不是「有多少发多少」：探测受磁盘 IO 限制，
+        // 本机只有一块盘，放开并发只会把 IO/CPU 打满而不更快。
+        let probe = self.probe
+        await withTaskGroup(of: (URL, Bool).self) { group in
+            var next = 0
+            while next < candidates.count, next < Self.probeConcurrency {
+                let url = candidates[next]
+                next += 1
+                group.addTask { (url, await probe.metadata(url).hasVideoTrack) }
+            }
+            // 每收一个补一个 —— 窗口始终填满到 probeConcurrency。
+            while let (url, hasVideoTrack) = await group.next() {
+                if hasVideoTrack {
+                    items.append(VideoItem(url: url))
+                } else {
+                    rejectedByProbe += 1
+                }
+                if next < candidates.count {
+                    let url = candidates[next]
+                    next += 1
+                    group.addTask { (url, await probe.metadata(url).hasVideoTrack) }
+                }
             }
         }
 
