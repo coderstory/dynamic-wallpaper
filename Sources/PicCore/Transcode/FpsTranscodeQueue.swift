@@ -249,7 +249,12 @@ public final class FpsTranscodeQueue {
 
         var didWork = false
         while true {
-            guard let index = jobs.firstIndex(where: { $0.state == .pending }) else { break }
+            guard let index = jobs.firstIndex(where: { $0.state == .pending }) else {
+                // 排空退出也必须清一次取消标志：留着它会让下一次 run() 的第一轮
+                // 被陈旧标志直接挡掉，表现是「点了开始没反应」。
+                _ = consumeCancel()
+                break
+            }
             // 暂停/取消在每个 job 之前判定 —— 暂停语义是「当前文件跑完再停」。
             if shouldStop() {
                 if consumeCancel() { jobs[index].state = .pending; onJobsChanged?() }

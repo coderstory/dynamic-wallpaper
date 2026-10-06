@@ -472,6 +472,32 @@ final class FpsTranscodeQueueTests: XCTestCase {
                        "用户主动取消不能显示成「失败 · exit_nonzero」")
     }
 
+    /// 取消标志在队列排空路径上必须被消费 —— 否则下一次 run() 的第一轮会被陈旧标志
+    /// 整轮挡掉，表现是「点了开始没反应，再点一次才动」。
+    func testCancelFlagDoesNotLeakIntoNextRun() async {
+        runner.isCancelled = true
+        let first = makeSource("a.mp4")
+        let queue = makeQueue()
+        runner.onRun = { queue.cancel() }
+        await queue.scan()
+        await queue.run()
+        XCTAssertEqual(queue.jobs.first { $0.sourceURL.lastPathComponent == "a.mp4" }?.state,
+                       .cancelled, "前置：这批被取消")
+
+        // 又冒出一个待降帧文件，取消标志已消费，新一轮必须正常跑完。
+        runner.isCancelled = false
+        runner.onRun = nil
+        makeSource("b.mp4")
+        await queue.scan()
+        guard let fresh = queue.jobs.first(where: { $0.state == .pending }) else {
+            return XCTFail("扫描后应有新的 pending job")
+        }
+        await queue.run()
+        XCTAssertNotEqual(queue.jobs.first { $0.id == fresh.id }?.state, .pending,
+                          "取消过一次后，新一轮 run() 不得被陈旧取消标志整轮挡掉")
+        _ = first
+    }
+
     /// 取消过的文件必须能重来 —— 表里要退回可重试态，否则它会被永久记成终态。
     func testCancelledJobReturnsToRetryableTableState() async throws {
         runner.isCancelled = true
