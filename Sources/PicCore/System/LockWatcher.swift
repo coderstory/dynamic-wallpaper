@@ -49,12 +49,12 @@ public final class LockWatcher {
         guard !isRunning else { return }
 
         let lockedToken = center.addObserver(
-            forName: Notification.Name(names.locked), object: nil, queue: nil
+            forName: Notification.Name(names.locked), object: nil, queue: .main
         ) { _ in
             MainActor.assumeIsolated { onChange(self.currentLockState()) }
         }
         let unlockedToken = center.addObserver(
-            forName: Notification.Name(names.unlocked), object: nil, queue: nil
+            forName: Notification.Name(names.unlocked), object: nil, queue: .main
         ) { _ in
             MainActor.assumeIsolated { onChange(self.currentLockState()) }
         }
