@@ -62,17 +62,24 @@ public final class TranscodeQueue {
     private let availability: () -> FFmpegToolStatus
     private let freeSpaceProvider: (URL) -> Int64?
     private let durationProvider: (URL) async -> Double?
+    /// 源文件的删除通道。**默认走废纸篓**：转码产物与源同名不同后缀，一次误判就是
+    /// 不可恢复的素材丢失，删除必须可从访达找回。
+    private let trashProvider: (URL) throws -> Void
 
     /// 全部依赖注入 —— 测试用 FakeRunner + 假闭包跑，零真实进程。
     public init(runner: any TranscodeRunning, naming: TranscodeOutputNaming,
                 availability: @escaping () -> FFmpegToolStatus,
                 freeSpaceProvider: @escaping (URL) -> Int64?,
-                durationProvider: @escaping (URL) async -> Double? = AVAssetDurationProvider().duration(of:)) {
+                durationProvider: @escaping (URL) async -> Double? = AVAssetDurationProvider().duration(of:),
+                trashProvider: @escaping (URL) throws -> Void = { url in
+                    try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+                }) {
         self.runner = runner
         self.naming = naming
         self.availability = availability
         self.freeSpaceProvider = freeSpaceProvider
         self.durationProvider = durationProvider
+        self.trashProvider = trashProvider
     }
 
     public private(set) var jobs: [TranscodeJob] = []
@@ -183,9 +190,11 @@ public final class TranscodeQueue {
             try? FileManager.default.removeItem(at: temporaryURL)
             jobs[index].state = .failed(reason: "exit_nonzero")
         }
-        // 来源化删除策略：仅在成功落盘后删源（失败/跳过一律保留）。删除失败静默 —— 源还在只会让它下轮被 skipDecision 幂等跳过，不出错。
+        // 来源化删除策略：仅在成功落盘后删源（失败/跳过一律保留）。
+        // 走废纸篓而不是 removeItem —— 删错了能从访达找回来。删除失败静默：
+        // 源还在只会让它下轮被 skipDecision 幂等跳过，且产物已经落盘，不算失败。
         if jobs[index].state == .succeeded, jobs[index].deletesSource {
-            try? FileManager.default.removeItem(at: source)
+            try? trashProvider(source)
         }
         onJobsChanged?()
     }

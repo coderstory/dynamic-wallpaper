@@ -51,13 +51,18 @@ final class TranscodeQueueTests: XCTestCase {
     private func makeQueue(
         runner: FakeRunner,
         availability: @escaping () -> FFmpegToolStatus = { .available(path: "/opt/homebrew/bin/tool") },
-        freeSpace: @escaping (URL) -> Int64? = { _ in 1_000_000_000 }
+        freeSpace: @escaping (URL) -> Int64? = { _ in 1_000_000_000 },
+        // 默认替身真的删（保留既有「删源」契约）；要观察通道的用例自己注入记录型替身。
+        trashProvider: @escaping (URL) throws -> Void = { url in
+            try FileManager.default.removeItem(at: url)
+        }
     ) -> TranscodeQueue {
         TranscodeQueue(runner: runner,
                        naming: TranscodeOutputNaming(root: root),
                        availability: availability,
                        freeSpaceProvider: freeSpace,
-                       durationProvider: { _ in nil })
+                       durationProvider: { _ in nil },
+                       trashProvider: trashProvider)
     }
 
     func testSuccessfulJobRenamesTmpToMp4AndKeepsSource() async throws {
