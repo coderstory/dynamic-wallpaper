@@ -16,16 +16,15 @@
 
 | # | 问题 | 位置 / 判据 | 为什么还没修 |
 |---|---|---|---|
-| 1 | **「转码」页没有取消/暂停**（「降帧」页有） | `TranscodeQueue` 无 `cancel`/`pause`/`resume`，对比 `FpsTranscodeQueue` 三件套齐全 | 缺产品决策：中途取消后 tmp 产物怎么处置（留 / 删 / 标失败）没定 |
-| 2 | **主屏变更后壁纸窗口不重建** | 无 `didChangeScreenParametersNotification` 订阅；`WallpaperWindowController.reassert()` 已就绪但**无人调用** | 一行接线就能修，缺的是「何时算需要重建」的判断（换屏 / 改分辨率 / 合盖接显示器） |
-| 3 | **拔盘或目录消失后再插回，不自动恢复** | `MediaLibrary` 无 FSEvents / 目录监听；恢复的唯一途径是用户手点「重新扫描」 | 需确认产品预期：自动恢复 vs 保持手动 |
-| 4 | 自绘滑杆（速度 / 音量）**缺 VoiceOver** | `SettingsComponents` 里只有开关有 `accessibilityValue`，滑杆没有 | 无障碍支持，优先级低 |
-| 5 | **首屏「壁纸出现」延迟** = 视频数 × 单文件探测 | `MediaLibrary.scan` 循环内 `await probe.metadata(entry)` 串行 | 并发探测会瞬时拉高 IO/CPU，对 24h 常驻 app 未必划算；替代方案是「先播第一个、其余后台补扫」 |
-| 6 | `RotationController` 依赖 scheduler 在**主线程**投递，但协议没写明这个契约 | `RotationController.swift:205` 的 `MainActor.assumeIsolated` | 生产实现满足；属架构脆弱点 —— 换个非主线程的 scheduler 实现会崩 |
-| 7 | `LineSplitter` **在锁内调 `emit`** | `ProcessTranscodeRunner.swift:110`（`unlock` 是 `defer`，所以仍在锁内） | 当前 `emit` 是 `Task { @MainActor }` 异步派发、非阻塞，无死锁；若将来改成同步实现会卡锁 |
-| 8 | 转码过程中换目录 → **跨卷 `moveItem` 失败** | `TranscodeQueue.runJob`（tmp 在旧目录求值、产物在新目录求值） | 安全失败（源保留、标 `output_conflict`），边缘场景 |
-| 9 | **2 条「真数据」用例在本机恒 skip** | `RealLibraryPlaybackPoolTests` 要求真实帧率表里有 `state == .done` 且派生片还活着的条目；本机表里 0 行 `done` → 两条都跳过 | 等于这两条覆盖是空转。要改动得用临时目录自造表才能自足运行。⚠️ 其中 `testDeletingDerivativeFallsBackToSource` 会**移动用户的真实派生片**再移回（靠 `defer` 还原）—— 真让它跑起来前先想清楚 |
+| 1 | **拔盘或目录消失后再插回，不自动恢复** | `MediaLibrary` 无 FSEvents / 目录监听；恢复的唯一途径是用户手点「重新扫描」 | 需产品预期（自动恢复 vs 保持手动），且要引入一个**生命周期受管**的目录监听（换目录要重开 fd、卷重挂要重臂）。单独一遍做，别在收尾时加 |
+| 2 | **首屏「壁纸出现」延迟** = 视频数 × 单文件探测 | `MediaLibrary.scan` 循环内 `await probe.metadata(entry)` 串行 | **建议不做**：并发探测会瞬时拉高 IO/CPU，对 24h 常驻未必划算；替代方案（先播第一个、其余后台补扫）是行为改动，收益不明 |
 
+**2026-10-06 已修**（原表 1/2/4/6/7/8/9 行）：转码页补了暂停/继续/取消（取消**退回 pending 可重试**，
+不引入终态 —— `enqueue` 会永久排除已进过队列的源，标终态等于取消后再也转不了）；换屏重建壁纸窗口
+（订阅 `didChangeScreenParametersNotification`）；自绘滑杆补 VoiceOver（`accessibilityAdjustableAction`
++ 标签 + 读数）；`RotationScheduling` 补主线程投递契约；`LineSplitter` 改为锁外 emit；
+转码途中换目录改为从同一个目录快照推路径；删掉恒 skip 的 `RealLibraryPlaybackPoolTests`
+（行为已被 9 条自足用例覆盖，且它会移动用户的真实文件）。
 **已随之消失的旧问题**（留个交代，别再从旧报告里翻出来）：删源日志里「刻意打印文件名供审计」
 那 3 处随打点体系一起删了 —— 现在日志里一个文件名都没有，可审计性有轻微下降，这是删打点的既定代价。
 

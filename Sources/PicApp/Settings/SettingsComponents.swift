@@ -175,6 +175,10 @@ struct GlowToggle: ToggleStyle {
 struct GlowSlider: View {
     @Binding var value: Double
     var range: ClosedRange<Double> = 0...1
+    /// VoiceOver 的标签与读数。自绘控件**没有任何内建无障碍语义** —— 不补，这把滑杆对读屏用户
+    /// 等于不存在。读数由调用方传进来：它与旁边那个数字用同一个 formatter，格式化规则不能有两份。
+    let label: String
+    let valueText: String
     /// 拖动中回调（当场生效，不写盘）；拖动结束回调（persist 恰一次）。
     var onChanged: (() -> Void)? = nil
     var onEnded: (() -> Void)? = nil
@@ -210,6 +214,22 @@ struct GlowSlider: View {
             })
         }
         .frame(width: Metrics.sliderWidth, height: Metrics.sliderHeight)
+        .accessibilityElement()
+        .accessibilityLabel(Text(label))
+        .accessibilityValue(Text(valueText))
+        // 读屏用户没有「拖」这个动作，必须给可调节语义，否则控件的值不可达也不可改。
+        .accessibilityAdjustableAction { direction in
+            guard isEnabled else { return }
+            // 步长取量程的 1/20：速度档 0.5…2 一格约 0.075，音量 0…100 一格 5。
+            let step = (range.upperBound - range.lowerBound) / 20
+            switch direction {
+            case .increment: value = min(range.upperBound, value + step)
+            case .decrement: value = max(range.lowerBound, value - step)
+            @unknown default: return
+            }
+            onChanged?()
+            onEnded?()
+        }
     }
 }
 

@@ -100,7 +100,9 @@ struct SettingsView: View {
                 }
                 Tile(symbol: "gauge.with.dots.needle.67percent", title: "速度", hint: "音高不变") {
                     HStack(spacing: 11) {
-                        GlowSlider(value: $rateDrag, range: 0.5...2, onChanged: {
+                        GlowSlider(value: $rateDrag, range: 0.5...2,
+                                   label: "播放速度",
+                                   valueText: SettingsPresentation.rateLabel(store.rate), onChanged: {
                             store.rate = Float(rateDrag)
                             applier.applyRate()
                         }, onEnded: {
@@ -117,7 +119,10 @@ struct SettingsView: View {
                 }
                 Tile(symbol: "speaker.wave.2.fill", title: "声音") {
                     HStack(spacing: 11) {
-                        GlowSlider(value: volumePercent, range: 0...100, onChanged: {
+                        GlowSlider(value: volumePercent, range: 0...100,
+                                   label: "音量",
+                                   valueText: "\(SettingsPresentation.volumePercent(store.volume))%",
+                                   onChanged: {
                             store.volume = SettingsPresentation.volumeFromPercent(
                                 SettingsPresentation.volumePercent(store.volume))
                             applier.applyVolume()
