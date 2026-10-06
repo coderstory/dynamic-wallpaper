@@ -13,7 +13,9 @@ echo "==> 清理"
 rm -rf "$OUT" "$DIST"
 mkdir -p "$OUT" "$DIST"
 
-ASSETS=".planning/design/assets"
+# 交付资源（app 图标 + 菜单栏图标）。**必须在仓库里**：此前放在 gitignored 的 .planning/ 下，
+# 意味着干净 clone 上本脚本必然在 cp 处失败 —— 交付构建不可复现。已搬进 assets/ 并纳入版本控制。
+ASSETS="assets"
 
 # 组装 .app。$1 = 产物名；裸二进制已在 $OUT/$1 就位。
 assemble_app() {
@@ -22,7 +24,7 @@ assemble_app() {
   cp "$OUT/$1" "$app/Contents/MacOS/$APP_NAME"
   # Info.plist 的唯一真相源是 Sources/PicApp/Resources/Info.plist，刻意不再内联一份 heredoc —— 两份手写同一份 plist 必然漂移。
   cp "Sources/PicApp/Resources/Info.plist" "$app/Contents/Info.plist"
-  # 菜单栏只拷 menubar-v1 的 Template 三档，menubar-v2 是对照稿，一个都不拷。
+  # 菜单栏只拷 menubar-v1 的 Template 三档。
   cp "$OUT/Pic.icns" "$app/Contents/Resources/Pic.icns"
   cp "$ASSETS/menubar-v1.png"     "$app/Contents/Resources/menubar-v1Template.png"
   cp "$ASSETS/menubar-v1@2x.png"  "$app/Contents/Resources/menubar-v1Template@2x.png"
@@ -31,7 +33,7 @@ assemble_app() {
 }
 
 # iconutil 路（不依赖 actool / .xcassets，与 SwiftPM 路线同构）。
-echo "==> 出 .icns（iconutil，图标真相源 = .planning/design/assets/）"
+echo "==> 出 .icns（iconutil，图标真相源 = assets/）"
 rm -rf "$OUT/${APP_NAME}.iconset"
 mkdir -p "$OUT/${APP_NAME}.iconset"
 cp "$ASSETS"/icon_*.png "$OUT/${APP_NAME}.iconset/"

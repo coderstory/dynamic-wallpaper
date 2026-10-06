@@ -49,12 +49,20 @@
 
 ## 本地目录（不在 git 里，别当成项目的一部分）
 
+2026-10-06 清过一轮：`ffmpeg-kit-next/`(17M) / `.planning/`(12M) / 旧 `build/`+`dist/`(21M) /
+散落截图与 `.DS_Store` 已**移入废纸篓**（不是真删，要恢复直接拖回）。
+
+清理时暴露并修掉一个**既有缺陷**：`build.sh` 的 app 图标与菜单栏图标原本取自 gitignored 的
+`.planning/design/assets/` —— 等于**干净 clone 上 `./build.sh` 必然失败**，交付构建不可复现。
+已把那 13 个资源搬进受版本控制的 `assets/`，并把 `build.sh` 指过去。
+
 | 目录 | 是什么 | 删了会怎样 |
 |---|---|---|
-| `ffmpeg-kit-next/` | `arthenica/ffmpeg-kit-next` 的**源码 clone**，转码选型时读过它（`PROJECT.md` 里「它不硬编码编码质量参数」那条结论出自它的 `apple/src/`）。**零依赖**：交付二进制不链任何 ffmpeg 库，转码是 spawn 系统 `ffmpeg` | 编译/测试/打包/运行都不受影响；要复核那条结论得重新 clone |
-| `.planning/` | 内部规划归档（research / phases / 证据），README 明说不对外 | 历史调研与验收证据丢失 |
-| `build/` `dist/` | 构建产物 | `./build.sh` 重建 |
+| `assets/` | app 图标 10 档 + 菜单栏图标 3 档，**受版本控制**，是 `build.sh` 的唯一资源来源 | `./build.sh` 跑不起来 |
+| `build/` `dist/` | 构建产物（`.app` / `.dmg`） | `./build.sh` 重建 |
+| `.build/` | SwiftPM 构建缓存（约 190M，本仓最大的本地目录） | 下次 `swift build/test` 从零编，约 1~2 分钟 |
 | `fixtures/` | 3 个短视频夹具 | 相关用例自动 skip（`PlayerControllerFreeze/Swap` 各一条） |
+| `cpp-singleton-logger/` | 某轮会话交付的 C++ 单例日志器示例，刻意未纳入本仓库 | 与 Pic 无关 |
 
 ## 相关文档
 
