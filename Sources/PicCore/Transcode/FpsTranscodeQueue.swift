@@ -150,7 +150,11 @@ public final class FpsTranscodeQueue {
         while let entry = cursor {
             cursor = enumerator.nextObject() as? URL
             // 产物目录整棵排除 —— 产物自己不能再进队列。
-            if entry.pathComponents.contains(MediaLibrary.excludedDirectoryName) { continue }
+            // **大小写不敏感**，与 `MediaLibrary` 的排除规则保持一致：两边对同一件事
+            // 看法不同的话，根扫描不算进清单的文件会被降帧队列扫进来再降一遍。
+            if entry.pathComponents.contains(where: {
+                $0.caseInsensitiveCompare(MediaLibrary.excludedDirectoryName) == .orderedSame
+            }) { continue }
             guard MediaLibrary.allowedExtensions.contains(entry.pathExtension.lowercased()) else { continue }
             guard let values = try? entry.resourceValues(
                 forKeys: [.isRegularFileKey, .isSymbolicLinkKey]),
@@ -170,6 +174,11 @@ public final class FpsTranscodeQueue {
                 candidates.append(Job(sourceURL: entry, fps: fps))
             }
         }
+
+        // 换目录 / 删过文件之后，旧目录的行会永远留在表里，把「总行数」顶得虚高。
+        // 只在真的扫到了东西时才清 —— 盘被拔掉时 enumerator 返回空，那时候清表等于
+        // 把整个片库的历史一次抹掉。
+        if scanned > 0 { try? table.prune(keepingLiveSources: liveSources, to: tableURL) }
 
         jobs = candidates
         scannedCount = scanned

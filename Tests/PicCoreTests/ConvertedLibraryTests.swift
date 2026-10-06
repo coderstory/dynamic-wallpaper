@@ -77,6 +77,38 @@ final class ConvertedLibraryTests: XCTestCase {
         XCTAssertEqual(items, [], "扩展名对但解不出视频轨的文件被探针拒绝（D-08 同规则）")
     }
 
+    /// 场景 F12：app 在转码途中退出 / 崩了，`.tmp` 会一直躺在 `Converted/`。
+    /// 它进不了播放池（扩展名不在白名单），但也不会自己消失 —— 扫描时顺手清掉。
+    func testStaleTmpIsCleanedUpOnScan() async throws {
+        let leftover = makeConvertedFile("half.mp4.tmp")
+        try FileManager.default.setAttributes(
+            [.modificationDate: Date().addingTimeInterval(-7200)], ofItemAtPath: leftover.path)
+
+        _ = try await library.scan(folder: root)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: leftover.path),
+                       "陈旧的 .tmp 必须清掉 —— 上次崩溃留下的半成品不会自己消失")
+    }
+
+    /// 反例：正在写的 .tmp **不能**被清。用户在转码途中点了「重新扫描」，
+    /// 清掉它就是把进行中的转码打断。判据是 mtime 新鲜度。
+    func testFreshTmpSurvivesScan() async throws {
+        let inFlight = makeConvertedFile("inflight.mp4.tmp")
+        _ = try await library.scan(folder: root)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: inFlight.path),
+                      "刚写的 .tmp = 有转码在跑，清了会打断它")
+    }
+
+    /// 只清顶层 —— 递归会碰上用户自己放在 Converted/ 子目录里的东西。
+    func testNestedTmpIsLeftAlone() async throws {
+        let nested = makeConvertedFile("sub/deep.mp4.tmp")
+        try FileManager.default.setAttributes(
+            [.modificationDate: Date().addingTimeInterval(-7200)], ofItemAtPath: nested.path)
+
+        _ = try await library.scan(folder: root)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: nested.path),
+                      "只清顶层：两个队列的 tmp 都直接写在 Converted/ 下，子目录里的不碰")
+    }
+
     func testPlaybackItemsMergeRootsFirstConvertedAppendedDeduped() {
         let r1 = VideoItem(url: URL(fileURLWithPath: "/w/root-a.mp4"))
         let r2 = VideoItem(url: URL(fileURLWithPath: "/w/root-b.mp4"))

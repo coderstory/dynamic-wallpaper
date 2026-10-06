@@ -13,12 +13,19 @@ public final class ConvertedLibrary {
         self.entryCap = entryCap
     }
 
+    /// 超过这个时长的 `.tmp` 视为上次运行留下的半成品（app 在转码途中退出 / 崩了）。
+    /// 必须是**陈旧**的才清：正在写的那个 mtime 一直在更新，清了会把进行中的转码打断。
+    private static let staleTemporaryAge: TimeInterval = 3600
+
     /// 扫 `folder/Converted/` 子树。目录不存在 → `[]` 不抛错（还没转过任何东西是常态）。
     public func scan(folder: URL) async throws -> [VideoItem] {
         let fm = FileManager.default
         let converted = folder.appendingPathComponent(
             MediaLibrary.excludedDirectoryName, isDirectory: true)
         guard fm.fileExists(atPath: converted.path) else { return [] }
+        // 清掉上次运行留下的半成品。`.tmp` 扩展名进不了任何白名单，不会污染播放池，
+        // 但不清就一直躺在磁盘上（场景 F12）。
+        Self.removeStaleTemporaryFiles(in: converted)
         guard let enumerator = fm.enumerator(
             at: converted,
             includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey],
@@ -41,6 +48,20 @@ public final class ConvertedLibrary {
         }
         items.sort { $0.url.path < $1.url.path }
         return items
+    }
+
+    /// 清掉陈旧的 `.tmp` 半成品。只碰顶层（两个队列的 tmp 都直接写在 `Converted/` 下），
+    /// 不递归 —— 递归会碰上用户自己放的东西。删除失败一律忽略：清理是卫生措施，不是主流程。
+    private static func removeStaleTemporaryFiles(in converted: URL) {
+        let fm = FileManager.default
+        guard let names = try? fm.contentsOfDirectory(atPath: converted.path) else { return }
+        let cutoff = Date().addingTimeInterval(-staleTemporaryAge)
+        for name in names where (name as NSString).pathExtension == "tmp" {
+            let path = converted.appendingPathComponent(name).path
+            guard let mtime = (try? fm.attributesOfItem(atPath: path))?[.modificationDate] as? Date,
+                  mtime < cutoff else { continue }
+            try? fm.removeItem(atPath: path)
+        }
     }
 
     /// 合并纯函数：`router.start(with:)` 的入参由它产出。root 顺序保留在前，converted 按序追加在后，按 `url.path` 去重。
