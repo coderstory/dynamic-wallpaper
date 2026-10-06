@@ -1,0 +1,53 @@
+name: CI
+
+# 非 master 分支每次提交：最新 macOS 镜像上编译 + 跑测试。
+# master 的提交只走 release.yml —— 两条工作流分支范围互斥，同一次 push 不会双跑。
+on:
+  push:
+    branches-ignore: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  macos:
+    name: macOS · 构建 + 测试
+    # 必须用 xcode-27（GitHub 托管镜像里 OS 最新的一个：macOS 27、arm64、public preview）。
+    # macos-latest 目前仍是 macOS 26，而 Package.swift 的 platforms 是 .macOS("27.0")，
+    # 部署目标高于镜像 SDK 时 swift build 直接失败 —— 换标签前先确认这一条。
+    runs-on: xcode-27
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: 切到镜像上最新的 Xcode
+        run: |
+          ls -d /Applications/Xcode*.app 2>/dev/null || true
+          # 过滤掉 beta/RC：镜像上 beta 与 GA 并存时 sort -V 会选中 beta，
+          # 编译结果就出自非 GA 工具链
+          latest=$(ls -d /Applications/Xcode*.app 2>/dev/null \
+                   | grep -viE 'beta|release candidate|_rc' | sort -V | tail -1)
+          if [ -n "$latest" ]; then sudo xcode-select -switch "$latest"; fi
+          echo "--- 工具链 ---"
+          xcodebuild -version
+          swift --version
+          echo "架构: $(uname -m)　系统: $(sw_vers -productVersion)"
+
+      - name: 构建（debug）
+        run: swift build
+
+      - name: 测试
+        run: |
+          set +e
+          swift test 2>&1 | tee /tmp/test.log
+          rc=${PIPESTATUS[0]}
+          # 汇总串留档：XCTest 打的是 "Executed N tests, with 0 failures"
+          grep -E "Executed [0-9]+ tests" /tmp/test.log || true
+          exit "${rc}"
+
+      - name: 测试日志（失败时留档，便于定位）
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: macos-test-log
+          path: /tmp/test.log
+          if-no-files-found: ignore

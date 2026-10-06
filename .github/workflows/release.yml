@@ -1,0 +1,106 @@
+name: Release
+
+# master 每次提交：出 DMG 制品 → 打 tag → 发 Release，说明由提交信息汇总
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    name: macOS · 制品
+    runs-on: xcode-27          # 理由同 ci.yml：Package.swift 的部署目标是 macOS 27.0
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0          # 汇总提交信息要用完整历史
+
+      - name: 切到镜像上最新的 Xcode
+        run: |
+          ls -d /Applications/Xcode*.app 2>/dev/null || true
+          latest=$(ls -d /Applications/Xcode*.app 2>/dev/null \
+                   | grep -viE 'beta|release candidate|_rc' | sort -V | tail -1)
+          if [ -n "$latest" ]; then sudo xcode-select -switch "$latest"; fi
+          xcodebuild -version
+          swift --version
+
+      - name: 装打包依赖
+        # build.sh 主路用 create-dmg；缺了它会静默退到 hdiutil（无 Finder 版式），
+        # 属于"能出包但交付质量下降"，所以这里显式装上
+        run: brew install create-dmg
+
+      - name: 构建 .app + DMG
+        run: ./build.sh
+
+      - name: 校验制品
+        run: |
+          ls -lh dist/
+          test -f dist/Pic-*.dmg
+          ls -d build/Pic.app
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: macos-dmg
+          path: dist/*.dmg
+          if-no-files-found: error
+
+  release:
+    name: 发 Release
+    needs: [macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: 汇总提交信息作为发布说明
+        run: |
+          set -e
+          if prev=$(git describe --tags --abbrev=0 2>/dev/null); then
+            echo "上次发布：$prev"
+            range="$prev..HEAD"
+            tail_n=""
+          else
+            echo "首次发布，取最近 40 条提交"
+            range="HEAD"
+            tail_n="-n 40"
+          fi
+
+          {
+            echo "## 本次更新"
+            echo
+            git log --pretty=format:'- %s' $tail_n "$range"
+            echo
+            echo
+            echo "---"
+            echo
+            echo "提交范围：\`${range}\`　·　完整改动见 [提交历史](../../commits/master)"
+          } > /tmp/notes.md
+
+          echo "--- 说明预览（前 15 行）---"
+          head -15 /tmp/notes.md
+
+      - name: 打 tag 并发 Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          TAG="v$(date -u +%Y.%m.%d)-${GITHUB_RUN_NUMBER}"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          ls -la artifacts/
+          # build.sh 的 DMG 名里写死了 0.1.0，跨版本会一直显示同一个名字；
+          # 带上 tag 重命名，下载下来的文件才分得清是哪一版
+          for f in artifacts/*.dmg; do mv "$f" "artifacts/Pic-${TAG}.dmg"; done
+          gh release create "$TAG" artifacts/*.dmg \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$TAG" \
+            --notes-file /tmp/notes.md \
+            --target "$GITHUB_SHA"
