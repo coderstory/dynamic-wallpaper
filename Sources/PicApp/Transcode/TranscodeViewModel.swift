@@ -33,10 +33,12 @@ final class TranscodeViewModel: ObservableObject {
         availability = locator.locate()
     }
 
-    /// 壁纸目录里的转码候选 → 队列的 pending jobs（自动来源：转码成功后自动删源）。去重在队列侧。
+    /// 壁纸目录里的转码候选 → 队列的 pending jobs。
+    /// **入队时刻意不标删源**（`deletesSource: false`）：打开转码页只是看一眼，
+    /// 不该把素材提前押上「成功即永久删除」。标记由 `startTranscoding()` 在点下去那一刻才落位。
     func loadCandidates() {
         guard let root = wallpaperRootProvider() else { return }
-        queue.enqueue(sources: TranscodeCandidateFilter.candidates(in: root), deletesSource: true)
+        queue.enqueue(sources: TranscodeCandidateFilter.candidates(in: root), deletesSource: false)
         reload()
     }
 
@@ -60,6 +62,11 @@ final class TranscodeViewModel: ObservableObject {
 
     func startTranscoding() {
         guard !isRunning else { return }
+        // 自动来源（壁纸目录扫出来的）在**这一刻**才押上删源标记：
+        // 目录整洁是用户主动开始转码时才作数的决定，不是扫一遍就默认成立。
+        if let root = wallpaperRootProvider() {
+            queue.armSourceDeletion(for: TranscodeCandidateFilter.candidates(in: root))
+        }
         isRunning = true
         Task { await queue.run(); isRunning = false }
     }

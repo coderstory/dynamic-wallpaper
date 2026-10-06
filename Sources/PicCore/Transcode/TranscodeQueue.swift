@@ -28,7 +28,9 @@ public struct TranscodeJob: Identifiable, Equatable, Sendable {
     public internal(set) var state: TranscodeJobState
     public internal(set) var percent: Double?
     public let commandDisplay: String
-    public let deletesSource: Bool
+    /// 「转码成功后删源」。**入队时不标** —— 打开转码页只是看一眼，不该提前把素材押上
+    /// 「成功即永久删除」；由 `armSourceDeletion(for:)` 在点「开始转码」的那一刻才落位。
+    public internal(set) var deletesSource: Bool
 
     init(id: UUID = UUID(), sourceURL: URL, state: TranscodeJobState = .pending,
          percent: Double? = nil, commandDisplay: String, deletesSource: Bool = false) {
@@ -91,12 +93,28 @@ public final class TranscodeQueue {
     public var onBatchFinished: (() -> Void)?
 
     /// 逐个建 Job（state pending、commandDisplay 先算）。仍在排队（pending/running）的同路径不重复入队；已终态的同路径允许再入队（会走 skipDecision 的幂等路径）。
-    /// `deletesSource` 逐 job 记录（来源化删除策略：自动扫描 true / 用户选择 false）。
+    ///
+    /// 产物名是**扁平**的（`<stem>.mp4`），递归扫描下不同子目录的同名源文件会算出同一个
+    /// 产物路径 —— 后跑的那个会静默覆盖前一个的产物。这里按产物路径查重，撞上的直接标
+    /// `name_collision` 且不入队：宁可让用户改个文件名，不可悄悄吃掉一份素材。
     public func enqueue(sources: [URL], deletesSource: Bool = false) {
         var activePaths = Set(jobs.filter { Self.isActive($0.state) }.map { $0.sourceURL.path })
+        var claimedOutputs = Set(jobs.map { naming.outputURL(for: $0.sourceURL).path })
         let toolPath = currentToolPath()
         for source in sources where !activePaths.contains(source.path) {
             activePaths.insert(source.path)
+            let outputPath = naming.outputURL(for: source).path
+            if claimedOutputs.contains(outputPath) {
+                jobs.append(TranscodeJob(
+                    sourceURL: source,
+                    state: .failed(reason: "name_collision"),
+                    commandDisplay: TranscodeCommand.displayString(
+                        ffmpegPath: toolPath, input: source,
+                        output: URL(fileURLWithPath: outputPath)),
+                    deletesSource: deletesSource))
+                continue
+            }
+            claimedOutputs.insert(outputPath)
             let temporaryURL = naming.temporaryURL(for: source)
             jobs.append(TranscodeJob(
                 sourceURL: source,
@@ -105,6 +123,20 @@ public final class TranscodeQueue {
                 deletesSource: deletesSource))
         }
         onJobsChanged?()
+    }
+
+    /// 「开始转码」的落点：此刻才把**自动来源**（壁纸目录里扫出来的）押上删源标记。
+    /// 入队时不标 —— 打开转码页扫一遍就把素材标记成「成功即永久删除」太危险，
+    /// 用户可能只是切过去看一眼。
+    public func armSourceDeletion(for sources: [URL]) {
+        let paths = Set(sources.map { $0.path })
+        var changed = false
+        for index in jobs.indices where paths.contains(jobs[index].sourceURL.path) {
+            guard case .pending = jobs[index].state else { continue }
+            jobs[index].deletesSource = true
+            changed = true
+        }
+        if changed { onJobsChanged?() }
     }
 
     /// 串行 drain：逐 job 预检 → 执行 → 终态。for 循环天然串行，不建 Task 组；

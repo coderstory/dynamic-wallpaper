@@ -133,6 +133,11 @@ public final class FpsTranscodeQueue {
         var candidates: [Job] = []
         var scanned = 0
         var reused = 0
+        var liveSources: Set<String> = []
+        /// 产物名是**扁平**的（`<stem>-30fps.mp4`），递归扫描下不同子目录的同名源文件
+        /// 会算出同一个产物路径 —— 后跑的那个静默覆盖前一个。按产物路径查重，
+        /// 撞上的直接标 `name_collision`：宁可让用户改文件名，不可悄悄吃掉一份素材。
+        var claimedDerivatives: Set<String> = []
 
         guard let enumerator = FileManager.default.enumerator(
             at: rootProvider(),
@@ -152,7 +157,16 @@ public final class FpsTranscodeQueue {
                   values.isRegularFile == true, values.isSymbolicLink != true else { continue }
 
             scanned += 1
+            liveSources.insert(entry.path)
             if let fps = await resolveFrameRate(for: entry, table: &table, reused: &reused) {
+                let derivativePath = derivativeURL(for: entry).path
+                guard !claimedDerivatives.contains(derivativePath) else {
+                    var conflicting = Job(sourceURL: entry, fps: fps)
+                    conflicting.state = .failed(reason: "name_collision")
+                    candidates.append(conflicting)
+                    continue
+                }
+                claimedDerivatives.insert(derivativePath)
                 candidates.append(Job(sourceURL: entry, fps: fps))
             }
         }
