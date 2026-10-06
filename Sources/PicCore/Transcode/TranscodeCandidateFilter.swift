@@ -22,7 +22,7 @@ public enum TranscodeCandidateFilter {
                   values.isRegularFile == true,
                   values.isSymbolicLink != true else { continue }
             guard candidateExtensions.contains(entry.pathExtension.lowercased()) else { continue }
-            if isInsideConverted(entry) { continue }
+            if MediaLibrary.isInsideConverted(entry) { continue }
             result.append(entry)
         }
         result.sort { $0.path < $1.path }
@@ -36,12 +36,5 @@ public enum TranscodeCandidateFilter {
     public static func unseenCandidates(in root: URL, excluding knownSources: Set<String>) -> [URL] {
         let known = Set(knownSources.map { URL(fileURLWithPath: $0).standardizedFileURL.path })
         return candidates(in: root).filter { !known.contains($0.standardizedFileURL.path) }
-    }
-
-    /// 目录名大小写不敏感精确匹配 Converted（与 `MediaLibrary` 同规则），不是子串匹配 —— `converted-lower` 不命中。
-    private static func isInsideConverted(_ url: URL) -> Bool {
-        url.pathComponents.contains {
-            $0.caseInsensitiveCompare(MediaLibrary.excludedDirectoryName) == .orderedSame
-        }
     }
 }

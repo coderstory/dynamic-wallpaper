@@ -117,20 +117,17 @@ public final class FullscreenDetector {
     public func start(onChange: @escaping @Sendable (Bool) -> Void) {
         guard !isRunning else { return }
 
-        let space = Notification.Name(NSWorkspace.activeSpaceDidChangeNotification.rawValue)
-        let activate = Notification.Name(NSWorkspace.didActivateApplicationNotification.rawValue)
-        let deactivate = Notification.Name(NSWorkspace.didDeactivateApplicationNotification.rawValue)
-
-        let spaceToken = center.notificationCenter.addObserver(forName: space, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.`re-evaluate`(trigger: .space, onChange: onChange) }
+        // 三个通知都是触发器，收到后一律重读几何，不靠边沿记忆。space 与 activate/deactivate 汇入不同 trigger。
+        let observers: [(Notification.Name, Trigger)] = [
+            (NSWorkspace.activeSpaceDidChangeNotification, .space),
+            (NSWorkspace.didActivateApplicationNotification, .frontmost),
+            (NSWorkspace.didDeactivateApplicationNotification, .frontmost),
+        ]
+        tokens = observers.map { name, trigger in
+            center.notificationCenter.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.`re-evaluate`(trigger: trigger, onChange: onChange) }
+            }
         }
-        let activateToken = center.notificationCenter.addObserver(forName: activate, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.`re-evaluate`(trigger: .frontmost, onChange: onChange) }
-        }
-        let deactivateToken = center.notificationCenter.addObserver(forName: deactivate, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.`re-evaluate`(trigger: .frontmost, onChange: onChange) }
-        }
-        tokens = [spaceToken, activateToken, deactivateToken]
         isRunning = true
 
         `re-evaluate`(trigger: .start, onChange: onChange)

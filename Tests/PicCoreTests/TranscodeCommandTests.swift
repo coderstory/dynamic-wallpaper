@@ -54,13 +54,6 @@ final class TranscodeCommandTests: XCTestCase {
                        "审计串必须与 argv 同 token、空格拼接")
     }
 
-    func testBaselineConstantsAreCrfEighteenPresetMedium() {
-        XCTAssertEqual(TranscodeCommand.baselineCRF, 18,
-                       "C7 实测前的基线 CRF 是 18（bench 改终值时同 commit 更新本条，防意外漂移）")
-        XCTAssertEqual(TranscodeCommand.baselinePreset, "medium",
-                       "基线 preset 是 medium（同上）")
-    }
-
     func testAudioMapIsOptionalAndSubtitleDataStreamsDropped() {
         let argv = TranscodeCommand.arguments(input: input, output: output)
         // 这三处丢了测试 1 也会红，但那条红看不出「为什么」；本条把原因钉进测试报告。

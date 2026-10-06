@@ -146,11 +146,7 @@ public final class FpsTranscodeQueue {
         while let entry = cursor {
             cursor = enumerator.nextObject() as? URL
             // 产物目录整棵排除 —— 产物自己不能再进队列。
-            // **大小写不敏感**，与 `MediaLibrary` 的排除规则保持一致：两边对同一件事
-            // 看法不同的话，根扫描不算进清单的文件会被降帧队列扫进来再降一遍。
-            if entry.pathComponents.contains(where: {
-                $0.caseInsensitiveCompare(MediaLibrary.excludedDirectoryName) == .orderedSame
-            }) { continue }
+            if MediaLibrary.isInsideConverted(entry) { continue }
             guard MediaLibrary.allowedExtensions.contains(entry.pathExtension.lowercased()) else { continue }
             guard let values = try? entry.resourceValues(
                 forKeys: [.isRegularFileKey, .isSymbolicLinkKey]),

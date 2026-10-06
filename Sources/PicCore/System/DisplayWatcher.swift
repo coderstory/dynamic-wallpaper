@@ -107,25 +107,17 @@ public final class DisplayWatcher {
         guard !isRunning else { return }
         self.onChange = onChange
 
-        let sleepToken = center.addObserver(
-            forName: Self.sleepNotificationName, object: nil, queue: .main
-        ) { [weak self] _ in
-            MainActor.assumeIsolated {
-                guard let self else { return }
-                self.systemSleeping = true
-                self.`re-evaluate`()
+        // 睡眠/唤醒两个观察者仅差 systemSleeping 置位，抽成一个注册函数。
+        tokens = [(Self.sleepNotificationName, true), (Self.wakeNotificationName, false)].map { name, sleeping in
+            center.addObserver(forName: name, object: nil, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    self.systemSleeping = sleeping
+                    self.`re-evaluate`()
+                }
             }
         }
-        let wakeToken = center.addObserver(
-            forName: Self.wakeNotificationName, object: nil, queue: .main
-        ) { [weak self] _ in
-            MainActor.assumeIsolated {
-                guard let self else { return }
-                self.systemSleeping = false
-                self.`re-evaluate`()
-            }
-        }
-        tokens = [sleepToken, wakeToken]
 
         reconfigurationRegistered = reconfigurationHook.register { [weak self] in
             MainActor.assumeIsolated { self?.`re-evaluate`() }

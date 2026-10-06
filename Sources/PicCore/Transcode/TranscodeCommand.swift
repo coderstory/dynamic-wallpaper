@@ -4,10 +4,6 @@ import Foundation
 /// 命令与执行分离：本文件只产出 argv 数组与审计串；`Process` / 管道是 `ProcessTranscodeRunner` 的事。
 public enum TranscodeCommand {
 
-    /// 基线质量档。不做配置化 —— 用户不调这个。改了这两个常量需同步更新对应断言。
-    public static let baselineCRF = 18
-    public static let baselinePreset = "medium"
-
     /// 逐 token 返回 ffmpeg argv —— 每个 flag 与它的值是独立元素，绝不拼成一个字符串（含空格中文的路径必须是单个元素）。
     public static func arguments(input: URL, output: URL) -> [String] {
         [

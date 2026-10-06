@@ -48,17 +48,13 @@ public final class LockWatcher {
     public func start(onChange: @escaping @Sendable (Bool) -> Void) {
         guard !isRunning else { return }
 
-        let lockedToken = center.addObserver(
-            forName: Notification.Name(names.locked), object: nil, queue: .main
-        ) { _ in
-            MainActor.assumeIsolated { onChange(self.currentLockState()) }
+        // locked / unlocked 两个观察者同体，仅通知名不同 —— 收到后一律重读会话字典，投递方不可信。
+        tokens = [names.locked, names.unlocked].map { rawName in
+            center.addObserver(forName: Notification.Name(rawName), object: nil, queue: .main
+            ) { _ in
+                MainActor.assumeIsolated { onChange(self.currentLockState()) }
+            }
         }
-        let unlockedToken = center.addObserver(
-            forName: Notification.Name(names.unlocked), object: nil, queue: .main
-        ) { _ in
-            MainActor.assumeIsolated { onChange(self.currentLockState()) }
-        }
-        tokens = [lockedToken, unlockedToken]
         isRunning = true
 
         onChange(currentLockState())

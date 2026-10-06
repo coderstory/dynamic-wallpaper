@@ -25,6 +25,14 @@ public final class MediaLibrary {
     /// 转码产物目录名。被**整棵排除**，且比对是目录名**精确匹配**（`converted-lower` 不在排除之列）。`nonisolated`：后台队列的非隔离上下文要引用它。
     nonisolated public static let excludedDirectoryName = "Converted"
 
+    /// 目录名大小写不敏感精确匹配 `Converted`（不是子串匹配）。`MediaLibrary` / `FpsTranscodeQueue` /
+    /// `TranscodeCandidateFilter` 三处共用这一份判定，避免「排除规则」漂移导致漏扫或重复扫。
+    nonisolated public static func isInsideConverted(_ url: URL) -> Bool {
+        url.pathComponents.contains {
+            $0.caseInsensitiveCompare(Self.excludedDirectoryName) == .orderedSame
+        }
+    }
+
     private let probe: any VideoAssetProbe
     private let entryCap: Int
 
@@ -118,10 +126,7 @@ public final class MediaLibrary {
             acceptedByExtension += 1
 
             // 目录名精确匹配 Converted —— 不是子串匹配。
-            let isInsideConverted = entry.pathComponents.contains { component in
-                component.caseInsensitiveCompare(Self.excludedDirectoryName) == .orderedSame
-            }
-            if isInsideConverted {
+            if Self.isInsideConverted(entry) {
                 excludedByConverted += 1
                 continue
             }
