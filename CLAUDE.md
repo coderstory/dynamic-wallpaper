@@ -118,6 +118,10 @@ RotationController（轮换）→ PlaybackRouter（装载分派）
   差点得出「基线 0 告警」的错误结论。归一化用 python。
 - **清点文件别只用 `find -type f`** —— 它看不见符号链接。`fixtures/` 里就藏着 3 个指向使用者真实
   片库的软链，`git add fixtures` 差点把它们当夹具提交（绝对路径，别的机器与 CI 上全是断链）。
+- **编译零告警是硬门槛**：`swift build`、`swift build -c release`、`swift test` 三条路都必须**零告警**。
+  ⚠️ `swift build` **不编译测试目标** —— 只跑它会漏掉整个测试侧的告警（曾因此以为只有 14 条，实际 35 条）。
+  要一次看全，跑 `swift build --build-tests` 或直接 `swift test`。
+  Swift 6 的并发告警是「从非主线程碰 AppKit / 跨隔离域捕获」的唯一早期信号，先变错误再变 bug。
 - 只改注释时，验证方式：剥掉所有 `//` 行后与 `HEAD` 逐字节比对，应完全相同。
 - 不改构建产物、不碰 `build/` `dist/`。
 
