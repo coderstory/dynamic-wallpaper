@@ -62,6 +62,13 @@ public final class HoldArbiter {
     /// 它**不碰续播锚点、不触发 seek** —— 起播时顺带 seek 会把锁屏会话的播放头拽回暂停前的位置。
     public func applyCurrentDecision() { target?.arbiterApply(decision) }
 
+    /// 换片后旧锚点失效。轮换在 hold 期间仍会到点换片，换片后播放位置归零，
+    /// 锁屏时记下的 resumeAnchor 已指向不存在的位置 —— 不解绑的话，解锁 seek 会把新片
+    /// 硬拽到旧片的时间点。由换片落点（PlayerLoadingAdapter.loadPlayback）在装载后调用。
+    public func invalidateResumeAnchor() {
+        resumeAnchor = nil
+    }
+
     /// 「当前为什么暂停」的对外读数。**纯派生量**：`decision` 是唯一真相源，不缓存、不另存。
     public var holdStatus: HoldStatus {
         HoldStatus(shouldPlay: decision.shouldPlay, reasons: decision.activeReasons)

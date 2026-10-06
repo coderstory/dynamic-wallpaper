@@ -194,4 +194,18 @@ final class HoldArbiterTests: XCTestCase {
 
         XCTAssertEqual(target.seeks, [42.0], "锚点从头到尾没被二次覆盖")
     }
+
+    /// hold 期间换片（轮换定时器照常到点）→ 旧锚点失效，解锁后不得把新片 seek 到旧片位置。
+    func testSwitchDuringHoldInvalidatesAnchor() {
+        target.position = 12.0
+        arbiter.set(.screenLocked, active: true)   // 锁屏，记锚点 12
+
+        // 锁屏期间轮换到点，换片 → 装载后旧锚点失效
+        arbiter.invalidateResumeAnchor()
+
+        arbiter.set(.screenLocked, active: false)  // 解锁
+        XCTAssertTrue(target.seeks.isEmpty,
+                      "换片后解锁不得 seek —— 否则新片被硬拽到旧片的 12 秒位置")
+        XCTAssertTrue(arbiter.decision.shouldPlay, "解锁后仍应恢复播放")
+    }
 }

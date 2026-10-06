@@ -354,6 +354,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         fullscreenDetector.stop()
         displayWatcher.stop()
         powerWatcher.stop()
+#if !PIC_NO_PROBE
+        // 观测定时器只存在于 probe 构建，退出前摘掉，配对完整。
+        ticker?.invalidate()
+        ticker = nil
+#endif
         emit("PIC_TERMINATED pid=\(ProcessInfo.processInfo.processIdentifier) reason=application_will_terminate")
         // 自动轮换的累计切换数，只在退出这一条路径上打。
         // `PIC_ROT_ADVANCES` 是本键的**前缀**，数「手动 next」那条线必须写成带等号的
@@ -684,6 +689,9 @@ private final class PlayerLoadingAdapter: VideoLoading {
 
     func loadPlayback(url: URL) {
         player.load(url: url)
+        // 换片后旧锚点失效：轮换在 hold 期间仍会到点换片，此时锁屏记下的 resumeAnchor
+        // 指向旧片位置，解锁 seek 会把新片硬拽到错误时间点。装载后先解绑锚点再重放决策。
+        arbiter.invalidateResumeAnchor()
         arbiter.applyCurrentDecision()
     }
 }
