@@ -2,12 +2,11 @@ import AVFoundation
 import Foundation
 
 /// 转码执行队列（TRANS-03/04/06 执行侧）—— 串行 drain、预检、tmp→rename、进度。
-/// 本文件是 Transcode/ 里唯一 `import AVFoundation` 的（duration 探测）。
 public protocol TranscodeRunning: AnyObject, Sendable {
-    /// 进程退出后返回 `terminationStatus` 语义的退出码
+    /// 进程退出后返回 `terminationStatus` 语义的退出码（spawn 失败返回 -1）
     /// （串行队列的正交写法：run 不返回，下一个 job 不开始）。
     ///
-    /// ⚠️ 反直觉陷阱：必须是 async。持有者 `TranscodeQueue` 是 `@MainActor`，
+    /// 反直觉陷阱：必须是 async。持有者 `TranscodeQueue` 是 `@MainActor`，
     /// 实现里同步 `waitUntilExit()` 会把整个 app 冻住，且 `onProgressLine` 的
     /// `Task { @MainActor }` 跳转在阻塞期间一条都送不出去（进度条卡 0% 后跳终值）。
     func run(ffmpegPath: String, arguments: [String], outputTemporaryPath: String,
@@ -22,8 +21,7 @@ public enum TranscodeJobState: Equatable, Sendable {
 }
 
 /// 一个转码任务。`commandDisplay` 入队时就算好 —— 审计串从入队那一刻就存在（TRANS-06）。
-/// `deletesSource`：转码**成功**后是否删除源文件 —— 自动扫描（壁纸目录）的源为 true
-///（目录保持整洁），用户手动选择的源一律 false（外部素材不碰，删除策略按来源不按路径）。
+/// `deletesSource`：转码成功后是否删除源文件 —— 自动扫描（壁纸目录）的源为 true（目录保持整洁），用户手动选择的源一律 false（外部素材不碰，删除策略按来源不按路径）。
 public struct TranscodeJob: Identifiable, Equatable, Sendable {
     public let id: UUID
     public let sourceURL: URL
@@ -54,9 +52,8 @@ public struct AVAssetDurationProvider {
     }
 }
 
-/// 串行转码队列 —— `@MainActor`（持有者隔离，照 `MediaLibrary` 写法；它最终被
-/// AppDelegate 驱动，且 `onBatchFinished` 会触碰扫描器）。UI 观察走回调，
-/// 不 import 任何 UI 框架（06-04 的 view model 自己做 ObservableObject）。
+/// 串行转码队列 —— `@MainActor`（它最终被 AppDelegate 在主线程驱动，且 `onBatchFinished` 会触碰扫描器）。
+/// UI 观察走回调，不 import 任何 UI 框架（view model 自己做 ObservableObject）。
 @MainActor
 public final class TranscodeQueue {
 
@@ -66,7 +63,7 @@ public final class TranscodeQueue {
     private let freeSpaceProvider: (URL) -> Int64?
     private let durationProvider: (URL) async -> Double?
 
-    /// 全部依赖注入 —— 测试用 FakeRunner + 假闭包，零真实进程。
+    /// 全部依赖注入 —— 测试用 FakeRunner + 假闭包跑，零真实进程。
     public init(runner: any TranscodeRunning, naming: TranscodeOutputNaming,
                 availability: @escaping () -> FFmpegToolStatus,
                 freeSpaceProvider: @escaping (URL) -> Int64?,
@@ -80,14 +77,13 @@ public final class TranscodeQueue {
 
     public private(set) var jobs: [TranscodeJob] = []
 
-    /// UI 钩子（06-04 接）。
+    /// UI 钩子。
     public var onJobsChanged: (() -> Void)?
 
-    /// app 钩子（06-05 接 rescanAndApply —— SC#5 转完立即可播）。
+    /// app 钩子（接 rescanAndApply —— SC#5 转完立即可播）。
     public var onBatchFinished: (() -> Void)?
 
-    /// 逐个建 Job（state pending、commandDisplay 先算）。仍在排队（pending/running）
-    /// 的同路径不重复入队；已终态的同路径允许再入队（会走 skipDecision 的幂等路径）。
+    /// 逐个建 Job（state pending、commandDisplay 先算）。仍在排队（pending/running）的同路径不重复入队；已终态的同路径允许再入队（会走 skipDecision 的幂等路径）。
     /// `deletesSource` 逐 job 记录（来源化删除策略：自动扫描 true / 用户选择 false）。
     public func enqueue(sources: [URL], deletesSource: Bool = false) {
         var activePaths = Set(jobs.filter { Self.isActive($0.state) }.map { $0.sourceURL.path })
@@ -133,12 +129,12 @@ public final class TranscodeQueue {
             return
         }
 
-        // 预检 3：建 Converted 目录（已存在不报错）。
+        // 预检 3：建 Converted 目录。已存在或建不出来都不拦（`try?`）—— ffmpeg 写不进去时按 exit_nonzero 失败。
         let convertedDirectory = naming.convertedDirectoryURL()
         try? FileManager.default.createDirectory(
             at: convertedDirectory, withIntermediateDirectories: true)
 
-        // 预检 4：磁盘余量 < 源大小 → 不 spawn（P6；源大小读不到按「不拦截」）。
+        // 预检 4：磁盘余量 < 源大小 → 不 spawn（源大小读不到按「不拦截」）。
         if let freeSpace = freeSpaceProvider(convertedDirectory),
            let sourceSize = (try? FileManager.default.attributesOfItem(atPath: source.path))?[.size] as? Int64,
            freeSpace < sourceSize {
@@ -161,8 +157,7 @@ public final class TranscodeQueue {
             outputTemporaryPath: temporaryURL.path
         ) { line in
             Task { @MainActor in
-                // 增量解析：只吃新到的这一行，状态留在累加器里 ——
-                // 旧写法把整段历史 `+=` 进来再全量重解析，1 小时转码 = 数万行 → O(n²)。
+                // 增量解析：只吃新到的这一行，状态留在累加器里。不得改成把整段历史 `+=` 进来再全量重解析 —— 1 小时转码 = 数万行 → O(n²)。
                 self.jobs[index].percent = progress.consume(line, durationSeconds: durationSeconds)
                 self.onJobsChanged?()
             }
@@ -184,8 +179,7 @@ public final class TranscodeQueue {
             try? FileManager.default.removeItem(at: temporaryURL)
             jobs[index].state = .failed(reason: "exit_nonzero")
         }
-        // 来源化删除策略：仅在**成功落盘后**删源（失败/跳过一律保留）。
-        // 删除失败静默 —— 源还在只会让它下轮被 skipDecision 幂等跳过，不出错。
+        // 来源化删除策略：仅在成功落盘后删源（失败/跳过一律保留）。删除失败静默 —— 源还在只会让它下轮被 skipDecision 幂等跳过，不出错。
         if jobs[index].state == .succeeded, jobs[index].deletesSource {
             try? FileManager.default.removeItem(at: source)
         }
@@ -208,8 +202,7 @@ public final class TranscodeQueue {
     }
 }
 
-/// 进度累加器的 `@MainActor` 壳 —— `onProgressLine` 是 `@Sendable`，不能可变捕获
-/// `Accumulator`；所有读写都在 `Task { @MainActor }` 里，圈进主 actor 即可。
+/// 进度累加器的 `@MainActor` 壳 —— `onProgressLine` 是 `@Sendable`，不能可变捕获 `Accumulator`；所有读写都在 `Task { @MainActor }` 里，圈进主 actor 即可。
 @MainActor
 private final class ProgressState {
     private var accumulator = ProgressParser.Accumulator()

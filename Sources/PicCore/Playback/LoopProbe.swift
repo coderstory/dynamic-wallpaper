@@ -2,27 +2,21 @@ import AppKit
 import AVFoundation
 import Foundation
 
-/// 300 秒无缝循环观察 —— 「连续观察 5 分钟无缝循环」的取证体。
+/// 无缝循环观察器。判据不看 `pos` 单调性：`AVPlayerLooper` 的队列里放的是克隆 item，
+/// 每过一个 loop 边界 `AVPlayer.currentTime()` 就归零，「跨边界单调不减」在原理上测不出来。
+/// `LOOP_POS_MONOTONIC` 是探针构造的 artifact，播放是否正常由 endedCount / failedCount /
+/// status / items 四项判定。
 ///
-/// 三条判据（全部来自真实采样，不是推断）：`AVPlayerItemFailedToPlayToEndTime`
-/// 计数为 0 **且**「播完一条」通知次数 == 观察到的循环圈数；采样点 ≥ 140；
-/// 每一次采样 `status == playing` 且 `items >= 1`。
+/// **不要**把 `AVPlayerItemDidPlayToEndTime` 计数判成 0：`AVPlayerLooper` 正是靠这条通知驱动
+/// 「换下一条」，循环正常的播放器**必然**每圈发一次；判成 0 等于让「在循环」与「不循环」
+/// 不可区分。
 ///
-/// ⚠️ 判据里「播完一条」那一半的写法是被实测纠正过的：计划原写 `endedCount == 0`。
-/// 但 `AVPlayerLooper` 正是靠这条通知驱动「换下一条」的 —— 一个循环正常的播放器
-/// **必然**每圈发一次。把它判成失败，等于让「在循环」与「不循环」不可区分。
-///
-/// ⚠️ **位置读数的单调性不在判据里**。`AVPlayerLooper` 的队列里放的是克隆 item，
-/// 每过一个 loop 边界 `AVPlayer.currentTime()` 就会归零，所以「跨边界单调不减」
-/// 这件事在原理上就测不出来。它单独记成 `LOOP_POS_MONOTONIC`，且无条件附一行
-/// `LOOP_POS_NOTE` 说明它是探针构造的 artifact 还是播放缺陷 —— 不许混为一谈。
-/// 不传 `-DPIC_NO_PROBE` 时整个声明区都在；交付构建由 `build.sh` 的
-/// `-Xswiftc -DPIC_NO_PROBE` 打开开关，把测量脚手架从交付二进制里剥掉。
+/// `build.sh` 传 `-Xswiftc -DPIC_NO_PROBE` 把整个声明区剥出交付二进制。
 #if !PIC_NO_PROBE
 @MainActor
 public final class LoopProbe {
 
-    /// 环境变量名：`PIC_LOOP_SECONDS=300` 才启动观察。不设就完全不跑，零成本。
+    /// 环境变量名：不设这个变量就完全不跑。
     public static let secondsEnvKey = "PIC_LOOP_SECONDS"
     public static let sampleInterval: TimeInterval = 2.0
     public static let minimumSamples = 140
@@ -38,8 +32,8 @@ public final class LoopProbe {
 
     private let player: AVQueuePlayer
     private let durationSeconds: Int
-    /// 观察跑完后结束进程的回调。由 `AppDelegate` 注入它自己的 `terminateApp()` ——
-    /// 结束进程的全局调用字面量全仓只在 AppDelegate 里一处，两条路径不会各自漂移。
+    /// 由 AppDelegate 注入它自己的 `terminateApp()` —— 结束进程的全局调用全仓只在
+    /// AppDelegate 一处，两条路径不会各自漂移。
     private let terminate: () -> Void
     /// 观察者令牌只由主线程增删；标 nonisolated(unsafe) 只是为了让 deinit 能摘干净 ——
     /// deinit 本身不是主线程隔离的，而观察者泄漏是明令禁止的。
@@ -61,8 +55,8 @@ public final class LoopProbe {
     }
 
     deinit {
-        // Pitfall 4：注册与注销严格配对。removeObserver 本身线程安全，
-        // 这里不绕道主线程隔离的辅助方法，因为 deinit 不保证在主线程跑。
+        // 注册与注销严格配对。removeObserver 本身线程安全，这里不绕道主线程隔离的
+        // 辅助方法，因为 deinit 不保证在主线程跑。
         let center = NotificationCenter.default
         for t in tokens { center.removeObserver(t) }
     }
@@ -91,6 +85,7 @@ public final class LoopProbe {
     private func sample() {
         let t = player.currentTime().seconds
         let pos = t.isFinite ? t : -1
+        // looper 每圈克隆模板 item，DidPlayToEndTime 会跟着落回 pos=0。
         if let last = samples.last, pos + 0.001 < last.pos {
             cycles += 1
             monotonic = false
@@ -120,7 +115,6 @@ public final class LoopProbe {
         let statusOk = samples.allSatisfy { $0.status == "playing" }
         let itemsOk = samples.allSatisfy { $0.items >= 1 }
         let countOk = samples.count >= Self.minimumSamples
-        // 「播完一条」每圈一次是 looper 正常换片的证据，不是缺陷证据。
         let failedOk = failedCount == 0
         let cyclesOk = endedCount == cycles
 
@@ -151,7 +145,7 @@ public final class LoopProbe {
         emit("LOOP_POS_NOTE=AVPlayerLooper 在 loop 边界克隆 item 并把 currentTime 归零，故 pos 非单调是探针 artifact；播放是否正常由 endedCount/failedCount/status/items 四项判定")
         emit("LOOP_DURATION=\(elapsed)")
 
-        // 让主线程喘一口气再退，跑完不留残窗。退的是进程，走的是注入进来的那条路。
+        // 让主线程喘一口气再退。退的是进程，走的是注入进来的那条路。
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             self.terminate()
         }
@@ -188,8 +182,7 @@ public final class LoopProbe {
 
     // MARK: - 公共
 
-    /// `AVPlayer.TimeControlStatus` 在 Swift 里反射成 `AVPlayerTimeControlStatus(rawValue: N)`，
-    /// 不可 grep。映射成固定词，判定与验收脚本都按这个词读。
+    /// 映射成固定词，判定与验收脚本都按这个词读。
     public static func statusToken(_ s: AVPlayer.TimeControlStatus) -> String {
         switch s {
         case .paused: return "paused"
@@ -199,7 +192,6 @@ public final class LoopProbe {
         }
     }
 
-    /// 全部观察读数走 stderr —— 与 `TICK` 行同一个流，探针脚本一次收齐。
     private func emit(_ line: String) {
         FileHandle.standardError.write((line + "\n").data(using: .utf8)!)
     }

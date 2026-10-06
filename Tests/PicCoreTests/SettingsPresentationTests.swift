@@ -1,10 +1,7 @@
 import XCTest
 @testable import PicCore
 
-/// `SettingsPresentation` 纯显示映射单测。
-///
-/// 窗口常量（780/680）在这里锁死 —— 这两个数的唯一来源是
-/// `SettingsPresentation`，视图与探针都读它，不许散落字面量。
+/// 窗口常量（780/680）在这里锁死 —— 唯一来源是 `SettingsPresentation`，视图与探针都读它，不许散落字面量。
 final class SettingsPresentationTests: XCTestCase {
 
     func testRateLabelFormatsBounds() {
@@ -27,8 +24,7 @@ final class SettingsPresentationTests: XCTestCase {
     }
 
     func testVolumeFromPercentRoundTrips() {
-        // UI 是 0–100 整数、store 是 Float 0–1，往返误差必须远小于
-        // 一个人能感知的音量步长（1% = 0.01，容差放宽到 0.011）。
+        // UI 是 0–100 整数、store 是 Float 0–1。1% = 0.01，容差只能放宽到 0.011，再大就掩盖了整整一档的偏差。
         var v = Float(0.0)
         while v <= 1.0 {
             let back = SettingsPresentation.volumeFromPercent(
@@ -48,10 +44,6 @@ final class SettingsPresentationTests: XCTestCase {
         XCTAssertEqual(SettingsPresentation.rateBounds.upperBound, 2.0)
     }
 
-    // ---- 轮换值表 / 两条置灰联动 / 模式文案 ----
-    //
-    // ⚠️ 两条联动的用例是牙齿：拿掉任一条判据，本组必须转红，且红光来自断言而非编译失败。
-
     func testRotationLabelSwitchesToHoursAtSixty() {
         XCTAssertEqual(SettingsPresentation.rotationLabel(minutes: 5), "5 分钟")
         XCTAssertEqual(SettingsPresentation.rotationLabel(minutes: 15), "15 分钟")
@@ -67,12 +59,11 @@ final class SettingsPresentationTests: XCTestCase {
         }
     }
 
-    /// 旧持久值对不上值表时就近吸附，不给表外的数 —— 否则步进器会索引到越界项。
+    /// 对不上值表时就近吸附，不给表外的数 —— 否则步进器会索引到越界项。
     func testRotationMinutesSnapsToNearestChoice() {
-        // 299 秒 ≈ 4.98 分钟（早期写进 UserDefaults 的脏值）
+        // 299 秒 ≈ 4.98 分钟，靠近表内的 5
         XCTAssertEqual(SettingsPresentation.rotationMinutes(seconds: 299), 5)
         XCTAssertEqual(SettingsPresentation.rotationMinutes(seconds: 302), 5)
-        // 111 分钟远离表内任何一项，取最近的 120
         XCTAssertEqual(SettingsPresentation.rotationMinutes(seconds: 111 * 60), 120)
     }
 
@@ -87,22 +78,18 @@ final class SettingsPresentationTests: XCTestCase {
         XCTAssertFalse(SettingsPresentation.volumeControlsEnabled(isMuted: true))
     }
 
-    /// 分段控件按 `PlayMode.allCases` 渲染（锁序），文案单一来源。
     func testPlayModeLabelCoversAllCasesInOrder() {
         XCTAssertEqual(PlayMode.allCases.map(SettingsPresentation.playModeLabel),
                        ["单循环", "列表循环", "随机"])
     }
 
-    // ---- 空态文案 / 三态一张皮 / 暂停原因 / 状态卡标题 ----
-
-    /// 逐字硬需求。哨兵写在本测试里 —— 常量改一个字这里就红。
+    /// 哨兵写在本测试里，不引用常量 —— 常量改一个字这里就红。
     func testEmptyStateBodyMatchesSpecVerbatim() {
         XCTAssertEqual(SettingsPresentation.emptyStateBody,
                        "没找到能播的文件。壁纸已隐藏，桌面显示的是系统原壁纸。")
     }
 
-    /// 文案只能有一份拷贝（它在 Sources 全树恰好出现一次）。
-    /// 第二份拷贝不会自己漂移提醒 —— 它会漂移成两个版本的承诺。
+    /// 文案只能有一份拷贝 —— 第二份拷贝不会自己漂移提醒，它会漂移成两个版本的承诺。
     func testEmptyStateBodyIsSingleSourced() throws {
         let file = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()   // PicCoreTests
@@ -117,8 +104,7 @@ final class SettingsPresentationTests: XCTestCase {
         XCTAssertEqual(code.components(separatedBy: SettingsPresentation.emptyStateBody).count - 1, 1)
     }
 
-    /// 三态一张皮：UI 不区分「没配过 / 目录没了 / 扫到 0」，
-    /// 判定就是「不该显示壁纸」的反面。用 `allCases` 穷举，不手抄清单。
+    /// UI 不区分「没配过 / 目录没了 / 扫到 0」，判定就是「不该显示壁纸」的反面；用 `allCases` 穷举，不手抄清单。
     func testThreeHideStatesShareOneEmptySkin() {
         var hidden = 0
         for state in LibraryState.allCases {
@@ -144,7 +130,7 @@ final class SettingsPresentationTests: XCTestCase {
         XCTAssertEqual(Set(labels).count, 6, "六条文案两两不同，否则 UI 无法区分原因")
     }
 
-    /// 变异靶子的牙齿：拿掉排序这一行，多原因用例转红。
+    /// 拿掉排序这一行，多原因用例转红。
     func testJoinedReasonsSortsByOrderBeforeJoining() {
         XCTAssertEqual(SettingsPresentation.joinedReasons([.screenLocked, .manualPause]),
                        "手动暂停、屏幕已锁定")

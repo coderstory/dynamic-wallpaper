@@ -1,26 +1,22 @@
 import AVFoundation
 import XCTest
 
-/// 设置窗控件的交互面。
-///
-/// 置灰只认 `isEnabled` 与「点了没反应」；视觉变淡不算证据 —— UI 规范明令，
-/// 且一个只调 opacity 的实现会让下面三条全绿。
-/// ⚠️ 唯一例外是转码入口：它**故意**永不禁用（Phase 6 SC#1）—— 置灰只用 opacity，
-/// `.disabled(true)` 会把点击吃掉，三条安装途径就永远弹不出来。见下面那条用例。
+/// 置灰只认 `isEnabled` 与「点了没反应」；视觉变淡不算证据 —— 一个只调 opacity 的实现会让下面三条断言全绿。
+/// 唯一例外是转码入口：它**故意**永不禁用 —— 置灰只用 opacity，`.disabled(true)` 会把点击吃掉，
+/// 三条安装途径就永远弹不出来。
 final class SettingsControlsUITests: XCTestCase {
 
     private var evidenceURL: URL!
     private var sourceDir: URL!
 
-    // SettingsStore.persist() 一次写全键，跨用例串味会让「默认静音=false /
-    // 默认单循环」这类起点假红。两端各清一次：跑前清、跑后清（不留给用户机器）。
-    // ⚠️ 键清单从 SettingsStore.Key 的源码里抽，不在测试里写死 —— Phase 7 的 launchAtLogin
-    // 就是硬编码 7 键时漏掉的那一个；漏清一个键不会红，只会静默带着上一条的起点跑。
+    // SettingsStore.persist() 一次写全键，跨用例串味会让「默认静音=false / 默认单循环」这类起点假红。
+    // 跑前清、跑后清（不留给用户机器）。键清单从 SettingsStore.Key 的源码里抽，不在测试里写死 ——
+    // 漏清一个键不会红，只会静默带着上一条的起点跑。
     private static let storeKeys: [String] = {
-        let src = URL(fileURLWithPath: #filePath)          // …/UITests/PicUITests/本文件
-            .deletingLastPathComponent()                    // PicUITests/
-            .deletingLastPathComponent()                    // UITests/
-            .deletingLastPathComponent()                    // 仓库根
+        let src = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
             .appendingPathComponent("Sources/PicCore/State/SettingsStore.swift")
         guard let text = try? String(contentsOf: src, encoding: .utf8),
               let open = text.range(of: "public enum Key {"),
@@ -39,7 +35,7 @@ final class SettingsControlsUITests: XCTestCase {
 
     override func setUpWithError() throws {
         continueAfterFailure = false
-        // 抽不出清单 = 一个键都没清，起点会带着上一条漂。当场红，别等断言背锅。
+        // 抽不出清单 = 一个键都没清，起点会带着上一条漂；当场红，别等后面的断言背锅。
         XCTAssertFalse(Self.storeKeys.isEmpty,
                        "从 SettingsStore.Key 抽不出键清单，clearStoreDefaults 形同虚设")
         clearStoreDefaults()
@@ -56,8 +52,6 @@ final class SettingsControlsUITests: XCTestCase {
         clearStoreDefaults()
         try? FileManager.default.removeItem(at: evidenceURL.deletingLastPathComponent())
     }
-
-    // MARK: - 脚手架
 
     /// `defaults delete <domain> <key>` 一次只删一个键 —— 传多个键会被整体忽略。
     private func clearStoreDefaults() {
@@ -121,7 +115,7 @@ final class SettingsControlsUITests: XCTestCase {
         return false
     }
 
-    /// 自绘小视频（AVAssetWriter，零 ffmpeg —— 本机 ffmpeg 类调用绝不进自动路径）。
+    /// 自绘小视频：AVAssetWriter 写入，绝不走 ffmpeg 二进制（自动路径不依赖外部工具）。
     /// 扫描器用 AVFoundationAssetProbe 判视频轨，占位文本过不了它。
     private func makePlayableVideos(count: Int) {
         for i in 0..<count {
@@ -156,15 +150,13 @@ final class SettingsControlsUITests: XCTestCase {
         }
     }
 
-    // MARK: - 控件全景
-
     func testAllControlsExistAndTranscodeStaysTappableWhenDimmed() throws {
         _ = launchApp()
         XCTAssertTrue(app.windows.matching(NSPredicate(format: "title CONTAINS %@", "动态壁纸"))
             .firstMatch.waitForExistence(timeout: 10), "设置窗应经 --open-settings 打开")
 
-        // 默认起点（loopSingle）下轮换整行是**真**置灰，可点性归下一节判；转码入口相反，
-        // 只视觉置灰、仍可点 —— 两者都不进 interactive 清单，本用例末尾各判各的。
+        // `conditional` 里的行是真置灰，可点性由置灰联动那两条用例判；transcode-open 相反，只视觉置灰仍可点。
+        // 两者都不进 `interactive` 的可点性断言，末尾各有一条单独判。
         let conditional = ["rotation-stepper"]
         let interactive = ["rate-slider", "volume-slider", "sound-toggle", "mode-segmented",
                             "battery-toggle", "autostart-toggle", "select-button", "rescan-button"]
@@ -176,11 +168,9 @@ final class SettingsControlsUITests: XCTestCase {
         for id in interactive {
             XCTAssertTrue(el(id).isHittable, "控件 \(id) 应可点（TEST-07）")
         }
-        // 转码入口**永不禁用**：ffmpeg 缺失时只用 opacity 0.34 表达置灰（Phase 6 SC#1），
-        // 点击必须仍然被接住 —— 点不动就等于没给安装途径。
-        // ⚠️ 判据只钉可观测的那一面：opacity 在 a11y 树上没有任何可观测形态，XCUITest
-        // 拿不到，别在这里加「变淡」类断言；置灰视觉的契约归 SettingsView.swift 的
-        // .opacity 与 UI-SPEC §6。本文件里 isEnabled == false 就是「点击被吃掉」的唯一红信号。
+        // 转码入口**永不禁用**：ffmpeg 缺失时只用 opacity 表达置灰，点击必须仍被接住 —— 点不动就等于没给安装途径。
+        // opacity 在 a11y 树上没有任何可观测形态，XCUITest 拿不到，别在这里加「变淡」类断言；
+        // 本文件里 `isEnabled == false` 就是「点击被吃掉」的唯一红信号。
         XCTAssertTrue(el("transcode-open").isEnabled,
                       "转码入口必须保持可点（TEST-07）：ffmpeg 缺失时只用 opacity 置灰，"
                       + "`.disabled(true)` 会吃掉点击，三条安装途径就永远弹不出来")
@@ -189,8 +179,6 @@ final class SettingsControlsUITests: XCTestCase {
         XCTAssertTrue(waitForEvidence("PIC_SETTINGS_APPLY key=muted").contains("key=muted"),
                       "点静音开关必须真的走到 applier（TEST-07/T-05-16）")
     }
-
-    // MARK: - 两条置灰联动（以交互不生效为准）
 
     func testRotationRowIgnoresTapsInSingleLoopAndRecoversInListLoop() throws {
         _ = launchApp()
@@ -238,8 +226,6 @@ final class SettingsControlsUITests: XCTestCase {
                       "可用后拖滑杆必须当场生效（TEST-08 ②）")
     }
 
-    // MARK: - 空态
-
     func testEmptyFolderShowsVerbatimCopyAndRescanStaysEnabled() throws {
         // 空目录必须**真空**：Finder 或任何一次写目录元数据都会塞进 .DS_Store，
         // 那样 populated 与 empty 判不出差别，测试会假绿。
@@ -259,8 +245,6 @@ final class SettingsControlsUITests: XCTestCase {
         XCTAssertTrue(waitEnabled("rescan-button"), "空态下重扫必须保持可用（它是恢复路径）")
     }
 
-    // MARK: - 菜单栏实点
-
     func testMenuBarExposesFiveHittableItems() throws {
         _ = launchApp()
         let statusItem = app.descendants(matching: .statusItem).firstMatch
@@ -270,8 +254,8 @@ final class SettingsControlsUITests: XCTestCase {
         }
         statusItem.click()
 
-        // 逐字文案已由 MenuBarModelTests 锁；这里只钉「5 项都真的能点」。
-        // BEGINSWED 不写死 ⌘, 后缀：那条渲染契约不在本用例的职责面。
+        // 逐字文案已由 MenuBarModelTests 锁，这里只钉每一项都真的能点；BEGINSWITH 不写死 ⌘, 后缀，
+        // 那条渲染契约由 SettingsWindowUITests 锁。
         for prefix in ["暂停", "继续", "立即下一个", "重新扫描文件夹", "打开设置", "退出"] {
             let item = app.menuItems
                 .matching(NSPredicate(format: "label BEGINSWITH %@", prefix)).firstMatch
@@ -279,8 +263,6 @@ final class SettingsControlsUITests: XCTestCase {
             XCTAssertTrue(item.isHittable, "菜单项「\(prefix)」应可点（TEST-10）")
         }
     }
-
-    // MARK: - 回归：立即下一个在单循环下也要切
 
     func testNextVideoMenuItemAdvancesEvenInSingleLoopMode() throws {
         makePlayableVideos(count: 2)
@@ -307,8 +289,6 @@ final class SettingsControlsUITests: XCTestCase {
         XCTAssertTrue(ev.contains("PIC_ROT_ADVANCES=1"),
                       "单循环下用户请求仍应推进一次（G-04-3），实际证据：\(ev)")
     }
-
-    // MARK: - 拖动助手
 
     private func drag(_ e: XCUIElement, from: CGFloat, to: CGFloat) {
         let start = e.coordinate(withNormalizedOffset: CGVector(dx: from, dy: 0.5))

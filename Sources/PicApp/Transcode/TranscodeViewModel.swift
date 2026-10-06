@@ -2,11 +2,8 @@ import Combine
 import Foundation
 import PicCore
 
-/// 转码窗口的队列观察者（呈现层）。
-///
-/// 队列数据**只**经 `TranscodeQueue.onJobsChanged` 回调进来 —— PicCore 保持零 UI 框架
-/// （分层不破）。本类不做任何判定之外的 IO：ffmpeg 定位交给注入的 locator，
-/// 文件大小读 `.size`（读不到就显示 `—`，不猜）。
+/// 转码窗口的队列观察者（呈现层）。队列数据只经 `TranscodeQueue.onJobsChanged` 回调进来，
+/// PicCore 保持零 UI 框架。
 @MainActor
 final class TranscodeViewModel: ObservableObject {
 
@@ -36,16 +33,15 @@ final class TranscodeViewModel: ObservableObject {
         availability = locator.locate()
     }
 
-    /// 壁纸目录里的转码候选 → 队列的 pending jobs（**自动来源**：转码成功后自动删源）。
-    /// 同路径去重在队列侧。
+    /// 壁纸目录里的转码候选 → 队列的 pending jobs（自动来源：转码成功后自动删源）。去重在队列侧。
     func loadCandidates() {
         guard let root = wallpaperRootProvider() else { return }
         queue.enqueue(sources: TranscodeCandidateFilter.candidates(in: root), deletesSource: true)
         reload()
     }
 
-    /// 用户手动选择目录/文件（**手动来源**：源文件永不删除）。
-    /// 目录递归展开成 N 个候选（与自动扫描同一过滤器）；白名单外的散选文件静默过滤。
+    /// 用户手动选择目录/文件（手动来源：源文件永不删除）。目录递归展开成候选（同一过滤器），
+    /// 白名单外的散选文件静默过滤。
     func loadPickedSources() async {
         guard let picked = await sourcePicker.pickTranscodeSources(), !picked.isEmpty else { return }
         var sources: [URL] = []
@@ -68,7 +64,7 @@ final class TranscodeViewModel: ObservableObject {
         Task { await queue.run(); isRunning = false }
     }
 
-    /// 人类可读的源文件大小。读不到不抛、不显示 0 —— 显示 `—`。
+    /// 人类可读的源文件大小。读不到显示 `—`，不显示 0。
     func sizeText(of job: TranscodeJob) -> String {
         let path = job.sourceURL.path
         guard let size = (try? FileManager.default.attributesOfItem(atPath: path))?[.size] as? Int64 else {

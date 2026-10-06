@@ -2,10 +2,7 @@ import Foundation
 import XCTest
 @testable import PicCore
 
-/// `MediaFixtureTree` 之上的 9 条行为用例。
-///
-/// 两条纪律：本测试类**自带** `FakeAssetProbe`（不跨文件引用别的测试类）；
-/// 测试不依赖 `fixtures/` 已生成 —— 自己造树，干净 clone 也绿。
+/// 本测试类自带 `FakeAssetProbe`，不跨文件引用别的测试类的替身（耦合后失败时分不清是替身坏了还是被测代码坏了）；树也是自己造的，不依赖 `fixtures/` 已生成，干净 clone 上照样绿。
 @MainActor
 final class MediaLibraryTests: XCTestCase {
 
@@ -38,11 +35,9 @@ final class MediaLibraryTests: XCTestCase {
         Set(report.items.map { $0.url.lastPathComponent })
     }
 
-    // MARK: - 9 条行为用例
-
     func testRecursionFindsClipThreeDirectoriesDeep() async throws {
         let report = try await scanTree()
-        // 专门用例：三层嵌套必须被发现，不是靠顶层用例顺带覆盖。
+        // 三层嵌套必须被发现，不是靠顶层用例顺带覆盖。
         XCTAssertTrue(report.items.contains { $0.url.path.hasSuffix("sub/deep/deeper/d.MP4") },
                       "三次目录深度下的 d.MP4 必须在 items 里")
         XCTAssertEqual(report.items.count, 6,
@@ -55,8 +50,7 @@ final class MediaLibraryTests: XCTestCase {
         let report = try await scanTree()
         XCTAssertTrue(report.items.contains { $0.url.path.contains("视频壁纸") },
                       "中文+空格目录名下的 e.mp4 必须被收")
-        // 把理由钉死：URL 的字符串形态确实会被百分号编码，
-        // 所以存在性检查只能用 path。
+        // URL 的字符串形态确实会被百分号编码，所以存在性检查只能用 path。
         let cjkPathURL = URL(fileURLWithPath: tree.cjkDirectoryURL.path)
         XCTAssertTrue(VideoItem(url: cjkPathURL).url.absoluteString.contains("%"),
                       "absoluteString 形态含中文时应含百分号编码")
@@ -83,8 +77,7 @@ final class MediaLibraryTests: XCTestCase {
         let report = try await scanTree()
         let names = lastPathNames(report)
         XCTAssertFalse(names.contains("out.mp4"), "Converted/ 下的 out.mp4 应被整棵排除")
-        // 后半句是这条判据有牙齿的原因：只判前半句的话，一个「路径里出现 converted
-        // 就排除」的错误实现照样绿。
+        // 后半句才有牙齿：只判前半句的话，「路径里出现 converted 就排除」的错误实现照样绿。
         XCTAssertTrue(names.contains("keep.mp4"),
                       "converted-lower/ 只是子串相似，keep.mp4 必须仍被收")
     }

@@ -1,19 +1,14 @@
 #!/usr/bin/env bash
-# probe-settings-restart.sh —— 重启读回探针。
-#
-#   bash scripts/probe-settings-restart.sh
-#     → swift build -c debug
-#     → 空临时目录当 source（PIC_SOURCE_FOLDER 指过去，不碰真实素材目录）
-#     → 三轮起产品，每轮断言 PIC_SETTINGS_BOOT 一行：
-#         ① 六值 seeded   → ② 同参数重跑，逐字一致（读回不依赖上一进程的内存）
-#                        ③ 无 seeding → 回 seed 默认值（BOOT 读的是 store 真值）
-#     → 证据落 evidence/settings-restart.log 与 evidence/settings-apply.log
+# 重启读回探针。一条命令：swift build -c debug → 空临时目录当 source（PIC_SOURCE_FOLDER 指过去，不碰真实素材目录）
+# → 三轮起产品，每轮断言 PIC_SETTINGS_BOOT 一行：
+#     ① 六值 seeded   → ② 同参数重跑，逐字一致（读回不依赖上一进程的内存）→ ③ 无 seeding → 回 seed 默认值（BOOT 读的是 store 真值）
+# → 证据落 evidence/settings-restart.log 与 evidence/settings-apply.log。
 #
 # 纪律：alarm 包装（本机无 timeout）、LC_ALL=C、不用 set -e、mktemp + trap cleanup。
 #
-# ⚠️ seeding 机制见 probe-settings.sh 头注（不要改回 argument domain）。第三个后果：
-#    进程名域是**持久**的，所以第 ③ 轮必须先 `defaults delete Pic` 清场，否则读到的是
-#    上一轮留下的值。跑前跑后各清一次，不碰 com.local.pic（打包域）。
+# seeding 机制见 probe-settings.sh 头注（不要改回 argument domain）。由此产生的第三个后果：
+#    进程名域是**持久**的，所以第 ③ 轮必须先 `defaults delete Pic` 清场，否则读到的是上一轮留下的值。
+#    跑前跑后各清一次，不碰 com.local.pic（打包域）。
 set -u
 export LC_ALL=C
 
@@ -84,10 +79,8 @@ else
   PASS=0
 fi
 
-# 第 ① 轮的运行期 apply 行：`wiring()` 里 powerWatcher.start 的同步回调 →
-# `recordPowerState` → `applyBatteryPolicy`。这是「闭包搬家不复制」在运行期唯一的
-# emit 面 —— 每轮恰好一行，且 value 随 seeding 的开关变（0|1）。
-# 其余五条（rate / volume / muted / playMode / rotationInterval）由设置窗控件事件驱动，
+# 第 ① 轮的运行期 apply 行：由 `wiring()` 里 powerWatcher.start 的同步回调 → recordPowerState → applyBatteryPolicy 驱动，
+# 每轮恰好一行，value 随 seeding 的开关变（0|1）。其余五条（rate / volume / muted / playMode / rotationInterval）由设置窗控件事件驱动，
 # 没有 UI 交互就不触发，值断言在 SettingsApplierTests。
 APPLY1=$(grep -m1 'PIC_SETTINGS_APPLY key=pauseOnBattery' "$TMP/r1.ev")
 echo "APPLY_EXPECT=key=pauseOnBattery value=1 applied=1 onBattery=" >> "$LOG"
@@ -124,8 +117,8 @@ else
   PASS=0
 fi
 
-# 每轮恰好一行：出现第二行就说明 `.battery` 又多了一个 set 落点（竞态双写）。三轮跑完
-# 后统一数 —— 这一段放在第 ① 轮后面会读到还没生成的 r2/r3 证据文件。
+# 每轮恰好一行：出现第二行就说明 `.battery` 又多了一个 set 落点（竞态双写）。三轮跑完后统一数 ——
+# 这一段放在第 ① 轮后面会读到还没生成的 r2/r3 证据文件。
 APPLY_N=$(grep -c 'PIC_SETTINGS_APPLY key=pauseOnBattery' "$TMP/r1.ev" "$TMP/r2.ev" "$TMP/r3.ev" | awk -F: '{s+=$2} END{print s+0}')
 echo "APPLY_BATTERY_LINES_3ROUNDS=$APPLY_N" >> "$LOG"
 if [ "$APPLY_N" -eq 3 ]; then
@@ -140,9 +133,8 @@ if [ "$PASS" -eq 1 ]; then
 fi
 
 # ---- settings-apply.log：apply 层的记账 ----
-# 「当场生效」的**值**断言在单测层（SettingsApplierTests 四条），不在探针层。运行期能
-# grep 到的只有电池那一条：它由 `wiring()` 的同步回调驱动，开窗即有；另五条由设置窗
-# 控件事件驱动，没有 UI 交互就不触发 —— 如实记 0，不拿 emit 落点数冒充运行期证据。
+# 「当场生效」的**值**断言在单测层（SettingsApplierTests 四条），不在探针层。运行期能 grep 到的只有电池那一条：
+# 它由 `wiring()` 的同步回调驱动，开窗即有；另五条由设置窗控件事件驱动，没有 UI 交互就不触发 —— 如实记 0，不拿 emit 落点数冒充运行期证据。
 APPLIER=Sources/PicCore/App/SettingsApplier.swift
 SITES=$(grep -v -e '^[[:space:]]*//' -e '^[[:space:]]*/\*' -e '^[[:space:]]*\*' -e '^[[:space:]]*\*/' "$APPLIER" | grep -c -F 'PIC_SETTINGS_APPLY')
 RUNTIME=$(cat "$TMP"/r1.ev "$TMP"/r2.ev "$TMP"/r3.ev 2>/dev/null | grep -c 'PIC_SETTINGS_APPLY')

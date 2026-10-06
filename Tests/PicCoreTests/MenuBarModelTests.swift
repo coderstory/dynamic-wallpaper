@@ -1,23 +1,15 @@
 import XCTest
 @testable import PicCore
 
-/// 哨兵法 —— 菜单栏**不显示当前播放的文件名**。
-///
-/// 菜单栏是全局常驻、路过的人一眼能扫到的地方。文件名会泄露用户在看的片子
-/// （「Work-Interview-Final-v3.mp4」这类），所以这条要求必须有牙齿，
-/// 不能只是一句「我们不写文件名」的纪律。
-///
-/// 哨兵串 `clip-sentinel.mp4` 是合成视频的**文件名本身**，没有第二个别名。
-/// ⚠️ 这里以字面量写死，**不去读 `fixtures/` 里的真实文件** —— 否则干净 clone 上
-/// （fixtures 未生成）`swift test` 会红。
+/// 菜单栏**不显示当前播放的文件名**。哨兵串 `clip-sentinel.mp4` 以字面量写死，
+/// 不读 `fixtures/` 里的真实文件 —— fixtures 未生成时干净 clone 上 `swift test` 会红。
 @MainActor
 final class MenuBarModelTests: XCTestCase {
 
-    /// 哨兵串。菜单标签里出现 0 次即通过。
     private static let sentinelFilename = "clip-sentinel.mp4"
 
-    /// 一个不存在于磁盘、但绝不会出现在菜单里的目录名 —— 用来证明
-    /// 「菜单不依赖 SettingsStore 的当前值」。不建这个目录，测试不依赖任何文件系统状态。
+    /// 一个不存在于磁盘、但绝不会出现在菜单里的目录名 —— 用来证明「菜单不依赖 SettingsStore 的当前值」。
+    /// 不建这个目录，测试不依赖任何文件系统状态，换台机器也照样过。
     private static let fakeFolder = "/tmp/pic-menu-sentinel-dir-4242"
 
     private var defaults: UserDefaults!
@@ -44,9 +36,8 @@ final class MenuBarModelTests: XCTestCase {
         return SettingsStore(defaults: defaults!, seed: seed)
     }
 
-    /// 仲裁器的假播放端 —— 「spy」打在它记录到的 `applies` 上。
-    /// `HoldArbiter` 是 final class，不能用子类替身；改用真仲裁器 + 假播放端，
-    /// 断言的是**仲裁器真的被驱动了**，而不是某个 mock 的调用计数。
+    /// 假播放端只记录 `applies`。`HoldArbiter` 是 final class 不能用子类替身，所以改用真仲裁器 + 假播放端：
+    /// 断言的是仲裁器真的被驱动了，不是某个 mock 的调用计数。
     private final class SpyTarget: PlaybackTarget {
         var position: TimeInterval = 0
         var seeks: [TimeInterval] = []
@@ -56,8 +47,6 @@ final class MenuBarModelTests: XCTestCase {
         func arbiterSeek(to seconds: TimeInterval) { seeks.append(seconds) }
         func arbiterApply(_ decision: PlaybackDecision) { applies.append(decision) }
     }
-
-    // MARK: - 标签数量
 
     func testLabelsHaveExactlySixEntriesInEveryState() {
         for isPaused in [false, true] {
@@ -69,8 +58,6 @@ final class MenuBarModelTests: XCTestCase {
         }
     }
 
-    /// 「删除当前壁纸」的文案纪律：不得带文件名 / 扩展名 / 路径。
-    /// 删的是「正在播的那个」—— 语义由动作说清，不靠文件名指认。
     func testDeleteCurrentLabelNeverNamesAFile() {
         for isPaused in [false, true] {
             let label = MenuBarModel.label(for: .deleteCurrent, isPaused: isPaused)
@@ -80,10 +67,7 @@ final class MenuBarModelTests: XCTestCase {
         }
     }
 
-    // MARK: - 隐私（哨兵法）
-
     func testLabelsNeverContainAnyMediaFileName() {
-        // 三种状态各来一遍：暂停 / 播放 / 已有设置路径。
         for isPaused in [false, true] {
             let labels = MenuBarModel.labels(isPaused: isPaused)
             let blob = labels.joined(separator: "|")
@@ -110,8 +94,6 @@ final class MenuBarModelTests: XCTestCase {
             XCTAssertFalse(label.contains("sentinel"))
         }
     }
-
-    // MARK: - 动作接线
 
     func testPerformQuitCallsInjectedClosureOnlyOnce() {
         let target = SpyTarget()
@@ -155,8 +137,6 @@ final class MenuBarModelTests: XCTestCase {
         XCTAssertTrue(arbiter.decision.shouldPlay, "打开设置不得改动播放状态")
         XCTAssertEqual(target.applies.count, 0, "打开设置不得把决策推给播放端")
     }
-
-    // MARK: - 新增两项（菜单项文案与路径无关）
 
     func testNextVideoAndRescanLabelsAreDistinctAndPathless() {
         for isPaused in [false, true] {
@@ -207,16 +187,12 @@ final class MenuBarModelTests: XCTestCase {
         XCTAssertEqual(target.applies.count, 0, "重新扫描文件夹不得把决策推给播放端")
     }
 
-    // MARK: - 枚举本身的形状
-
     func testMenuItemIDsAreExactlyTheSixFixedItems() {
         XCTAssertEqual(MenuItemID.allCases,
                        [.pauseResume, .nextVideo, .deleteCurrent, .rescanFolder, .openSettings, .quit],
                        "六项菜单，顺序冻结：新增项插在 openSettings 之前、quit 保持最后（分隔线规则依赖它）")
     }
 
-    /// 「删除当前壁纸」不得经由菜单模型直连播放端 —— 与 nextVideo 同款纪律：
-    /// 切片与删文件都是 AppDelegate 的活，模型只转交意图。
     func testDeleteCurrentGoesOnlyThroughInjectedClosure() {
         for isPaused in [false, true] {
             let target = SpyTarget()

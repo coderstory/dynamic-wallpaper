@@ -1,21 +1,15 @@
 #!/usr/bin/env bash
-# stress-rotation.sh —— SC4 前半：50 次换片、内存回基线 ±10%。
-#
-#   bash scripts/stress-rotation.sh
-#     → 压测前备份 rotationInterval / playMode 两个键
-#     → 1 秒自动轮换跑 90 秒（warmup 15 + 采样窗 75）
-#     → 读退出快照 PIC_ROT_ADVANCES_TOTAL 与两次 RSS，算漂移
-#     → 恢复两个键的原值 → 全部 STRESS_* 行落 evidence/stress-rotation.log
+# 50 次换片、内存回基线 ±10%。压测前备份 rotationInterval / playMode 两个键 → 1 秒自动轮换跑 90 秒（warmup 15 + 采样窗 75）
+# → 读退出快照 PIC_ROT_ADVANCES_TOTAL 与两次 RSS，算漂移 → 恢复两个键的原值 → 全部 STRESS_* 行落 evidence/stress-rotation.log。
 #
 # 四条纪律：
-#   ① 所有外部命令套 `perl -e 'alarm N; exec @ARGV'` —— 本机没有 timeout 命令。
+#   ① 所有外部命令套 `alarm N 命令 …` —— 本机没有 timeout 命令。
 #   ② **不用 set -e**：失败原样落日志由人读；清理无条件（trap 与断言同一条路径）。
 #   ③ `set -u` + `export LC_ALL=C`。
-#   ④ **零转码**：只播放 fixtures 里已有的 mp4，播放是 app 的日常行为。
-#      转码二进制的名字一个都不许出现在本文件的非注释行里（禁令判据 grep 那个词）。
+#   ④ **零转码**：只播放 fixtures 里已有的 mp4，播放是 app 的日常行为。转码二进制的名字一个都不许出现在本文件的非注释行里（禁令判据 grep 那个词）。
 #
-# ⚠️ 基线口径：RSS0 取自 **warmup 15 秒之后**，不是冷启动。冷启动那一段正在建窗口、
-#    装解码器，比的是它等于在测「启动多贵」，不是「换片漏不漏」。
+# 基线口径：RSS0 取自 **warmup 15 秒之后**，不是冷启动。冷启动那一段正在建窗口、装解码器，
+# 比的是它等于在测「启动多贵」，不是「换片漏不漏」。
 
 set -u
 export LC_ALL=C
@@ -36,7 +30,6 @@ APP_PID=""
 
 alarm() { perl -e "alarm $1; exec @ARGV" "${@:2}"; }
 
-# ---- 清理：无条件。失败路径也不许留活进程烤桌面。----
 cleanup() {
   if [ -n "$APP_PID" ] && kill -0 "$APP_PID" 2>/dev/null; then
     kill "$APP_PID" 2>/dev/null || true
@@ -75,7 +68,6 @@ restore_defaults() {
   return 0
 }
 
-# ================= 1. 前置 =================
 if [ ! -f "$FIXTURES/clip-a.mp4" ]; then
   log "stress: fixtures 缺失，先跑一次 scripts/make-fixtures.sh"
   alarm 600 bash scripts/make-fixtures.sh > "$TMP/fixtures.log" 2>&1 || true
@@ -88,13 +80,11 @@ if [ ! -f "$FIXTURES/clip-a.mp4" ] || [ ! -x "$APP" ]; then
 fi
 emit_line "STRESS_FIXTURES=$FIXTURES"
 
-# ================= 2. 备份两个键 =================
 OLD_RI="$(read_key rotationInterval)"
 OLD_PM="$(read_key playMode)"
 emit_line "STRESS_BASELINE_RI=$OLD_RI"
 emit_line "STRESS_BASELINE_PM=$OLD_PM"
 
-# ================= 3. 写入压测参数 =================
 # playMode 的 rawValue 取 loopList —— SettingsStore.PlayMode 的 case 名即 rawValue，
 # 与 load 侧 `PlayMode(rawValue:)` 的解析拼法一致。
 alarm 20 defaults write "$DOMAIN" rotationInterval -float 1 >/dev/null 2>&1 || true
@@ -102,7 +92,6 @@ alarm 20 defaults write "$DOMAIN" playMode -string loopList >/dev/null 2>&1 || t
 emit_line "STRESS_ROTATION_INTERVAL=1"
 emit_line "STRESS_PLAY_MODE=loopList"
 
-# ================= 4. 起 app → warmup → 采样 =================
 # SIGTERM 走不到 applicationWillTerminate（AppKit 不为 SIGTERM 装信号处理函数，
 # 见 AppDelegate 的 --quit-after 注释），故用 --quit-after 让 app 走 terminateApp()
 # → NSApp.terminate → applicationWillTerminate，退出快照才拿得到。
@@ -110,9 +99,8 @@ alarm 200 env PIC_SOURCE_FOLDER="$FIXTURES" "$APP" \
   --quit-after "$((WARMUP + WINDOW + 10))" > "$TMP/app.out" 2> "$TMP/app.err" &
 LAUNCH_PID=$!
 
-# ⚠️ `$!` 是**跑 alarm 函数的子 shell** 的 PID（comm=bash），不是 app 的。
-#    拿它读 RSS 会读到那个壳进程的常数（实测 1.7MB，两次读数完全相同 → 漂移恒 0，
-#    判据变成空判）。必须按 app 二进制路径反查真实 PID。
+# `$!` 是**跑 alarm 函数的子 shell** 的 PID（comm=bash），不是 app 的。拿它读 RSS 会读到那个壳进程的常数
+# （两次读数完全相同 → 漂移恒 0，判据变成空判）。必须按 app 二进制路径反查真实 PID。
 resolve_app_pid() {
   /usr/bin/pgrep -f "$APP" 2>/dev/null | head -1
 }
@@ -151,7 +139,6 @@ kill "$APP_PID" 2>/dev/null || true
 kill "$LAUNCH_PID" 2>/dev/null || true
 APP_PID=""
 
-# ================= 5. 读数 =================
 ADVANCES="$(grep -oE '^PIC_ROT_ADVANCES_TOTAL=[0-9]+' "$TMP/app.err" 2>/dev/null | tail -1 | cut -d= -f2)"
 emit_line "STRESS_ADVANCES=${ADVANCES:-0}"
 
@@ -164,7 +151,6 @@ fi
 DRIFT="$(awk -v a="${RSS1:-0}" -v b="${RSS0:-0}" 'BEGIN{ if (b>0) printf "%.1f", (a-b)*100.0/b; else print "0.0" }')"
 emit_line "STRESS_RSS_DRIFT_PCT=$DRIFT"
 
-# ================= 6. 恢复 + 判定 =================
 restore_defaults
 NEW_RI="$(read_key rotationInterval)"
 NEW_PM="$(read_key playMode)"

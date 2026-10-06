@@ -2,17 +2,9 @@ import SwiftUI
 import AppKit
 import PicCore
 
-/// 设置窗主体 —— 2026-10-04 重设计。与设计稿 `.planning/design/ui-rotation-a.html` 一一对应。
-///
-/// 布局：**顶部 TAB（播放 / 转码 / 关于）+ 磁贴网格 + 紧凑卡**，单窗口。
-/// 转码不再是独立 scene（原 `TranscodeScene`），改为本窗内的第二个 TAB。
-///
-/// 不变量（与旧版相同，改动不得破坏）：
-///   - 六个可调项全部真绑定：`store.<键> = …` → `SettingsApplier.apply*()`（当场生效）→ `store.persist()`
-///   - 窗口内没有「渲染假数据」的 `@State`（速度滑杆拖动暂态除外，每次变更直通 store）
-///   - 量纲换算全部走 `SettingsPresentation`，视图里不出现第二份
-///   - 14 个 `accessibilityIdentifier` 被 XCUITest 依赖，一个都不能少
-///   - 空态文案与置灰联动是 UI-SPEC §6 硬需求，语义不变
+/// 设置窗主体：顶部 TAB（播放 / 转码 / 降帧 / 关于）+ 磁贴网格 + 紧凑卡，单窗口。
+/// 六个可调项全部真绑定：`store.<键> = …` → `SettingsApplier.apply*()` → `store.persist()`，
+/// 窗内不出现渲染假数据的 @State。14 个 `accessibilityIdentifier` 被 XCUITest 依赖，一个都不能少。
 struct SettingsView: View {
     @Environment(SettingsStore.self) private var store
     @Environment(SettingsApplier.self) private var applier
@@ -20,33 +12,31 @@ struct SettingsView: View {
     @Environment(SettingsSessionState.self) private var session
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// 动作闭包一律经 PicApp 注入 —— 视图不持有 AppDelegate（装配点不动）。
+    /// 动作闭包一律经 PicApp 注入，视图不持有 AppDelegate。
     let requestFolder: () -> Void
     let rescanLibrary: () -> Void
     let reapplyBatteryHold: () -> Void
     let setLaunchAtLogin: (Bool) -> Void
-    /// 转码视图模型 —— 转码并入本窗后由 PicApp 注入。
+    /// 转码视图模型，由 PicApp 注入。
     let transcodeViewModel: TranscodeViewModel
-    /// 降帧视图模型 —— 同样由 PicApp 注入，生命周期跟 AppDelegate。
+    /// 降帧视图模型，同样由 PicApp 注入，生命周期跟 AppDelegate。
     let fpsViewModel: FpsTranscodeViewModel
-    /// 安装途径弹层的「重新检测」——重查并回填最新读数（新鲜化出口）。
+    /// 安装途径弹层的「重新检测」：重查并回填最新读数。
     let refreshFFmpeg: () -> Bool
 
     /// ffmpeg 不可用时的安装途径弹层（置灰之外还得给出途径）。
     @State private var showingPathways = false
 
-    // ── 唯一保留的 @State（都不是「渲染假数据」）──
-    // 速度滑杆的拖动暂态（每次 onChanged 直通 store + applier）。
+    // 速度滑杆的拖动暂态，每次 onChanged 直通 store + applier。
     @State private var rateDrag: Double = 1.0
-    // 顶部 TAB：0 播放 / 1 转码 / 2 关于。
+    // 顶部 TAB：0 播放 / 1 转码 / 2 降帧 / 3 关于。
     @State private var tab: Int = 0
 
     private static let tabTitles = ["播放", "转码", "降帧", "关于"]
 
     var body: some View {
         VStack(spacing: 0) {
-            // 自绘标题行（windowStyle(.hiddenTitleBar) 下唯一的「标题栏」）。
-            // 文字逐字 = 「动态壁纸」（2026-10-04 用户改名）。
+            // 自绘标题行，windowStyle(.hiddenTitleBar) 下唯一的「标题栏」。
             Text("动态壁纸")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Color.pTitle)
@@ -60,9 +50,9 @@ struct SettingsView: View {
                 Group {
                     switch tab {
                     case 1: transcodeTab
-                    // case 3 必须在 default 之上 —— default 兜底回播放页。
                     case 2: fpsTab
                     case 3: aboutTab
+                    // default 兜底回播放页。
                     default: playTab
                     }
                 }
@@ -100,7 +90,7 @@ struct SettingsView: View {
                                    index: modeIndex)
                         .accessibilityIdentifier("mode-segmented")
                 }
-                // 置灰联动①：单循环下整块置灰 + 禁交互（UI-SPEC §6 置灰而非隐藏）。
+                // 单循环下整块置灰 + 禁交互。
                 Tile(symbol: "timer", title: "轮换",
                      disabled: !SettingsPresentation.rotationControlsEnabled(playMode: store.playMode)) {
                     ChoiceGrid3x2(items: SettingsPresentation.rotationChoicesMinutes
@@ -143,7 +133,7 @@ struct SettingsView: View {
                             .foregroundStyle(Color.pFg)
                             .frame(width: Metrics.valueWidth, alignment: .trailing)
                             .accessibilityIdentifier("volume-value")
-                        // 置灰联动②：静音时滑杆不可交互 + 视觉变淡。
+                        // 静音时滑杆不可交互 + 视觉变淡。
                         .opacity(SettingsPresentation.volumeControlsEnabled(isMuted: store.isMuted) ? 1 : 0.34)
                         Toggle("", isOn: soundOn).toggleStyle(GlowToggle()).labelsHidden()
                             .accessibilityIdentifier("sound-toggle")
@@ -165,7 +155,7 @@ struct SettingsView: View {
                 .background(Color.pSep, alignment: .bottom)
 
                 if isEmpty {
-                    // 空态：数字转警告色 + 图标盒换警告配色（UI-SPEC §6 硬需求）。
+                    // 空态：数字转警告色 + 图标盒换警告配色。
                     CompactRow(symbol: "exclamationmark.triangle.fill", title: "可用视频",
                                sub: SettingsPresentation.emptyStateBody, warn: true) {
                         Text("0")
@@ -199,9 +189,7 @@ struct SettingsView: View {
             }
             .accessibilityIdentifier("status-paused")
 
-            // ffmpeg 状态已并入顶部状态条，不再单独占一行（同一信息显示两遍是噪音）。
-            // 这里留一个 0 尺寸的锚点：`status-ffmpeg` 这个 identifier 被 UITest 依赖，
-            // 直接删元素会让那条断言永远查无此物。文本已在顶部状态条里。
+            // 0 尺寸锚点：`status-ffmpeg` 这个 identifier 被 UITest 依赖，删元素会让断言查无此物。
             Color.clear
                 .frame(width: 0, height: 0)
                 .accessibilityElement()
@@ -210,7 +198,7 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - TAB 2 · 转码（原独立窗口内容，改为窗内区块）
+    // MARK: - TAB 2 · 转码
 
     private var transcodeTab: some View {
         TranscodeSection(viewModel: transcodeViewModel,
@@ -248,7 +236,7 @@ struct SettingsView: View {
         .frame(maxWidth: .infinity, minHeight: Metrics.aboutMinHeight)
     }
 
-    /// 版本号取自 bundle，不硬编码 —— 改版本号时关于页自动跟随。
+    /// 版本号取自 bundle，不硬编码。
     private var appVersion: String {
         let v = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
         return "版本 \(v ?? "1.0")"
@@ -310,8 +298,7 @@ struct SettingsView: View {
             set: { store.volume = SettingsPresentation.volumeFromPercent(Int($0.rounded())) })
     }
 
-    /// 「声音」开关（勾 = 有声，不勾 = 禁音 —— 用户语义）。store 键仍是 isMuted（持久化
-    /// 语义不变），视图这一侧做一次取反，别处不许再出现第二份取反。
+    /// 「声音」开关（勾 = 有声）。store 键仍是 isMuted，视图这一侧做一次取反，别处不许再取反。
     private var soundOn: Binding<Bool> {
         Binding(
             get: { !store.isMuted },
@@ -322,22 +309,20 @@ struct SettingsView: View {
             })
     }
 
-    /// 「电池时播放」开关（勾 = 使用电池也播放 —— 用户语义，2026-10-04 反转）。
-    /// store 键仍是 pauseOnBattery（持久化语义不变：true = 电池时暂停），视图侧取反一次，
-    /// 别处不许出现第二份取反。默认 pauseOnBattery=false → 勾选态=开（默认播放）。
+    /// 「电池时播放」开关（勾 = 使用电池也播放）。store 键仍是 pauseOnBattery
+    /// （true = 电池时暂停），视图侧取反一次，别处不许再取反。
     private var playOnBattery: Binding<Bool> {
         Binding(
             get: { !store.pauseOnBattery },
             set: {
                 store.pauseOnBattery = !$0
                 store.persist()
-                // 当场重估：用最近一次已知的电源状态走同一个映射，不等下一次电源跃迁。
+                // 当场重估：用最近一次已知电源状态重算，不等下一次电源跃迁。
                 reapplyBatteryHold()
             })
     }
 
-    /// 开机自启。与 `pauseOnBattery` 同款三行：写 store → persist → 落行为。
-    /// 行为侧（A→B 决策）在装配层，视图只管把用户的拨动递过去。
+    /// 开机自启。与 `pauseOnBattery` 同款三行：写 store → persist → 落行为，决策在装配层。
     private var launchAtLogin: Binding<Bool> {
         Binding(
             get: { store.launchAtLogin },
@@ -352,15 +337,15 @@ struct SettingsView: View {
 
     private func seedAndObserve() {
         rateDrag = Double(store.rate)
-        // 开窗即重查 ffmpeg（用户中途装上的不必重启；回填 session → 卡片当场刷新）。
+        // 开窗即重查 ffmpeg：用户中途装上的不必重启，回填 session 卡片当场刷新。
         refreshFFmpeg()
         applyWindowChrome()
         ffmpegStatusLine()
     }
 
-    /// 窗口补充设置：hiddenTitleBar 窗口默认不可拖 —— 开 isMovableByWindowBackground
-    /// 让自绘标题行/空白区可以拖窗。0.5 秒后 SwiftUI 才把 Window 装进 NSApp.windows
-    /// （几何探针同一时序），此刻设置一次即可（该属性不在 SwiftUI 场景配置里，不会被改回）。
+    /// hiddenTitleBar 窗口默认不可拖，开 isMovableByWindowBackground 让自绘标题行可拖窗。
+    /// 必须延后 0.5 秒：SwiftUI 此时才把 Window 装进 NSApp.windows；
+    /// 该属性不在场景配置里，不会被改回。
     private func applyWindowChrome() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             guard let win = NSApp.windows.first(where: { $0.title == "动态壁纸" }) else { return }
@@ -369,8 +354,7 @@ struct SettingsView: View {
         }
     }
 
-    /// 几何探针：窗口出现后打一行 `PIC_SETTINGS_WINDOW`，经 `PIC_EVIDENCE_FILE` mirror 进证据
-    /// 文件（XCUITest/探针 → 可 grep 证据的桥）。
+    ///  几何探针：窗口出现后打一行 `PIC_SETTINGS_WINDOW`， 经 `PIC_EVIDENCE_FILE` mirror 出去供 grep。
     private func emitWindowGeometry(_ win: NSWindow) {
         WallpaperWindowController.emit(
             "PIC_SETTINGS_WINDOW width=\(Int(win.frame.width.rounded())) minWidth=\(Int(win.contentMinSize.width.rounded()))")

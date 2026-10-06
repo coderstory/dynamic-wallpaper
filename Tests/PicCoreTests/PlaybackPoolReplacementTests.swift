@@ -1,10 +1,7 @@
 import XCTest
 @testable import PicCore
 
-/// 播放池的一对一替换 —— 降帧产物顶替原片，池大小不变。
-///
-/// ⚠️ 这组测试的全部意义：`clip.mp4` 与 `Converted/clip-30fps.mp4` 路径不同，
-/// 按 `url.path` 去重不生效，两条都会进池，同一段素材播两遍。
+/// `clip.mp4` 与 `Converted/clip-30fps.mp4` 路径不同，按 `url.path` 去重不生效，两条都会进池，同一段素材播两遍 —— 本组钉的是一对一替换且池大小不变。
 @MainActor
 final class PlaybackPoolReplacementTests: XCTestCase {
 
@@ -23,13 +20,11 @@ final class PlaybackPoolReplacementTests: XCTestCase {
         super.tearDown()
     }
 
-    // MARK: - 夹具
-
     private func item(_ relativePath: String) -> VideoItem {
         VideoItem(url: root.appendingPathComponent(relativePath))
     }
 
-    /// 真在磁盘上建一个派生文件 —— `hasLiveDerivative()` 要读它的属性。
+    /// 派生文件必须在磁盘上真实存在 —— `hasLiveDerivative()` 读的是它的属性。
     @discardableResult
     private func makeFile(_ relativePath: String) -> VideoItem {
         let url = root.appendingPathComponent(relativePath)
@@ -48,9 +43,6 @@ final class PlaybackPoolReplacementTests: XCTestCase {
             state: .done)
     }
 
-    // MARK: - 用例
-
-    /// 表说「源有个活的派生片」时，池里应换成派生片，**且只留一条**。
     func testDerivativeReplacesSourceOneToOne() {
         let source = item("clip.mp4")
         let derivative = makeFile("Converted/clip-30fps.mp4")
@@ -61,7 +53,6 @@ final class PlaybackPoolReplacementTests: XCTestCase {
         XCTAssertEqual(pool.first?.url.path, derivative.url.path)
     }
 
-    /// 没有表 → 原样合并（没降过帧的目录不受影响）。
     func testWithoutTableFallsBackToPlainMerge() {
         let source = item("clip.mp4")
         let derivative = makeFile("Converted/clip-30fps.mp4")
@@ -72,14 +63,14 @@ final class PlaybackPoolReplacementTests: XCTestCase {
     /// 表说有派生片但文件已被删 → 回落原片，不能拿失效路径去装载。
     func testDeadDerivativeFallsBackToSource() {
         let source = item("clip.mp4")
-        let vanished = item("Converted/clip-30fps.mp4")   // 从未落盘
+        let vanished = item("Converted/clip-30fps.mp4")   // item 而非 makeFile：从未落盘
         let table = FrameRateTable(entries: [entry(source: source, derivative: vanished)])
 
         let pool = PlaybackPool.build(root: [source], converted: [vanished], table: table)
         XCTAssertEqual(pool.first?.url.path, source.url.path, "派生文件不在磁盘上 → 回落原片")
     }
 
-    /// 表说有、扫描也扫到了，但源已被删 → 派生片是孤儿，不进池。
+    /// 源已被删时派生片是孤儿，不进池。
     func testOrphanDerivativeIsDropped() {
         let derivative = makeFile("Converted/ghost-30fps.mp4")
         let table = FrameRateTable(entries: [entry(source: item("ghost.mp4"), derivative: derivative)])
@@ -88,7 +79,7 @@ final class PlaybackPoolReplacementTests: XCTestCase {
         XCTAssertEqual(pool.count, 0, "源已不存在的派生片不进池")
     }
 
-    /// 替换发生在**原位**，不追加到末尾 —— 追加会让壁纸轮换顺序整体错乱。
+    /// 替换发生在原位，不追加到末尾 —— 追加会让壁纸轮换顺序整体错乱。
     func testReplacementKeepsSourcePosition() {
         let a = item("a.mp4"), b = item("b.mp4"), c = item("c.mp4")
         let derivativeB = makeFile("Converted/b-30fps.mp4")
@@ -99,7 +90,7 @@ final class PlaybackPoolReplacementTests: XCTestCase {
                        "替换发生在原位，不改变轮换顺序")
     }
 
-    /// 转码产物（同名无后缀）不参与替换 —— 另一条产品线，按原规则追加。
+    /// 转码产物（同名无后缀）不参与替换 —— 降帧与转码是两条产品线，按原规则追加。
     func testPlainTranscodeProductStillAppends() {
         let source = item("clip.mkv")
         let transcodeProduct = makeFile("Converted/clip.mp4")

@@ -1,19 +1,10 @@
-// PowerWatcherTests.swift —— PAUSE-05「电池供电时暂停（开关，默认关闭）」。
-//
-// 拔电源是**硬件动作**，本会话做不到。本组用例守住的是三件不依赖那次动作的事：
-//
-//   ① 判定是**纯函数**：`isOnBattery && pauseOnBatteryEnabled`，四种组合各一行。
-//      拔电源做不到，但这两个 `Bool` 谁都能注入 —— 判定逻辑因此 100% 可测。
-//   ② PAUSE-05 的两半**连起来**成立：默认关（设置层）⇒ 即使在电池上也不暂停（判定层）。
-//      缺任何一半，这条需求都不成立。
-//   ③ `.battery` 与其它 reason 在**真实 HoldArbiter** 上独立共存 —— 解除它不影响别的 hold。
-//
-// ①② 是本次注入式反向验证的目标：把 `shouldHold` 改成忽略开关之后，
-// `testPolicyHoldsOnlyWhenEnabledAndOnBattery` 与 `testDefaultSettingMeansBatteryNeverHolds`
-// 必须转红 ——「一条从没红过的判据不证明它会红」。
-//
-// ⚠️ 本文件**不引入播放框架**（`System/` 与 `State/` 零 AVFoundation）。
-//    `FakeTarget` 是本文件**本地**的等价实现，不跨文件引用别处那一个。
+// 拔电源是硬件动作，本组用例守的是不依赖那次动作的部分：判定是纯函数
+// `isOnBattery && pauseOnBatteryEnabled`（两个 `Bool` 谁都能注入，判定逻辑因此全可测）；
+// 判定函数的输入必须真的是 `SettingsStore.pauseOnBattery` —— 默认值关（设置层）与判定层
+// 少任何一半，用户侧的开关就不起作用。
+// `System/` 与 `State/` 零 AVFoundation。`FakeTarget` 是本文件本地的等价实现，
+// 不要跨文件复用 `HoldArbiterTests` 里那一个 —— 测试替身跨文件耦合后，
+// 失败时分不清是替身坏了还是被测代码坏了。
 
 import XCTest
 @testable import PicCore
@@ -21,7 +12,6 @@ import XCTest
 @MainActor
 final class PowerWatcherTests: XCTestCase {
 
-    /// 本地记录式播放端。
     private final class FakeTarget: PlaybackTarget {
         var position: TimeInterval = 0
         var seeks: [TimeInterval] = []
@@ -48,12 +38,7 @@ final class PowerWatcherTests: XCTestCase {
         try await super.tearDown()
     }
 
-    // ── 1. 判定是纯函数：四种组合各一行 ─────────────────────────────────
-
-    /// **第二行是核心**：`true, false → false` —— 在电池上、开关关，一律不暂停。
-    ///
-    /// 这条如果反了（写成 `isOnBattery || ...` 或直接返回 `isOnBattery`），
-    /// 用户拿电池本时壁纸就会无故停住，看起来像 app 坏了。
+    /// 第二行是核心：写成 `isOnBattery || ...` 或直接返回 `isOnBattery`，它会转红。
     func testPolicyHoldsOnlyWhenEnabledAndOnBattery() {
         XCTAssertFalse(BatteryHoldPolicy.shouldHold(isOnBattery: false, pauseOnBatteryEnabled: false),
                        "不在电池 + 开关关 → 不 hold")
@@ -65,11 +50,8 @@ final class PowerWatcherTests: XCTestCase {
                       "在电池上 + 开关开 → 这才 hold")
     }
 
-    /// **PAUSE-05 两半的联合判据**：默认关（设置层）⇒ 在电池上也不暂停（判定层）。
-    ///
-    /// 上面那条测的是「判定函数本身」，这条测的是「判定函数的输入**真的**是那个开关」。
-    /// 少了它，一个把 `pauseOnBatteryEnabled: false` 硬写死的实现也能让上面那条全绿，
-    /// 而真机上开关根本不起作用 —— 这是「两半需求」里最容易只交付一半的地方。
+    /// 测的是判定函数的输入**真的是**那个开关：把 `pauseOnBatteryEnabled: false` 硬写死的实现
+    /// 也能让上一条全绿，只有本条能抓住。
     func testDefaultSettingMeansBatteryNeverHolds() {
         let store = SettingsStore(defaults: defaults, seed: SettingsStore.Seed())
         XCTAssertFalse(store.pauseOnBattery, "前提：默认解析出来就是关的")
@@ -80,18 +62,14 @@ final class PowerWatcherTests: XCTestCase {
             "默认设置下即便真在电池上也不得 hold"
         )
 
-        // 反向：开关一旦打开，同一个判定就必须 hold —— 说明上面那条不是恒假。
+        // 反向：开关打开时必须 hold，否则上面那条是空判
         XCTAssertTrue(
             BatteryHoldPolicy.shouldHold(isOnBattery: true, pauseOnBatteryEnabled: true),
             "夹具前提：开关打开时判定必须为真，否则上一条是空判"
         )
     }
 
-    // ── 2. `.battery` 与其它 reason 独立共存 ─────────────────────────────
-
-    /// 与锁屏 / 熄屏同构：换一条 reason 再锁一次，veto 集合语义不变。
-    ///
-    /// 覆盖式实现（进入 hold 时顺手把集合覆盖成 `[.battery]`）会让这里转红 ——
+    /// 覆盖式实现（进入 hold 时把集合覆盖成 `[.battery]`）会让叠加那条转红 ——
     /// 那样「锁屏中拔电源」就会把锁屏那条抹掉，壁纸在锁屏状态下开始播。
     func testBatteryReasonEntersAndLeavesVetoSetIndependently() {
         let target = FakeTarget()
@@ -119,19 +97,12 @@ final class PowerWatcherTests: XCTestCase {
         XCTAssertEqual(target.seeks, [42.0], "两条都清空才从原处续播（D-15）")
     }
 
-    // ── 3. 读数链与启动即读（可测的部分） ───────────────────────────────
-
-    /// 读电源状态走的是**三态**而不是 `Bool`：读不到有它自己的名字。
-    ///
-    /// 这条断言的是**键名**与**值的形状** —— 计划原本写「键 `"AC Power"` 取 `CFBoolean`」，
-    /// 本机 SDK 实测不成立（`IOPSKeys.h:311` 键名是 `"Power Source State"`，
-    /// `:303` 类型是 CFString）。本用例锁的是**真实**的键名与三态映射，不锁错的那个字面量。
+    /// 读电源状态是**三态**而不是 `Bool`：值是 String，键名固定，键名取错或值当 Bool 读都会静默退化成「永远在 AC 上」。
     func testPowerSourceStateKeyIsTheRealSDKKeyAndValuesAreStrings() {
         XCTAssertEqual(PowerWatcher.powerSourceStateKey, "Power Source State",
                        "kIOPSPowerSourceStateKey 的实测键名，不是 AC Power")
 
-        // 本机此刻在 AC 上（有内置电池但接着电源），
-        // 所以这里断言的是**三态映射**，不硬编「当前一定是哪个态」。
+        // 断言三态映射本身，不硬编本机此刻是哪个态
         switch PowerWatcher.readPowerState() {
         case .onAC:
             let value = PowerWatcher.currentPowerSourceStateValue()
@@ -144,15 +115,10 @@ final class PowerWatcherTests: XCTestCase {
         }
     }
 
-    /// `start()` 在**不投递任何事件**的情况下就必须把当前状态交出去。
-    ///
-    /// 与 `LockWatcher` / `DisplayWatcher` 同形的启动契约。电源状态**当下可读**
-    /// （不像锁屏 / 熄屏要等跃迁），所以缺了这一次同步读，在电池上启动的机器
-    /// 会一直不产生 hold，直到下一次拔/插电源。
-    ///
-    /// 本用例跑**真实的** `PowerWatcher`（真调 IOKit、真挂 run loop source），
-    /// 不断言回调里那个 `Bool` 是 true 还是 false —— 那取决于本机此刻插没插电源。
-    /// 断言的是「回调**发生了一次**」这件事本身。
+    /// 与 `LockWatcher` / `DisplayWatcher` 同形的启动契约。电源状态**当下可读**（不像锁屏 / 熄屏要等跃迁），
+    /// 缺了这次同步读，在电池上启动的机器会一直不产生 hold，直到下一次拔/插电源。
+    /// 本用例跑**真实的** `PowerWatcher`（真调 IOKit、真挂 run loop source），不断言回调里那个 `Bool`
+    /// 是 true 还是 false（取决于本机此刻插没插电源），只断言回调**发生了一次**。
     func testStartDeliversCurrentPowerStateSynchronously() {
         let watcher = PowerWatcher()
         var deliveries: [Bool] = []
@@ -165,7 +131,6 @@ final class PowerWatcherTests: XCTestCase {
         XCTAssertEqual(PowerWatcher.currentIsOnBattery(), deliveries[0],
                        "同步投递的值必须与此刻真读出来的一致（同一时刻不该是两种答案）")
 
-        // 幂等：重复 start() 不接管回调。
         watcher.start { _ in XCTFail("重复 start() 不得接管回调") }
         XCTAssertEqual(deliveries.count, 1, "重复 start() 不再同步读")
 
@@ -174,11 +139,7 @@ final class PowerWatcherTests: XCTestCase {
         XCTAssertFalse(watcher.isSourceRegistered, "stop() 必须摘掉事件源（T-03-15）")
     }
 
-    /// 4 秒观察窗内电源回调触发次数 —— 本会话在 AC 上不动电源，这个数必然是 0。
-    ///
-    /// 这条用例不断言它是 0（本机接线若有变动就会变），只断言：
-    /// 跑满观察窗、回调计数可读、`stop()` 之后计数不再增长。
-    /// 「拔电源跃迁不可观测」这件事在 evidence 里如实记 `unobservable`，不在这儿假装测过。
+    /// 不断言观察窗内回调次数是 0（本机接线一变就变），只断言：计数可读、`stop()` 之后不再增长。
     func testPowerCallbackCountIsObservableAndStopsAfterStop() {
         let watcher = PowerWatcher()
         var deliveries: [Bool] = []

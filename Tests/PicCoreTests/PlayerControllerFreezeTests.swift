@@ -4,16 +4,13 @@ import XCTest
 
 /// 冻结面的**编译期**判据 + `stop()` 的运行时幂等用例。
 ///
-/// `PlayerController` 是 `final class`，子类替身不可用；而「八个签名没被改」
-/// 用源码 grep 只能抓到已经发生的破坏。这里用协议 conformance 把它变成
-/// **编译期**约束：测试侧逐字复刻八个签名，`extension PlayerController:
-/// PlayerControllerSurface {}` 空 conformance 成立即签名逐字匹配 ——
-/// 任何一处被改（参数标签、类型、名字、增删）都编译不过。
+/// 「八个签名没被改」用源码 grep 只能抓到已经发生的破坏；这里用协议 conformance 把它变成编译期约束：
+/// 测试侧逐字复刻八个签名，`extension PlayerController: PlayerControllerSurface {}` 空 conformance 成立
+/// 即签名逐字匹配 —— 任何一处被改（参数标签、类型、名字、增删）都编译不过。
 ///
-/// 空 conformance 不是 XCTest 用例，不计入 `Executed N tests`；
-/// 运行时恰好 1 条：`testStopEmptiesQueueAndIsIdempotent`。
-/// 冻结面：八个签名逐字复刻。整体标 `@MainActor`（Swift 5 语言模式下
-/// 不标会报隔离错误 —— 早期在 `PlaybackTarget` 上实测过这一类）。
+/// 空 conformance 不是 XCTest 用例，不计入 `Executed N tests`；运行时恰好 1 条：
+/// `testStopEmptiesQueueAndIsIdempotent`。协议整体标 `@MainActor`（Swift 5 语言模式下
+/// 不标会报隔离错误）。
 @MainActor
 protocol PlayerControllerSurface: AnyObject {
     func attach(to layer: AVPlayerLayer)
@@ -26,19 +23,15 @@ protocol PlayerControllerSurface: AnyObject {
     func arbiterApply(_ decision: PlaybackDecision)
 }
 
-/// 空 conformance：成立即八个签名逐字一致（协议与 extension 都在
-/// 文件作用域 —— 嵌在测试类里会互相不可见）。若这里编译失败，说明产品侧
-/// 签名被改 —— 改产品代码去迁就协议，不要改协议。
+/// 空 conformance：成立即八个签名逐字一致（协议与 extension 都在文件作用域 —— 嵌在测试类里会互相不可见）。
+/// 这里编译失败说明产品侧签名被改 —— 改产品代码去迁就协议，不要改协议。
 extension PlayerController: PlayerControllerSurface {}
 
 @MainActor
 final class PlayerControllerFreezeTests: XCTestCase {
 
-    // MARK: - stop()：清空队列且幂等
-
     func testStopEmptiesQueueAndIsIdempotent() async throws {
-        // 干净 clone 上 fixtures/ 不存在（gitignored），本条跳过，不影响其余用例。
-        // 纪律见 MenuBarModelTests：测试不依赖任何可能缺席的文件系统状态。
+        // 干净 clone 上 fixtures/ 不存在（gitignored），本条跳过；测试不依赖任何可能缺席的文件系统状态。
         let fixture = URL(fileURLWithPath: "fixtures/clip-a.mp4")
         guard FileManager.default.fileExists(atPath: fixture.path) else {
             throw XCTSkip("干净 clone 上 fixtures/ 不存在，本条跳过，不影响其余用例")
@@ -47,8 +40,8 @@ final class PlayerControllerFreezeTests: XCTestCase {
         let controller = PlayerController()
         controller.load(url: fixture)
 
-        // 等 looper 把模板 item 真正入队。必须 await Task.sleep（400ms，tracer
-        // 的实测值）：Thread.sleep 堵死主 run loop，looper 的入队派发永远跑不到。
+        // 等 looper 把模板 item 真正入队。必须 await Task.sleep（400ms 实测值）：
+        // Thread.sleep 堵死主 run loop，looper 的入队派发永远跑不到。
         try await Task.sleep(nanoseconds: 400_000_000)
         XCTAssertGreaterThanOrEqual(
             controller.player.items().count, 1,
@@ -61,7 +54,6 @@ final class PlayerControllerFreezeTests: XCTestCase {
             "stop() 之后队列必须为空 —— 否则降级后播放器还持着上一个 item"
         )
 
-        // 幂等：二次调用不得抛错、队列仍为空。
         controller.stop()
         XCTAssertTrue(
             controller.player.items().isEmpty,

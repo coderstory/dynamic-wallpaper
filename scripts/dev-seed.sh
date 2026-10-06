@@ -1,10 +1,7 @@
 #!/usr/bin/env bash
-# dev-seed.sh —— 无文件夹选择面板（D-03），设置靠预置。
-#
-# 两条并行预置路径，因为 swift run 起的进程没有 bundle id、UserDefaults 域取不到
-# com.local.pic（打包成 .app 后 bundle id 才是 com.local.pic）：
+# 两条并行预置路径，因为 swift run 起的进程没有 bundle id、UserDefaults 域取不到 com.local.pic（打包成 .app 后才有 bundle id）：
 #   ① UserDefaults：defaults write com.local.pic sourceFolderPath '<repo>/fixtures'  ← 本脚本实际执行
-#   ② 环境变量：  export PIC_SOURCE_FOLDER='<repo>/fixtures'                          ← 打印，供运行期 eval
+#   ② 环境变量：    export PIC_SOURCE_FOLDER='<repo>/fixtures'                          ← 打印，供运行期 eval
 #
 # 键名必须与 Sources/PicCore/State/SettingsStore.swift 实际读取的键一致：
 #   sourceFolderPath / rate / volume / muted / playMode / rotationInterval

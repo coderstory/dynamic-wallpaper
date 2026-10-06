@@ -5,12 +5,10 @@ import XCTest
 @MainActor
 final class FpsTranscodeQueueTests: XCTestCase {
 
-    /// 文件内自带替身（既有纪律：不跨文件引用别的测试类的 helper）。
-    /// 进程外零调用 —— 自己写 .tmp、返回可控退出码。
+    /// 文件内自带替身，不要与 `TranscodeQueueTests.swift` 里那份合并。进程外零调用：真写 .tmp、返回可控退出码。
     final class FakeRunner: TranscodeRunning, @unchecked Sendable {
         private(set) var calls: [String] = []
         var exitStatus: Int32 = 0
-        /// 取消要观察的：`cancel()` 之后 run 返回非 0。
         var isCancelled = false
 
         func run(ffmpegPath: String, arguments: [String], outputTemporaryPath: String,
@@ -44,8 +42,6 @@ final class FpsTranscodeQueueTests: XCTestCase {
         super.tearDown()
     }
 
-    // MARK: - 夹具
-
     @discardableResult
     private func makeSource(_ name: String) -> URL {
         let url = root.appendingPathComponent(name)
@@ -53,7 +49,7 @@ final class FpsTranscodeQueueTests: XCTestCase {
         return url
     }
 
-    /// 真在磁盘上建一个产物（`hasLiveDerivative` 要读它）。
+    /// 真在磁盘上建一个产物 —— `hasLiveDerivative` 要去读它。
     @discardableResult
     private func makeDerivative(_ name: String) -> URL {
         let url = root.appendingPathComponent(
@@ -64,8 +60,7 @@ final class FpsTranscodeQueueTests: XCTestCase {
         return url
     }
 
-    /// ⚠️ 必须显式给 tableURL —— 用默认路径会读写真实用户数据
-    ///（~/Library/Application Support/Pic/frame-rate-table.json）。
+    /// 必须显式给 tableURL，默认路径会读写真实用户数据（~/Library/Application Support/Pic/frame-rate-table.json）。
     private func makeQueue(specProvider: @escaping (URL) async -> VideoAssetMetadata = { _ in
         VideoAssetMetadata(hasVideoTrack: true, frameRate: 60, durationSeconds: 10)
     }) -> FpsTranscodeQueue {
@@ -78,9 +73,6 @@ final class FpsTranscodeQueueTests: XCTestCase {
             tableURL: root.appendingPathComponent("fps-table.json"))
     }
 
-    // MARK: - 扫描
-
-    /// fps ≤30 的不进队列 —— 287 个文件走这条路，一个都不转。
     func testScanSkipsSourcesAtOrBelowThirtyFps() async {
         let source = makeSource("ok.mp4")
         let queue = makeQueue { _ in
@@ -95,12 +87,10 @@ final class FpsTranscodeQueueTests: XCTestCase {
         let queue = makeQueue()
         await queue.scan()
         XCTAssertEqual(queue.jobs.count, 1)
-        // 比末段文件名 —— `enumerator` 返回 /private/var/...，raw 是 /var/...，
-        // 两种规范化都给不出同一个串。
+        // 只比末段文件名：`enumerator` 返回 /private/var/...，raw 是 /var/...，两种规范化都给不出同一个串。
         XCTAssertEqual(queue.jobs.first?.sourceURL.lastPathComponent, "hi.mp4")
     }
 
-    /// 读不到帧率 → 按「不降」处理，宁可文件大一点也不猜错画质。
     func testScanSkipsSourcesWithUnknownFrameRate() async {
         makeSource("unknown.mp4")
         let queue = makeQueue { _ in VideoAssetMetadata(hasVideoTrack: true, frameRate: nil) }
@@ -108,7 +98,6 @@ final class FpsTranscodeQueueTests: XCTestCase {
         XCTAssertTrue(queue.jobs.isEmpty, "帧率读不到就不降")
     }
 
-    /// 无视频轨的文件不进队列。
     func testScanSkipsSourcesWithoutVideoTrack() async {
         makeSource("broken.mp4")
         let queue = makeQueue { _ in VideoAssetMetadata(hasVideoTrack: false) }
@@ -116,7 +105,6 @@ final class FpsTranscodeQueueTests: XCTestCase {
         XCTAssertTrue(queue.jobs.isEmpty)
     }
 
-    /// `Converted/` 整棵排除 —— 产物自己不能再进队列。
     func testScanExcludesConvertedDirectory() async {
         makeDerivative("a-30fps.mp4")
         let queue = makeQueue()
@@ -124,14 +112,11 @@ final class FpsTranscodeQueueTests: XCTestCase {
         XCTAssertTrue(queue.jobs.isEmpty, "Converted/ 里的产物不进队列")
     }
 
-    /// 帧率表卡的三个读数：总数 / 需降 / 无需处理。
-    /// ⚠️ 「已是 30fps」显示 0 而库里明明有 287 个 —— 这条钉的就是那个 bug。
     func testScanExposesTableCardCounts() async {
         makeSource("hi1.mp4")
         makeSource("hi2.mp4")
         makeSource("lo1.mp4")
         let queue = makeQueue { url in
-            // 按文件名决定：两个 60fps、一个 30fps。
             url.lastPathComponent.hasPrefix("hi")
                 ? VideoAssetMetadata(hasVideoTrack: true, frameRate: 60, durationSeconds: 10)
                 : VideoAssetMetadata(hasVideoTrack: true, frameRate: 30, durationSeconds: 10)
@@ -144,8 +129,7 @@ final class FpsTranscodeQueueTests: XCTestCase {
         XCTAssertEqual(queue.tableTotal, 3, "帧率表行数 = 扫到的源文件数")
     }
 
-    /// 探测失败的文件**不进表** —— 表存的是实测结果，`fps` 是非可选 Double，
-    /// 存失败只能写 0，那是撒谎。所以 tableTotal 会小于 scannedCount。
+    /// 探测失败的文件**不进表** —— 表存的是实测结果，`fps` 是非可选 Double，存失败只能写 0。所以 tableTotal 会小于 scannedCount。
     func testUnknownFrameRateCountsInScanButNotTable() async {
         makeSource("a.mp4")
         makeSource("b.mp4")
@@ -160,13 +144,11 @@ final class FpsTranscodeQueueTests: XCTestCase {
         XCTAssertEqual(queue.okAt30Count, 1, "30fps 那个算达标")
     }
 
-    /// 表里已完成的文件不再重复入队。
     func testScanSkipsEntriesAlreadyDoneInTable() async throws {
         let source = makeSource("done.mp4")
         let derivative = makeDerivative("done-30fps.mp4")
         let tableURL = root.appendingPathComponent("t.json")
-        // ⚠️ 表项必须用**规范化路径 + 真实属性** —— `enumerator` 给的是
-        // /private/var/...，属性也要真的对上，否则 reusableEntry 判无效。
+        // 表项必须用**规范化路径 + 真实属性** —— `enumerator` 给的是 /private/var/...，属性也要真的对上，否则 reusableEntry 判无效。
         let canonical = source.resolvingSymlinksInPath().path
         let attributes = try FileManager.default.attributesOfItem(atPath: canonical)
         var table = FrameRateTable()
@@ -188,8 +170,6 @@ final class FpsTranscodeQueueTests: XCTestCase {
         XCTAssertTrue(queue.jobs.isEmpty, "已在表里完成的文件不重复入队")
     }
 
-    // MARK: - 执行
-
     func testRunProducesDerivativeAndMarksDone() async throws {
         let source = makeSource("a.mp4")
         let queue = makeQueue()
@@ -203,8 +183,7 @@ final class FpsTranscodeQueueTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: source.path), "原片保留不动")
     }
 
-    /// argv 必须带 HEVC 硬解 tag —— 漏了会静默软解。
-    /// 编码器名引用 profile 而非硬编码 —— profile 是唯一真相。
+    /// 编码器名必须引用 profile 而非硬编码 —— profile 是唯一真相。
     func testRunUsesProfileEncoderWithHevcTag() async {
         makeSource("a.mp4")
         let queue = makeQueue()
@@ -226,7 +205,6 @@ final class FpsTranscodeQueueTests: XCTestCase {
                        "失败用受控 token，不放 ffmpeg 原始日志")
     }
 
-    /// ffmpeg 不可用 → 不 spawn。
     func testUnavailableToolFailsWithoutRunning() async {
         makeSource("a.mp4")
         let queue = FpsTranscodeQueue(
@@ -241,7 +219,6 @@ final class FpsTranscodeQueueTests: XCTestCase {
         XCTAssertEqual(queue.jobs.first?.state, .failed(reason: "ffmpeg_unavailable"))
     }
 
-    /// 没有 pending 就不该空转。
     func testRunWithNoPendingDoesNothing() async {
         let queue = makeQueue()
         await queue.scan()
@@ -249,9 +226,6 @@ final class FpsTranscodeQueueTests: XCTestCase {
         XCTAssertTrue(runner.calls.isEmpty)
     }
 
-    // MARK: - 暂停 / 取消
-
-    /// 暂停：当前文件跑完才停，已完成的保留。剩下的仍是 pending。
     func testPauseStopsAfterCurrentJob() async {
         makeSource("a.mp4")
         makeSource("b.mp4")
@@ -265,7 +239,7 @@ final class FpsTranscodeQueueTests: XCTestCase {
         XCTAssertTrue(queue.jobs.allSatisfy { $0.state == .pending })
     }
 
-    /// 取消：终止当前进程，当前文件回到 pending（可重试），不留半成品。
+    /// 取消：当前文件回到 pending（可重试），不留半成品。
     func testCancelTerminatesAndReturnsCurrentToPending() async {
         makeSource("a.mp4")
         let queue = makeQueue()
@@ -275,7 +249,6 @@ final class FpsTranscodeQueueTests: XCTestCase {
         XCTAssertEqual(queue.jobs.first?.state, .pending, "取消后回到 pending 可重试")
     }
 
-    /// 取消后不留 .tmp。
     func testCancelLeavesNoTemporaryArtifacts() async {
         runner.isCancelled = true
         makeSource("a.mp4")
@@ -293,10 +266,7 @@ final class FpsTranscodeQueueTests: XCTestCase {
     makeQueue().cancel()
     }
 
-    // MARK: - 表回写（不写就等于活白干）
-
-    /// 产物落盘后必须把 `.done` 写回表 —— 否则下次扫描还是 `needsConvert`，
-    /// 200 个文件会被重新排队，13 小时的活白干一遍。
+    /// 产物落盘后必须把 `.done` 写回表 —— 否则下次扫描还是 `needsConvert`，同一批文件会被重新排队。
     func testSuccessWritesDoneBackToTable() async throws {
         makeSource("a.mp4")
         let tableURL = root.appendingPathComponent("fps-table.json")
@@ -334,7 +304,6 @@ final class FpsTranscodeQueueTests: XCTestCase {
         XCTAssertEqual(entry?.state, .failed, "失败要写回，避免下次重复排队")
     }
 
-    /// 取消/暂停后已完成的必须留在表里 —— 只有当前那个回到 pending。
     func testCancelKeepsCompletedEntriesInTable() async throws {
         makeSource("a.mp4")
         makeSource("b.mp4")

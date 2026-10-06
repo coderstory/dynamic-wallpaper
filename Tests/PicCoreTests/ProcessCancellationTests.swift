@@ -1,9 +1,7 @@
 import XCTest
 @testable import PicCore
 
-/// 取消/暂停的执行面 —— 真 spawn `/bin/sh` 慢桩，不用替身。
-///
-/// 为什么不用 FakeRunner：取消要打的是真实进程的 `terminate()`，替身打不到那条路。
+/// 取消打的是真实进程的 `terminate()`，替身打不到那条路，所以真 spawn `/bin/sh` 慢桩。
 @MainActor
 final class ProcessCancellationTests: XCTestCase {
 
@@ -22,7 +20,6 @@ final class ProcessCancellationTests: XCTestCase {
         super.tearDown()
     }
 
-    /// 不取消：进程自己跑完，退出码 0。
     func testUncancelledRunReturnsZero() async {
         let runner = ProcessTranscodeRunner()
         let status = await runner.run(
@@ -33,9 +30,7 @@ final class ProcessCancellationTests: XCTestCase {
         XCTAssertEqual(status, 0)
     }
 
-    /// 取消：跑到一半 terminate，**必须返回**而不是永久挂住。
-    ///
-    /// ⚠️ 这条是最要紧的：不取消的话队列的 await 永远不回来，整个 tab 卡死。
+    /// 取消：跑到一半 terminate，必须返回而不是永久挂住 —— 不返回的话队列的 await 永远不回来，整个 tab 卡死。
     func testCancelTerminatesRunningProcessAndReturns() async throws {
         let runner = ProcessTranscodeRunner()
         let task = Task { () -> Int32 in
@@ -45,7 +40,7 @@ final class ProcessCancellationTests: XCTestCase {
                 outputTemporaryPath: root.appendingPathComponent("b.tmp").path,
                 onProgressLine: { _ in })
         }
-        // 让进程真的起来再取消 —— 否则可能打在 spawn 之前。
+        // 必须先等进程真起来再 cancel，否则可能打在 spawn 之前。
         try await Task.sleep(nanoseconds: 300_000_000)
         runner.cancel()
 
@@ -53,7 +48,7 @@ final class ProcessCancellationTests: XCTestCase {
         XCTAssertNotEqual(status, 0, "被取消的进程退出码必须非 0，队列据此判 failed 不落盘")
     }
 
-    /// 取消后再 run 必须还能用 —— 句柄不能被上一次的进程占住。
+    /// 取消后再 run 必须还能用 —— `Process` 实例不能被上一次的进程占住。
     func testRunnerIsReusableAfterCancel() async throws {
         let runner = ProcessTranscodeRunner()
         let first = Task { () -> Int32 in
@@ -73,13 +68,12 @@ final class ProcessCancellationTests: XCTestCase {
         XCTAssertEqual(status, 0, "取消过一次之后 runner 仍要能正常执行")
     }
 
-    /// 没有进程在跑时 cancel 不能崩 —— 暂停/取消可能被连点。
+    /// 暂停/取消会被连点，没有进程时 cancel 也不能崩。
     func testCancelWithNoRunningProcessIsSafe() {
         ProcessTranscodeRunner().cancel()
     }
 
-    /// 暂停：本条只钉「跑完当前文件才停」的语义 —— 队列侧检查 pending 是否被拾取。
-    /// 执行面本身无法表达暂停（那是队列的状态机），所以这里只确认 runner 不阻塞。
+    /// 本条只钉执行面：进程退出后 runner 不阻塞。暂停的「跑完当前文件才停」是队列侧状态机，不在这里。
     func testIsRunningIsFalseAfterProcessExits() async {
         let runner = ProcessTranscodeRunner()
         _ = await runner.run(
@@ -89,14 +83,12 @@ final class ProcessCancellationTests: XCTestCase {
         XCTAssertFalse(runner.isRunning, "进程退出后 isRunning 必须为 false")
     }
 
-    /// ⚠️ 这条钉的是实测 bug：stderr 挂了 Pipe 却不读，缓冲区（~64KB）一满，
-    /// ffmpeg 就阻塞在写 stderr 上永不退出 —— 表现是 waitUntilExit 挂住、
-    /// 队列卡死、CPU 归零。转长视频必现（ffmpeg 的告警量足以填满管道）。
+    /// stderr 挂了 Pipe 却不读时，缓冲区（~64KB）一满 ffmpeg 就阻塞在写 stderr 上永不退出 —— 表现是 waitUntilExit 挂住、队列卡死、CPU 归零。长视频必现（告警量足以填满管道）。
     func testLargeStderrOutputDoesNotHangTheProcess() async {
         let runner = ProcessTranscodeRunner()
         let status = await runner.run(
             ffmpegPath: "/bin/sh",
-            // stderr 输出远超管道容量。standardError 若是无人读的 Pipe，这里必挂死。
+            // 输出量远超管道容量。
             arguments: ["-c", "i=0; while [ $i -lt 20000 ]; do echo \"stderr 填充行 $i\"; i=$((i+1)); done; printf 'frame=1\\n'"],
             outputTemporaryPath: root.appendingPathComponent("f.tmp").path,
             onProgressLine: { _ in })

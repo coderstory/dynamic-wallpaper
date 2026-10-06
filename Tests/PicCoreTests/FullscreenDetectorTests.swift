@@ -1,34 +1,20 @@
-// FullscreenDetectorTests.swift —— 合取判定的四条用例。
-//
-// 这一组用例守护的是早期用实测证伪掉的那件事：
-//
-//   `FALSE_POSITIVE_OBSERVED=1 direction=safe_area_filled_but_not_fullscreen_scored_fullscreen`
-//   —— Ghostty(pid 1227) 与 CC Switch(pid 1228) 各把 visibleFrame(1470×833) 铺满，
-//      coverage=1.000 被旧阈值判成全屏，但两者 bounds 高 833 < 屏幕 frame 高 956，
-//      **结构上够不到刘海，可证不是全屏**。
-//
-// coverage 顶在 1.000 上限，任何阈值调整都改不了这件事。
-// 所以本组用例测的不是「阈值是多少」，而是「**几何单独为真时必须判 false**」。
-//
-// ⚠️ 判据只在这里判一次。`FullscreenGeometryTests` 只锁几何数字，
-//    本文件只锁判定 —— 两个文件各判一次会让判定逻辑出现两个落点。
+// 几何足以铺满 visibleFrame（coverage 顶到 1.000 上限）时，只要没有几何外信号
+// （空间切换 / 前台应用激活），必须判 false：那类窗口 bounds 高小于屏幕高，结构上够不到刘海，
+// 可证不是全屏，而 coverage 已顶在上限，没有任何阈值能把「几何为真」和「判定为真」分开。
+// 所以本组测的是「几何单独为真必须判 false」，不是「阈值是多少」。
+// 判定只在本文件判一次，几何数字由 FullscreenGeometryTests 锁；两处都判会让判定逻辑有两个落点。
 
 import XCTest
 @testable import PicCore
 
 final class FullscreenDetectorTests: XCTestCase {
 
-    // 逐字重放早期实测 S0：Ghostty 铺满 visibleFrame。
+    // 假阳性夹具取自真实窗口：visibleFrame 1470×833，屏幕高 956。
     private let falsePositiveSamples = [WindowRectSample(pid: 1227, raw: ScreenRect(x: 0, y: 33, w: 1470, h: 833))]
     private let visible = ScreenRect(x: 0, y: 90, w: 1470, h: 833)
     private let screenHeight: Double = 956
 
-    // ── 1. 几何单独为真 → false ─────────────────────────────────────────
-
-    /// 名字里带 `GeometryAlone` 是刻意的：将来有人改动判定时，从测试名就该看出意图。
-    ///
-    /// 这不是「阈值调高一点」能防住的事 —— `coverage` 已经是 1.000，
-    /// 没有任何阈值能把「几何为真」和「判定为真」分开。**必须靠合取。**
+    /// 「把阈值调高一点」防不住这件事 —— **必须靠合取**。
     func testGeometryAloneNeverTriggersFullscreen() {
         let s = FullscreenSignals(spaceChangedWhileFullyCovering: false,
                                   frontmostAppChangedWhileFullyCovering: false,
@@ -38,11 +24,8 @@ final class FullscreenDetectorTests: XCTestCase {
                        "D-02：几何足够时没有几何外信号，一律不得判成全屏")
     }
 
-    // ── 2. 假阳性夹具端到端 ───────────────────────────────────────
-
-    /// 一个断言同时锁住「几何算得对」与「判定用得对」，两个数字都能指回实测日志行。
-    ///
-    /// 与几何侧那条不重叠：那条只说 coverage=1.000，这条说 coverage=1.000 **不判全屏**。
+    /// 一个断言同时锁住「几何算得对」与「判定用得对」；与几何侧那条不重叠：
+    /// 那条只说 coverage=1.000，这条说 coverage=1.000 **不判全屏**。
     func testFalsePositiveWindowGeometryOnePointZeroStaysFalse() {
         let coverage = FullscreenGeometry.aggregate(samples: falsePositiveSamples,
                                                     visible: visible,
@@ -59,8 +42,6 @@ final class FullscreenDetectorTests: XCTestCase {
         XCTAssertFalse(FullscreenVerdict.verdict(s),
                        "D-02 的核心反例：coverage=1.000 但没有几何外信号 → 判定必须是 false")
     }
-
-    // ── 3. 合取的四行穷举 ───────────────────────────────────────────────
 
     /// 两个合取项各自的四种组合一次走完。任一项被改成单侧，这四行里必有一行红。
     func testNonGeometricSignalTriggersFullscreenOnlyWhenCovering() {
@@ -84,8 +65,6 @@ final class FullscreenDetectorTests: XCTestCase {
                                              covering: true)
         XCTAssertFalse(FullscreenVerdict.verdict(geometryOnly), "几何充足但无信号 → false")
     }
-
-    // ── 4. 两个信号源是等价的两条路，不是二选一 ─────────────────────────
 
     func testFrontmostSignalAloneAlsoCounts() {
         let spaceOnly = FullscreenSignals(spaceChangedWhileFullyCovering: true,

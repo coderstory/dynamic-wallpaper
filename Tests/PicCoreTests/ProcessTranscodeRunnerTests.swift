@@ -1,11 +1,8 @@
 import XCTest
 @testable import PicCore
 
-// 合规说明（红线）：本测试的桩二进制是 /bin/sh 跑 printf + echo —— 不是
-// ffmpeg、不转码、毫秒级、零编码负载。它验证的是 Process / stdout 管道 /
-// 退出码机制，不触「禁止真实转码调用」的禁令。任何情况下不得为了让测试
-// 「更真实」而把桩换成真实转码器 —— 那是 779.9% CPU 事故的直接复发。
-// 真转码只存在于手动 bench。
+// 桩二进制是 /bin/sh 跑 printf + echo，毫秒级、零编码负载，验证的是 Process / stdout 管道 /
+// 退出码机制。不要为了「更真实」把它换成真转码器 —— 那会把测试跑成 CPU 事故；真转码只存在于手动 bench。
 final class ProcessTranscodeRunnerTests: XCTestCase {
 
     /// 线程安全收集盒：onProgressLine 来自 readabilityHandler 的后台队列。
@@ -26,16 +23,13 @@ final class ProcessTranscodeRunnerTests: XCTestCase {
         }
     }
 
-    /// 桩链路全验证：spawn 真的发生（echo 产物落地）+ stdout 逐行喂到回调
-    /// + 退出判定只认 terminationStatus。
     func testRunnerReportsProgressLinesAndExitStatusViaShellStub() async {
         let tmpPath = NSTemporaryDirectory() + "p6-0603-stub-" + UUID().uuidString + ".out"
         defer { try? FileManager.default.removeItem(atPath: tmpPath) }
 
         let runner = ProcessTranscodeRunner()
         let box = LineBox()
-        // printf 的换行传给 sh 时必须是字面 backslash-n（Swift 字符串里写 \\n），
-        // 由 printf 自己解释成换行。
+        // printf 的换行传给 sh 时必须是字面 backslash-n（Swift 里写 \\n），由 printf 自己解释成换行。
         let script = "printf 'frame=1\\nout_time_ms=500000\\nprogress=end\\n'; echo payload > '" + tmpPath + "'"
 
         let status = await runner.run(

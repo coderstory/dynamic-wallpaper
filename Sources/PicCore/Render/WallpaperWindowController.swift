@@ -32,7 +32,7 @@ public final class WallpaperWindowController {
     /// 重新断言系统默认的 Space 行为：重设集合行为后重新提到最前。
     ///
     /// **没有任何代码自动调用它** —— 没有 Space 变更订阅、没有定时器、没有 watcher。
-    /// 要的正是这个形状：按系统默认行为表现，不做差异化处理。`.app` 打包复测会手动调一次。
+    /// 要的正是这个形状：按系统默认行为表现，不做差异化处理。
     public func reassert() {
         guard let w = window else { return }
         w.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
@@ -69,9 +69,8 @@ public final class WallpaperWindowController {
         mirror(line)
     }
 
-    /// `PIC_EVIDENCE_FILE` 证据桥：非空时把每行 mirror 进文件，让 XCUITest 与探针的
-    /// 读数可 grep。**未设该变量时行为与原实现逐字节一致**（只写 stderr）。惰性取值
-    /// 一次（static let）；失败静默 —— 证据桥是观测面，不允许它影响产品路径。
+    /// `PIC_EVIDENCE_FILE` 证据桥：非空时把每行 mirror 进文件。惰性取值一次（static let）；
+    /// 失败静默 —— 证据桥是观测面，不允许它影响产品路径。未设该变量时只写 stderr。
     private static let evidenceFileURL: URL? = {
         guard let path = ProcessInfo.processInfo.environment["PIC_EVIDENCE_FILE"],
               !path.isEmpty else { return nil }

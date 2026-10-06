@@ -1,10 +1,7 @@
 import XCTest
 @testable import PicCore
 
-/// 设置解析单测。
-///
-/// 每个用例用独立的 `UserDefaults(suiteName:)`，绝不碰真实域。
-/// 且**不依赖 `fixtures/` 已生成** —— 干净 clone 上 `swift test` 也必须绿。
+/// 每个用例用独立的 `UserDefaults(suiteName:)`，绝不碰真实域；也不依赖 `fixtures/` 已生成 —— 干净 clone 上 `swift test` 也必须绿。
 @MainActor
 final class SettingsStoreTests: XCTestCase {
 
@@ -67,8 +64,7 @@ final class SettingsStoreTests: XCTestCase {
     }
 
     func testFileExistsUsesPathAndSeesTempFile() throws {
-        // 用 URL(fileURLWithPath:isDirectory:) 显式构造，避免 temporaryDirectory 自带尾斜杠
-        // 导致 resolvedFolderURL().path 与 tmp.path 比不相等（那是测试夹具的坑，不是产品行为）。
+        // 用 URL(fileURLWithPath:isDirectory:) 显式构造，避免 temporaryDirectory 自带尾斜杠导致 resolvedFolderURL().path 与 tmp.path 比不相等（那是测试夹具的坑，不是产品行为）。
         let tmp = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
             .appendingPathComponent("pic-test-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: tmp) }
@@ -109,18 +105,8 @@ final class SettingsStoreTests: XCTestCase {
                        "Phase 2 只枚举单循环；列表循环/列表随机是 Phase 4（Plan 04-02）纯追加的 case")
     }
 
-    // ── PAUSE-05「电池供电时暂停（开关，默认关闭）」的两半 ──────
-    //
-    // 「默认关闭」是硬约束，因为它决定的是「用户在电池上会不会莫名其妙
-    // 失去壁纸」这个**用户可见**的后果：默认开 = 用户拿电池本时壁纸无故停住，
-    // 看起来像 app 坏了（宁可少暂停也不要误暂停）。
-    // 这一组用例锁住 PAUSE-05 的两半：**默认关** + **可开可关且能存住**。
-
-    /// 第一半：seed 层与解析层**两道**默认都是 false。
-    ///
-    /// 两道都要断言：`Seed` 的参数默认值管的是「没给种子」，
-    /// `init` 的 `?? seed.pauseOnBattery` 兜底管的是「给了种子但键不存在」。
-    /// 只断一道，另一道仍可能默认开。
+    /// seed 层与解析层**两道**默认都要断言：`Seed` 的参数默认值管「没给种子」，
+    /// `init` 的 `?? seed.pauseOnBattery` 兜底管「给了种子但键不存在」。只断一道，另一道仍可能默认开。
     func testPauseOnBatteryDefaultsToFalseWithEmptyDefaults() {
         XCTAssertFalse(SettingsStore.Seed().pauseOnBattery,
                        "种子层的默认值必须是 false（D-11）")
@@ -128,22 +114,18 @@ final class SettingsStoreTests: XCTestCase {
                        "空 UserDefaults 下解析出的值必须是 false（D-11）")
     }
 
-    /// 默认关 ≠ 不可开。开关必须能真正打开，否则 PAUSE-05 的功能那一半不存在。
     func testSeedCanTurnPauseOnBatteryOn() {
         let store = makeStore(seed: SettingsStore.Seed(pauseOnBattery: true))
         XCTAssertTrue(store.pauseOnBattery)
     }
 
-    /// 既有的两级优先（`UserDefaults` > seed）对新键同样成立。
     func testUserDefaultsWinsOverSeedForPauseOnBattery() {
         defaults.set(true, forKey: SettingsStore.Key.pauseOnBattery)
         let store = makeStore(seed: SettingsStore.Seed(pauseOnBattery: false))
         XCTAssertTrue(store.pauseOnBattery, "UserDefaults 必须压过 seed")
     }
 
-    /// 两半中的「可存住」：**真值和假值都得能持久化**。
-    ///
-    /// 只断言存 true 会漏掉「只写 true、false 写不回去」这种实现 ——
+    /// **真值和假值都得能持久化**：只断言存 true 会漏掉「只写 true、false 写不回去」这种实现 ——
     /// 那正是「用户在设置窗里把开关关掉，改完重启又自己开回来」的故障形状。
     func testPersistWritesPauseOnBattery() {
         let store = makeStore()
@@ -158,13 +140,8 @@ final class SettingsStoreTests: XCTestCase {
                        "关掉也必须能持久化 —— 否则设置窗里关掉的开关会自己开回来")
     }
 
-    /// 第八键（`launchAtLogin`）的默认值与往返。
-    ///
-    /// ⚠️ 默认 false 是**产品决策**不是实现细节：自启是用户显式打开的东西，
-    /// 默认开等于替用户往开机项里塞一个登录项（且要靠 unregister 才收得回来）。
-    ///
-    /// round-trip 是自启的前提：开关不持久化，用户拨开的设置重启即丢，
-    /// 「开机自启」这项判据就无从谈起。
+    /// 默认 false 是**产品决策**不是实现细节：自启是用户显式打开的东西，默认开等于替用户往开机项里塞一个登录项。
+    /// round-trip 是自启的前提：开关不持久化，用户拨开的设置重启即丢。
     func testLaunchAtLoginDefaultsFalseAndRoundTrips() {
         XCTAssertFalse(SettingsStore.Seed().launchAtLogin, "种子层的默认值必须是 false")
         XCTAssertFalse(makeStore().launchAtLogin, "空 UserDefaults 下解析出的值必须是 false")
@@ -177,11 +154,8 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertTrue(makeStore().launchAtLogin, "重建的 store 必须读回 true")
     }
 
-    /// 锁住「加参数没有破坏既有调用形态」（纯追加的回归防线）。
-    ///
-    /// 既有六字段一个都没改名、没改顺序 —— 所以**位置无关的具名传参**必须照旧编译。
-    /// 这条用例的意义是：将来谁把 `pauseOnBattery` 插进既有参数的中间（而不是末尾），
-    /// 或者改了某个既有参数的类型，这里立刻编译不过。
+    /// 纯追加的回归防线：既有六字段一个都没改名、没改顺序，所以**位置无关的具名传参**必须照旧编译。
+    /// 谁把 `pauseOnBattery` 插进既有参数的中间（而不是末尾），或改了某个既有参数的类型，这里立刻编译不过。
     func testExistingSeedCallSitesStillCompile() {
         XCTAssertNotNil(SettingsStore.Seed())
 

@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# 编译 → 打包 .app → 生成 DMG。不签名。
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -19,18 +18,15 @@ ASSETS=".planning/design/assets"
 # 探针符号计数。必须 `grep -cE` —— 裸 grep 的 '|' 是字面量，恒 0 假绿灯。
 probe_symbols() { nm "$1/Contents/MacOS/$APP_NAME" | grep -cE 'LoopProbe|WindowProbe|FrameDriver'; }
 
-# 组装 .app —— 交付与探针两条线**共用这一份实现**。两处手写同样的 mkdir/cp/
-# codesign 块必然漂移，抽成函数是「为正确性花的钱」（反膨胀：抽，不复制）。
+# 组装 .app。交付与探针两条线**共用这一份实现**：两处手写同样的 mkdir/cp/codesign 块必然漂移。
 # $1 = 产物名；裸二进制已在 $OUT/$1 就位。
 assemble_app() {
   local app="$OUT/$1.app"
   mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
   cp "$OUT/$1" "$app/Contents/MacOS/$APP_NAME"
-  # Info.plist 的唯一真相源是 Sources/PicApp/Resources/Info.plist。刻意不再内联
-  # 一份 heredoc —— 两份手写同一份 plist 必然漂移。
+  # Info.plist 的唯一真相源是 Sources/PicApp/Resources/Info.plist，刻意不再内联一份 heredoc —— 两份手写同一份 plist 必然漂移。
   cp "Sources/PicApp/Resources/Info.plist" "$app/Contents/Info.plist"
-  # 图标：.icns 由 iconutil 出（CFBundleIconFile=Pic 指向它）；菜单栏用 menubar-v1 的
-  # Template 三档，menubar-v2 是对照稿，一个都不拷。
+  # 菜单栏只拷 menubar-v1 的 Template 三档，menubar-v2 是对照稿，一个都不拷。
   cp "$OUT/Pic.icns" "$app/Contents/Resources/Pic.icns"
   cp "$ASSETS/menubar-v1.png"     "$app/Contents/Resources/menubar-v1Template.png"
   cp "$ASSETS/menubar-v1@2x.png"  "$app/Contents/Resources/menubar-v1Template@2x.png"
@@ -38,8 +34,8 @@ assemble_app() {
   codesign --force --deep -s - "$app"
 }
 
-# iconutil 路（不依赖 actool / .xcassets，与 SwiftPM 路线同构）：
-# iconset 目录刻意留在 build/ 里不清理 —— 判据要数它。
+# iconutil 路（不依赖 actool / .xcassets，与 SwiftPM 路线同构）。
+# iconset 目录刻意留在 build/ 里不清理 —— test.sh 的打包段要数它。
 echo "==> 出 .icns（iconutil，图标真相源 = .planning/design/assets/）"
 rm -rf "$OUT/${APP_NAME}.iconset"
 mkdir -p "$OUT/${APP_NAME}.iconset"
@@ -47,7 +43,6 @@ cp "$ASSETS"/icon_*.png "$OUT/${APP_NAME}.iconset/"
 iconutil -c icns "$OUT/${APP_NAME}.iconset" -o "$OUT/Pic.icns"
 
 echo "==> 编译交付产物（D-01：走 SwiftPM，不走 xcodebuild）"
-# 二进制出自 swift build 的 release 产物，不再手编 spike 源。
 # -DPIC_NO_PROBE：剥离三个测量探针（LoopProbe/WindowProbe/FrameDriver）及其接线。
 swift build --package-path . -c release -Xswiftc -DPIC_NO_PROBE
 cp ".build/release/${APP_NAME}" "$OUT/${APP_NAME}"
@@ -56,8 +51,7 @@ echo "==> 组装交付 .app"
 assemble_app "$APP_NAME"
 APP="$OUT/${APP_NAME}.app"
 
-# DMG 的内容物只从 staging 来，绝不指 build/ —— build/ 里还住着 PicProbe.app
-# 与 iconset 等中间产物，指错就把第二产物装进用户要安装的 DMG。
+# DMG 的内容物只从 staging 来，绝不指 build/ —— build/ 里还住着 PicProbe.app 与 iconset 等中间产物，指错就把第二产物装进用户要安装的 DMG。
 echo "==> 准备 staging（只放 Pic.app）"
 STAGE="$DIST/stage"
 mkdir -p "$STAGE"
@@ -76,9 +70,8 @@ fi
 # 收尾清临时文件：create-dmg 失败会留 dist/rw.*.dmg，混进下面的摘要就多出一个假 DMG。
 rm -f "$DIST"/rw.*.dmg
 
-# 第二遍构建：**不传** define，探针全保留 → PicProbe.app。顺序必须「先交付后探针」：
-# 每遍都会覆盖 .build/release，组装必须在各自构建之后立刻做。PicProbe.app 是测量
-# 取证体，**不进 staging、不进 DMG**。
+# 第二遍构建：**不传** define，探针全保留 → PicProbe.app。顺序必须「先交付后探针」：每遍都会覆盖 .build/release，组装必须在各自构建之后立刻做。
+# PicProbe.app 是测量取证体，**不进 staging、不进 DMG**。
 echo "==> 编译探针产物（保留 LoopProbe/WindowProbe/FrameDriver）"
 swift build --package-path . -c release
 cp ".build/release/${APP_NAME}" "$OUT/PicProbe"

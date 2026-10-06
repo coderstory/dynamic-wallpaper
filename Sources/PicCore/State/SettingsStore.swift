@@ -3,15 +3,13 @@ import Observation
 
 public enum PlayMode: String, CaseIterable, Sendable {
     case loopSingle
-    // 列表循环：按顺序走完一圈再回到第一条。
+    /// 按顺序走完一圈再回到第一条。
     case loopList
-    // 列表随机：一轮内每条恰好一次。
+    /// 一轮内每条恰好一次。
     case shuffle
 }
 
-/// 所有用户设置的单一真相源（★ 三个接口之一）。
-///
-/// 职责边界：不含业务逻辑、不碰 AVFoundation、只做持久化与解析。
+/// 用户设置的单一真相源 —— 别处不得再存第二份。不含业务逻辑、不碰 AVFoundation，只做持久化与解析。
 @MainActor
 @Observable
 public final class SettingsStore {
@@ -23,11 +21,9 @@ public final class SettingsStore {
         public var isMuted: Bool
         public var playMode: PlayMode
         public var rotationInterval: TimeInterval
-        /// 「电池供电时暂停」开关。**默认 false** ——
-        /// 默认开会让用户一拿电池本就无故失去壁纸，看起来像 app 坏了。
+        /// 默认 false：默认开会让用户一拿电池本就无故失去壁纸，看起来像 app 坏了。
         public var pauseOnBattery: Bool
-        /// 「开机自启」开关。**默认 false** —— 自启是用户显式打开的东西，默认开等于替用户
-        /// 往开机项里塞一个登录项。
+        /// 默认 false：自启是用户显式打开的东西，默认开等于替用户往开机项里塞一个登录项。
         public var launchAtLogin: Bool
 
         public init(sourceFolder: String = "", rate: Float = 1.0, volume: Float = 1.0,
@@ -57,8 +53,7 @@ public final class SettingsStore {
         public static let launchAtLogin = "launchAtLogin"
     }
 
-    /// 开发期覆盖入口：`swift run` 起的进程没有 bundle id，UserDefaults 域取不到
-    /// `com.local.pic`，故留一条环境变量路径。
+    /// 开发期覆盖入口：`swift run` 起的进程没有 bundle id，UserDefaults 域取不到 `com.local.pic`，故留一条环境变量路径。
     public static let envSourceFolderKey = "PIC_SOURCE_FOLDER"
 
     public var sourceFolder: String
@@ -69,8 +64,7 @@ public final class SettingsStore {
     public var rotationInterval: TimeInterval
     /// 「电池供电时暂停」。**没有环境变量这一级** —— 电源开关不是开发期覆盖项。
     public var pauseOnBattery: Bool
-    /// 「开机自启」。**没有环境变量这一级** —— 它是真持久化偏好，系统侧状态由
-    /// `AutoStartManager` 对齐。
+    /// 「开机自启」。**没有环境变量这一级** —— 它是真持久化偏好，系统侧状态由 `AutoStartManager` 对齐。
     public var launchAtLogin: Bool
 
     private let defaults: UserDefaults
@@ -99,10 +93,7 @@ public final class SettingsStore {
         self.launchAtLogin = defaults.object(forKey: Key.launchAtLogin) as? Bool ?? seed.launchAtLogin
     }
 
-    /// 解析后的壁纸目录 URL。
-    ///
-    /// 只走文件系统路径这一个形态 —— Pitfall 5：存在性检查必须喂 `url.path` 那种
-    /// 裸路径，绝不能喂 URL 的字符串形式，否则检查恒为 false。
+    /// 解析后的壁纸目录 URL。只走文件系统路径这一个形态：存在性检查必须喂 `url.path` 那种裸路径，喂 URL 的字符串形式会让含中文/空格的路径恒为假。
     public func resolvedFolderURL() -> URL? {
         guard !sourceFolder.isEmpty else { return nil }
         return URL(fileURLWithPath: sourceFolder)

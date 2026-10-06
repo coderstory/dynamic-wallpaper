@@ -3,7 +3,7 @@ import Foundation
 // MARK: - 注入 seam
 
 /// 装载 seam。标 `@MainActor`：conformer 是 `@MainActor` 类型，不标会让 Swift 6 报
-/// `#ConformanceIsolation`。方法名也刻意与产品侧错开（那边「装载并遵守仲裁」）。
+/// `#ConformanceIsolation`。方法名与产品侧刻意错开（那边「装载并遵守仲裁」）。
 @MainActor
 public protocol VideoLoading: AnyObject {
     func loadPlayback(url: URL)
@@ -30,8 +30,7 @@ public final class PlaybackRouter {
     /// 装载分派：换列表并起转。**顺序写死** —— 先绑 `onAdvance`、`setItems`、再 `start()`
     ///（这一步立刻用 `items[0]` 回调一次）。绑在 `start()` 之前是硬要求：反序会漏掉首条。
     public func start(with items: [VideoItem]) {
-        // `loadCount` 记的是**真的交出去的装载次数，不是播放状态** —— 拿它当
-        // 播放状态读会把「装载过」误读成「在播」。
+        // 记的是**真的交出去的装载次数，不是播放状态**。
         rotation.onAdvance = { [weak self] item in
             self?.loader.loadPlayback(url: item.url)
             self?.loadCount += 1
@@ -45,7 +44,6 @@ public final class PlaybackRouter {
         rotation.stop()
     }
 
-    /// 「立即下一个」的行为侧入口。
     public func advanceNow() {
         rotation.advanceNow()
     }

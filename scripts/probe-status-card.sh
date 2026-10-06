@@ -1,17 +1,12 @@
 #!/usr/bin/env bash
-# probe-status-card.sh —— 来源卡 / 运行状态卡 tracer 证据采集。
-#
-#   bash scripts/probe-status-card.sh
-#     → 空临时目录当 source（PIC_SOURCE_FOLDER，不碰真实素材目录）
-#     → .build/debug/Pic --open-settings --quit-after 6，stderr 与 PIC_EVIDENCE_FILE 双落
-#     → 断言 PIC_LIBRARY_STATE / PIC_SETTINGS_WINDOW / PIC_FFMPEG 三类行
-#     → 锁屏活体观察按 BLOCKED 纪律记账，不阻塞
+# 来源卡 / 运行状态卡 tracer 证据采集。一条命令：空临时目录当 source（PIC_SOURCE_FOLDER，不碰真实素材目录）
+# → .build/debug/Pic --open-settings --quit-after 6，stderr 与 PIC_EVIDENCE_FILE 双落
+# → 断言 PIC_LIBRARY_STATE / PIC_SETTINGS_WINDOW / PIC_FFMPEG 三类行 → 锁屏活体观察按 BLOCKED 纪律记账，不阻塞。
 #
 # 纪律：alarm 包装（本机无 timeout）、LC_ALL=C、不用 set -e、mktemp + trap cleanup。
 #
-# ⚠️ 空态文案的**渲染**不在本探针里 —— 那要 XCUITest。本探针只证数据链：
-#    库状态行、窗口几何行、ffmpeg 可用性行。零 ffmpeg 执行：ffmpeg 行来自
-#    PATH 可执行位判定，本脚本也不调用 ffmpeg 本身。
+# 空态文案的**渲染**不在本探针里 —— 那要 XCUITest。本探针只证数据链：库状态行、窗口几何行、ffmpeg 可用性行。
+# 零 ffmpeg 执行：ffmpeg 行来自 PATH 可执行位判定，本脚本也不调用 ffmpeg 本身。
 set -u
 export LC_ALL=C
 
@@ -37,8 +32,8 @@ if ! alarm 300 swift build -c debug --package-path . > "$TMP/build.log" 2>&1; th
   exit 1
 fi
 
-# 2. 两轮 source：真空目录（→ no_playable_videos）+ 含两个 mp4 符号链接的目录。
-#    符号链接指 fixtures/；语料不存在也照跑 —— 本轮的结构判据不依赖语料。
+# 两轮 source：真空目录（→ no_playable_videos）+ 含两个 mp4 符号链接的目录。
+# 符号链接指 fixtures/；语料不存在也照跑 —— 本轮的结构判据不依赖语料。
 SRC_EMPTY="$TMP/source-empty"
 SRC_LINKS="$TMP/source-links"
 mkdir -p "$SRC_EMPTY" "$SRC_LINKS"
@@ -57,7 +52,7 @@ run_round() { # $1=source 目录  $2=输出前缀
 
 run_round "$SRC_EMPTY" "$TMP/empty"
 run_round "$SRC_LINKS" "$TMP/links"
-# stderr 是唯一落 $LOG 的原始流（emit 全走 stderr，同一行不落两遍）。
+# stderr 是唯一落 $LOG 的原始流（emit 全走 stderr，同一行落两遍计数会翻倍）。
 # 两轮都进同一份日志 —— 两轮的 PIC_* 行可区分（库状态不同，ffmpeg/几何行各两遍）。
 cat "$TMP/empty.err" "$TMP/links.err" > "$LOG"
 
@@ -99,11 +94,11 @@ fi
 note "FFMPEG_LOCAL_BASELINE=$(command -v ffmpeg >/dev/null 2>&1 && echo present || echo absent)"
 note "FFMPEG_EMIT_LINES=$FF_LINE_N"
 
-# 4. 第二轮（双片目录）只作信息：fixtures 未生成时扫到 0 属预期。
+# 第二轮（双片目录）只作信息：fixtures 未生成时扫到 0 属预期。
 LINK_TOK=$(grep -c 'PIC_LIBRARY_STATE=playing' "$EVFILE" || true)
 note "LIB_STATE_WITH_LINKS=$([ "${LINK_TOK:-0}" -ge 1 ] && echo playing || echo not_playing)"
 
-# 5. 活体观察：锁屏态开设置窗看「屏幕已锁定」副标签。
+# 活体观察：锁屏态开设置窗看「屏幕已锁定」副标签。
 LOCK_RAW=$(alarm 90 swift -e '
 import CoreGraphics
 import Foundation

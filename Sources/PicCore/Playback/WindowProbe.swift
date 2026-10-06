@@ -12,10 +12,10 @@ import CoreGraphics
 /// `test.sh` 每次自动重验「产品源码里那个标题键 0 次」。
 ///
 /// 本文件**不需要**桌面图标层的值，因此不出现取层级值的那个 CoreGraphics 函数，
-/// 也不出现任何层级数字字面量。「我方层 < 图标层」这一半由 throwaway 探针承担
-/// （`run-probe.sh order` 现编译现跑），两边都不硬编码。
-/// 不传 `-DPIC_NO_PROBE` 时整个声明区都在；交付构建由 `build.sh` 的
-/// `-Xswiftc -DPIC_NO_PROBE` 打开开关，把测量脚手架从交付二进制里剥掉。
+/// 也不出现任何层级数字字面量。「我方层 < 图标层」这一半由 throwaway 探针承担，
+/// 两边都不硬编码。
+///
+/// `build.sh` 传 `-Xswiftc -DPIC_NO_PROBE` 把整个声明区剥出交付二进制。
 #if !PIC_NO_PROBE
 public enum WindowProbe {
 
@@ -34,7 +34,7 @@ public enum WindowProbe {
 
     public static func claimReport(targetPid: Int) -> [String] {
         let all = listWindows()
-        // layer == 0 的辅助窗不参与最小值计算：取最大值会挑中它，让层级读数恒为 0。
+        // layer == 0 的辅助窗不参与取值：混进来会让 selfLevel 取到 0，层级读数恒为 0。
         let mine = all.filter { $0.pid == targetPid && $0.layer != 0 }
         let selfLevel = mine.map(\.layer).min()
 
@@ -67,9 +67,8 @@ public enum WindowProbe {
 
     /// 桌面层窗口相对 `NSScreen.main.frame` 的四个内缩整数（允许为负）。
     ///
-    /// ⚠️ 坐标系陷阱：`CGWindowList` 的 bounds 原点在**主屏左上角**，
-    /// `NSScreen.frame` 原点在**全局左下角**。不翻转直接相减得到的数是错的 ——
-    /// 全屏场景复现过一次这个坑。
+    /// 坐标系陷阱：`CGWindowList` 的 bounds 原点在**主屏左上角**，
+    /// `NSScreen.frame` 原点在**全局左下角**。不翻转直接相减得到的数是错的。
     public static func insetReport(targetPid: Int) -> [String] {
         let all = listWindows()
         guard let screen = NSScreen.main else {
@@ -143,7 +142,7 @@ public enum WindowProbe {
 //
 // 同一个文件在两处以不同方式编译：进产品库时下面这段被条件编译剥掉；
 // `scripts/run-probe.sh` 加 -DPIC_WINDOW_PROBE_MAIN 现编译成一次性可执行文件，
-// 拿到产品进程的 pid 后对它取证。产品代码一行也不进 spike 目录，反向也不破。
+// 拿到产品进程的 pid 后对它取证。
 #if PIC_WINDOW_PROBE_MAIN
 @main
 struct PicWindowProbeMain {

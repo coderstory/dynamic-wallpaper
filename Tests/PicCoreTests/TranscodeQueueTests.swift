@@ -1,16 +1,11 @@
 import XCTest
 @testable import PicCore
 
-/// 转码队列行为判据：成功 / 失败 / 幂等跳过 / 串行 / 双预检。
-///
-/// FakeRunner 是进程外零调用的内存替身：自己写 .tmp 文件、返回可控退出码 ——
-/// 全套测试零真实转码、零真实进程（C6 红线）。
+/// `FakeRunner` 是进程外零调用的替身：自己写 .tmp 文件、返回可控退出码 —— 全套测试零真实转码、零真实进程。
 @MainActor
 final class TranscodeQueueTests: XCTestCase {
 
-    // MARK: - 文件内替身（不跨文件引用别的测试类的 helper）
-
-    /// 记录式 runner：按 tmpPath 真写几字节 .tmp，再返回配置好的退出码。
+    /// 文件内替身，不要与 `FpsTranscodeQueueTests.swift` 里那份合并 —— 跨文件耦合后失败时分不清是替身坏了还是被测代码坏了。
     final class FakeRunner: TranscodeRunning, @unchecked Sendable {
         struct Call {
             let tmpPath: String
@@ -31,8 +26,6 @@ final class TranscodeQueueTests: XCTestCase {
         }
     }
 
-    // MARK: - 工具
-
     private var root: URL!
 
     override func setUp() {
@@ -48,7 +41,6 @@ final class TranscodeQueueTests: XCTestCase {
         super.tearDown()
     }
 
-    /// 在 root 下造一个几字节的占位源文件。
     @discardableResult
     private func makeSource(_ name: String = "sample.mkv") -> URL {
         let url = root.appendingPathComponent(name)
@@ -68,9 +60,6 @@ final class TranscodeQueueTests: XCTestCase {
                        durationProvider: { _ in nil })
     }
 
-    // MARK: - 用例
-
-    /// 成功路径：status 0 → rename 成 .mp4，源文件原封不动（落盘侧）。
     func testSuccessfulJobRenamesTmpToMp4AndKeepsSource() async throws {
         let source = makeSource()
         let runner = FakeRunner()
@@ -91,7 +80,6 @@ final class TranscodeQueueTests: XCTestCase {
         XCTAssertEqual(sourceText, "placeholder-mkv", "源文件内容原封不动")
     }
 
-    /// 失败路径：非零退出 → 删 .tmp、标 failed、不留半成品 .mp4。
     func testFailedJobCleansTmpAndMarksFailed() async {
         let source = makeSource()
         let runner = FakeRunner()
@@ -109,7 +97,7 @@ final class TranscodeQueueTests: XCTestCase {
                        "失败不得留半成品 .mp4")
     }
 
-    /// 来源化删除策略（2026-10-04 用户拍板）：自动来源成功后删源、手动来源保留。
+    /// 来源化删除策略：自动来源（`deletesSource=true`）成功后删源、手动来源保留。
     func testAutoSourceDeletedAfterSuccessAndUserSourceKept() async {
         let autoSource = makeSource("auto.mkv")
         let userSource = makeSource("user-picked.mkv")
@@ -128,7 +116,6 @@ final class TranscodeQueueTests: XCTestCase {
         XCTAssertEqual(queue.jobs.first { $0.sourceURL == userSource }?.deletesSource, false)
     }
 
-    /// 失败路径上删除策略不生效：deletesSource=true 但转码失败 → 源必须还在。
     func testFailedJobKeepsAutoSource() async {
         let source = makeSource()
         let runner = FakeRunner()
@@ -143,7 +130,6 @@ final class TranscodeQueueTests: XCTestCase {
                       "失败不得删源（删除只挂在成功落盘上）")
     }
 
-    /// 幂等路径：产物已存在且更新 → skipped，runner 零调用（防重复烤机）。
     func testUpToDateProductIsSkippedWithoutRunner() async throws {
         let source = makeSource()
         let naming = TranscodeOutputNaming(root: root)
@@ -164,8 +150,7 @@ final class TranscodeQueueTests: XCTestCase {
         XCTAssertEqual(runner.calls.count, 0, "skipDecision 为真时 runner 必须零调用")
     }
 
-    /// 串行：三个源按入队顺序逐个执行，tmpPath 顺序 == 入队顺序（同步 runner
-    /// 的结构性串行 —— for 循环天然无交叉，不建 Task 组）。
+    /// 串行是结构性的 —— for 循环里逐个 await，不建 Task 组；tmpPath 顺序必须等于入队顺序。
     func testJobsRunSeriallyInEnqueueOrder() async {
         let first = makeSource("a.mkv")
         let second = makeSource("b.mkv")
@@ -183,7 +168,6 @@ final class TranscodeQueueTests: XCTestCase {
                        "runner 调用顺序必须等于入队顺序")
     }
 
-    /// 预检：磁盘余量小于源大小 → failed(disk_space)，runner 零调用（P6）。
     func testInsufficientDiskSpaceFailsBeforeRunner() async {
         let source = makeSource()
         let runner = FakeRunner()
@@ -197,8 +181,6 @@ final class TranscodeQueueTests: XCTestCase {
         XCTAssertEqual(runner.calls.count, 0, "磁盘预检不过绝不 spawn")
     }
 
-    /// 预检：工具不可用 → failed(ffmpeg_unavailable)，runner 零调用
-    /// （入口置灰之外的第二道闸）。
     func testUnavailableFFmpegFailsWithoutSpawn() async {
         let source = makeSource()
         let runner = FakeRunner()

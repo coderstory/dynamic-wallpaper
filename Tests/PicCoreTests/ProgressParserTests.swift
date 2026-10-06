@@ -1,10 +1,7 @@
 import XCTest
 @testable import PicCore
 
-/// ProgressParser 单测（TRANS-06 进度侧）。
-///
-/// 样本串全部硬编码（`-progress pipe:1` 的机器可读输出），零 ffmpeg 调用（C6）；
-/// 不依赖 fixtures/ 已生成 —— 干净 clone 上 `swift test` 也必须绿。
+/// 样本串全部硬编码（`-progress pipe:1` 的机器可读输出），零 ffmpeg 调用、不依赖 `fixtures/`，干净 clone 上 `swift test` 也必须绿。
 final class ProgressParserTests: XCTestCase {
 
     func testParsesSampleChunkIntoSnapshot() {
@@ -46,8 +43,8 @@ final class ProgressParserTests: XCTestCase {
             outTimeUs: 2_500_000,
             isEnd: false
         )
-        // 微秒换算锁死：2_500_000 µs = 2.5 s，除以 10 s 时长 = 0.25。
-        // 若把 1_000_000.0 错写成 1_000.0，这里得 250.0 转红。
+        // out_time 是微秒：2_500_000 µs = 2.5 s，除以 10 s 时长 = 0.25。
+        // 分母若错写成 1_000.0，这里得 250.0 转红。
         let result = ProgressParser.percent(snapshot: snapshot, durationSeconds: 10.0)
         guard let result else {
             XCTFail("expected non-nil percent for valid snapshot + duration")

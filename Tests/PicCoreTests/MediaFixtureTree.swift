@@ -2,25 +2,22 @@ import Foundation
 
 /// 供 `MediaLibraryTests` 复用的 fixture 树构建器（**非 XCTestCase**）。
 ///
-/// 结构与 `scripts/make-media-fixture-tree.sh` 的产物逐项一致（两处的树若有漂移，
-/// 单测与探针的读数就会对不上）。单测走 `FakeAssetProbe`，因此这里的视频文件
-/// 只需占位内容就够；本类完全不碰 AVFoundation，干净 clone 上 `swift test` 也绿。
+/// 结构与 `scripts/make-media-fixture-tree.sh` 的产物逐项一致 —— 两处的树若有漂移，
+/// 单测与探针的读数就会对不上。单测走 `FakeAssetProbe`，因此视频文件只需占位内容；
+/// 本类完全不碰 AVFoundation，干净 clone 上 `swift test` 也绿。
 ///
-/// 树结构（判据按这些确切数字断言）：
+/// 每个条目的存在理由（不是靠文件名能看出来的那些）：
 ///
-/// | 路径 | 假探针 | 期望结局 |
-/// |---|---|---|
-/// | `a.mp4` | 接受 | 收 |
-/// | `B.MOV` | 接受 | 收（扩展名大小写不敏感） |
-/// | `notes.txt` | — | 扩展名拒绝 |
-/// | `broken.mp4` | 拒绝 | 视频轨拒绝 |
-/// | `sub/c.m4v` | 接受 | 收 |
-/// | `sub/skip.mkv` `sub/y.avi` `sub/z.webm` | — | 扩展名拒绝（反证） |
-/// | `sub/deep/deeper/d.MP4` | 接受 | 收 —— 三次目录深度（专门用例） |
-/// | `Converted/out.mp4` | 接受（假探针会收） | 整棵排除 |
-/// | `converted-lower/keep.mp4` | 接受 | **必须收**（排除是目录名精确匹配，不是子串） |
-/// | `视频壁纸/e.mp4` | 接受 | 收（目录名含空格与中文，走 `path` 路线） |
-/// | `link-out.mp4` → `<tmp>/pic-outside-<uuid>/secret.mp4` | 接受 | 排除（根外符号链接） |
+/// | 路径 | 存在理由 |
+/// |---|---|
+/// | `B.MOV` | 扩展名匹配必须大小写不敏感 |
+/// | `broken.mp4` | 假探针拒绝它 → 走「视频轨拒绝」这条路 |
+/// | `sub/skip.mkv` `sub/y.avi` `sub/z.webm` | 假探针会接受它们，只靠扩展名拒绝（反证） |
+/// | `sub/deep/deeper/d.MP4` | 三次目录深度 |
+/// | `Converted/out.mp4` | 假探针会接受，但整棵被排除 |
+/// | `converted-lower/keep.mp4` | **必须收** —— 排除是目录名精确匹配，不是子串 |
+/// | `视频壁纸/e.mp4` | 目录名含空格与中文，URL 的字符串形态会被百分号编码，只能走 `path` |
+/// | `link-out.mp4` → `<tmp>/pic-outside-<uuid>/secret.mp4` | 根外符号链接要排除 |
 ///
 /// 期望读数：`acceptedByExtension == 8`、`excludedByConverted == 1`、
 /// `rejectedByProbe == 1`、`items.count == 6`（a / B.MOV / c.m4v / d.MP4 /

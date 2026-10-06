@@ -1,18 +1,12 @@
 #!/usr/bin/env bash
-# probe-lock.sh —— 锁屏接线证据采集。一条命令，无子命令：
-#
-#   bash scripts/probe-lock.sh
-#     → 编译 throwaway driver（与产品源码一起编）
-#     → 跑 6 秒，投 2 次合成通知
-#     → 全量 stdout 落 evidence/lock-wiring.log，末尾追加两行汇总
+# 锁屏接线证据采集。一条命令，无子命令：编译 throwaway driver（与产品源码一起编）→ 跑 6 秒，投 2 次合成通知 → 全量 stdout 落 evidence/lock-wiring.log，末尾追加两行汇总。
 #
 # 两条纪律：
-#   ① 所有外部命令套 `perl -e 'alarm N; exec @ARGV'` —— 本机没有 timeout 命令，
-#      权限弹窗或异常输入会挂死采集。
+#   ① 所有外部命令套 `alarm N 命令 …`（见 probe-common.sh）—— 本机没有 timeout 命令，权限弹窗或异常输入会挂死采集。
 #   ② 探针失败不中止脚本（不用 set -e）：失败原样写进日志，由人读日志判定。
 #
-# ⚠️ 合成通知一律用 `com.local.pic.tests.lock.` 前缀，绝不投 `com.apple.screenIsLocked`
-#    —— 那个名字由别的进程投递，投它会让同机的其它壁纸 app 一起暂停。
+# 合成通知一律用 `com.local.pic.tests.lock.` 前缀，绝不投 `com.apple.screenIsLocked` ——
+# 那个名字由别的进程投递，投它会让同机的其它壁纸 app 一起暂停。
 
 set -u
 export LC_ALL=C
@@ -20,8 +14,7 @@ export LC_ALL=C
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-# 证据落点可重定向：test.sh 传 PIC_EVIDENCE_DIR 指向临时目录，避免跑一次门禁
-# 就把已入库的 Phase 3 证据覆盖掉。默认值与原行为逐字一致。
+# 证据落点可重定向：test.sh 传 PIC_EVIDENCE_DIR 指向临时目录，避免跑一次门禁就把已入库的证据覆盖掉。
 EV="${PIC_EVIDENCE_DIR:-$ROOT/.planning/phases/03-system-events/evidence}"
 LOG="$EV/lock-wiring.log"
 TMP="$(mktemp -d)"
@@ -29,10 +22,9 @@ BIN="$TMP/lockwatcher-driver"
 OUT="$TMP/driver.out"
 
 # driver + 产品源码一起编 —— 证据跑的是产品代码，不是探针里重写一遍的逻辑。
-# ⚠️ 这份清单是**手写**的，`swift build` 不会替我们更新它。给 `HoldArbiter` 加了
-# `holdStatus` 之后，本脚本因漏列 `State/HoldStatus.swift` 而编译失败 ——
-# `PROBE_COMPILE_RC=1` 且日志被清空。**新增/删除 State/ 下的文件时必须同步改这里**，
-# 否则证据采集会静默变成空文件（判据会假绿）。
+# 这份 SRC 清单是**手写**的，`swift build` 不会替我们更新它。漏列 State/ 下的文件（如 HoldStatus.swift）
+# 会编译失败 → PROBE_COMPILE_RC=1 且日志被清空 → 证据静默变成空文件、判据假绿。
+# **新增/删除 State/ 下的文件时必须同步改这里。**
 SRC="Sources/PicCore/State/HoldReason.swift \
      Sources/PicCore/State/PlaybackDecision.swift \
      Sources/PicCore/State/HoldStatus.swift \
@@ -68,7 +60,6 @@ SIGNALS=$(grep -cE '^LOCK_SIGNAL_COUNT=' "$LOG")
 SIGNALS_ON_THE_WIRE=$(grep -cE '^LOCK_SIGNAL_INJECTED ' "$LOG")
 LINES=$(wc -l < "$LOG" | tr -d ' ')
 
-# 末尾两行汇总：合成通知投递次数 + 日志行数。
 echo "LOCK_SIGNAL_INJECTED_COUNT=$SIGNALS_ON_THE_WIRE" >> "$LOG"
 echo "LOCK_LOG_LINES=$LINES" >> "$LOG"
 

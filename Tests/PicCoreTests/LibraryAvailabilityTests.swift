@@ -1,31 +1,22 @@
 import XCTest
 @testable import PicCore
 
-/// `LibraryAvailability` 纯函数决策的单测（决策半边）。
-///
-/// 六条全部是纯函数断言：不构造窗口、不碰 AVFoundation —— 决策层若是真的纯函数，
-/// 就必须能在无屏幕、无播放器的环境里穷举它的全部输入空间。
+/// 全部是纯函数断言：不构造窗口、不碰 AVFoundation，换台机器也必须照样过 —— 决策层若是真的纯函数，就能在无屏幕、无播放器的环境里穷举它的全部输入空间。
 @MainActor
 final class LibraryAvailabilityTests: XCTestCase {
 
-    // MARK: - 1 · 没选目录时不去问扫描结果
-
     func testUnconfiguredFolderWinsOverAnyScanOutcome() {
-        // 配 .success(3)：哪怕「扫描出了 3 条」，没选目录也是 folderUnconfigured
         XCTAssertEqual(
             LibraryAvailability.evaluate(folderConfigured: false, scanOutcome: .success(3)),
             .folderUnconfigured,
             "folderConfigured == false 必须压过任何扫描结果 —— 「还没选目录」不是「目录没了」"
         )
-        // 配 .failure(.folderMissing)：同一条优先级
         XCTAssertEqual(
             LibraryAvailability.evaluate(folderConfigured: false, scanOutcome: .failure(.folderMissing)),
             .folderUnconfigured,
             "没选目录时不去问扫描结果，否则首次启动会看到一条误导性的降级理由"
         )
     }
-
-    // MARK: - 2 · 目录没了
 
     func testMissingFolderYieldsFolderMissingAndHidesWallpaper() {
         let state = LibraryAvailability.evaluate(folderConfigured: true, scanOutcome: .failure(.folderMissing))
@@ -34,8 +25,7 @@ final class LibraryAvailabilityTests: XCTestCase {
         XCTAssertEqual(state.reasonToken, "folder_missing")
     }
 
-    // MARK: - 3 · 目录在但读不了（与第 2 条分开：两个错误各自可测）
-
+    /// 不可读与目录没了刻意分成两条：合并就分不清坏的是哪个分支。
     func testUnreadableFolderAlsoYieldsFolderMissing() {
         let state = LibraryAvailability.evaluate(folderConfigured: true, scanOutcome: .failure(.folderUnreadable))
         XCTAssertEqual(
@@ -47,16 +37,12 @@ final class LibraryAvailabilityTests: XCTestCase {
         XCTAssertEqual(state.reasonToken, "folder_missing")
     }
 
-    // MARK: - 4 · 扫描成功但一条能播的都没有
-
     func testZeroPlayableVideosYieldsNoPlayableVideos() {
         let state = LibraryAvailability.evaluate(folderConfigured: true, scanOutcome: .success(0))
         XCTAssertEqual(state, .noPlayableVideos)
         XCTAssertFalse(state.shouldShowWallpaper, "空列表不是错误，是正常状态：静默隐藏")
         XCTAssertEqual(state.reasonToken, "no_playable_videos")
     }
-
-    // MARK: - 5 · 有可用视频
 
     func testPositiveCountYieldsPlaying() {
         for n in [1, 2] {
@@ -67,8 +53,7 @@ final class LibraryAvailabilityTests: XCTestCase {
         XCTAssertEqual(LibraryAvailability.token(.playing), "playing")
     }
 
-    // MARK: - 6 · 四态的自洽性（从 allCases 运行时生成，不写死清单）
-
+    /// 从 `allCases` 运行时生成，不写死清单 —— 加一个 case 本条自动跟上。
     func testAllCasesHaveDistinctTokensAndExactlyThreeHideWallpaper() {
         let all = LibraryState.allCases
         XCTAssertEqual(all.count, 4, "LibraryState 必须恰好四个 case")

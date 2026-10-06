@@ -1,16 +1,9 @@
 #!/usr/bin/env bash
-# probe-fullscreen.sh —— 全屏信号证据采集。一条命令，无子命令：
-#
-#   bash scripts/probe-fullscreen.sh
-#     → 编译 throwaway driver（与产品源码一起编）
-#     → 跑一次（瞬时，无等待 —— 本会话没有跃迁可等）
-#     → 全量 stdout 落 evidence/fullscreen-signals.log，末尾追加两行汇总
+# 全屏信号证据采集。一条命令，无子命令：编译 throwaway driver（与产品源码一起编）→ 跑一次（瞬时，无等待 —— 本会话没有跃迁可等）→ 全量 stdout 落 evidence/fullscreen-signals.log，末尾追加两行汇总。
 #
 # 三条纪律：
-#   ① 所有外部命令套 `perl -e 'alarm N; exec @ARGV'` —— 本机没有 timeout 命令，
-#      权限弹窗或异常输入会挂死采集。
-#   ② `export LC_ALL=C` —— UTF-8 locale 下脚本输出会按字节偏移丢 2 字节，之后任何
-#      grep 都会中止整份文件，判据假红。
+#   ① 所有外部命令套 `alarm N 命令 …`（见 probe-common.sh）—— 本机没有 timeout 命令，权限弹窗或异常输入会挂死采集。
+#   ② `export LC_ALL=C` —— UTF-8 locale 下脚本输出会按字节偏移丢 2 字节，之后任何 grep 都会中止整份文件，判据假红。
 #   ③ 探针失败不中止脚本（不用 set -e）：失败原样写进日志，由人读日志判定。
 
 set -u
@@ -19,8 +12,7 @@ export LC_ALL=C
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-# 证据落点可重定向：test.sh 传 PIC_EVIDENCE_DIR 指向临时目录，避免跑一次门禁
-# 就把已入库的 Phase 3 证据覆盖掉。默认值与原行为逐字一致。
+# 证据落点可重定向：test.sh 传 PIC_EVIDENCE_DIR 指向临时目录，避免跑一次门禁就把已入库的证据覆盖掉。
 EV="${PIC_EVIDENCE_DIR:-$ROOT/.planning/phases/03-system-events/evidence}"
 LOG="$EV/fullscreen-signals.log"
 TMP="$(mktemp -d)"
@@ -60,7 +52,6 @@ DICT_KEYS=$(grep -cE '^WINDOW_DICT_KEY=' "$LOG")
 STYLE_KEYS=$(grep -iE '^WINDOW_DICT_KEY=.*(tyle|ullscreen)' "$LOG" | wc -l | tr -d ' ')
 LINES=$(wc -l < "$LOG" | tr -d ' ')
 
-# 末尾两行汇总：字典键总数 + 含 style/fullscreen 字样的键数。
 # STYLE_KEYS 必须为 0 —— 非 0 意味着「公开 API 读不到别的进程的 styleMask」这条结构结论是错的。
 echo "WINDOW_DICT_KEY_COUNT=$DICT_KEYS" >> "$LOG"
 echo "WINDOW_DICT_STYLE_KEY_COUNT=$STYLE_KEYS" >> "$LOG"

@@ -7,7 +7,7 @@ final class FpsDownscaleCommandTests: XCTestCase {
     private let input = URL(fileURLWithPath: "/tmp/p6-fps/样本 movie.mkv")
     private let output = URL(fileURLWithPath: "/tmp/p6-fps/Converted/样本 movie-30fps.mp4")
 
-    /// 期望 argv 手写，**绝不从产品代码生成**（那样等于没测）。
+    /// 期望 argv 手写，绝不从产品代码生成（那样等于没测）。
     private var expectedTokens: [String] {
         [
             "-nostdin", "-y",
@@ -30,9 +30,7 @@ final class FpsDownscaleCommandTests: XCTestCase {
         ]
     }
 
-    /// ⚠️ 这条钉的是实测 bug：产物先写 `.tmp` 再 rename，而 ffmpeg 按**最后一个**
-    /// 扩展名判格式 —— `x-30fps.mp4.tmp` 被判成未知格式，muxer 初始化失败，
-    /// 进程秒退（报 "Unable to choose an output format"）。必须显式 `-f mp4`。
+    /// ffmpeg 按最后一个扩展名判格式，`.tmp` 后缀会判成未知格式、muxer 初始化失败进程秒退（报 "Unable to choose an output format"）。必须显式 `-f mp4`。
     func testExplicitMuxerSoTmpExtensionDoesNotBreakFormatDetection() {
         let argv = FpsDownscaleCommand.arguments(input: input, output: output)
         guard let index = argv.firstIndex(of: "-f") else {
@@ -61,8 +59,7 @@ final class FpsDownscaleCommandTests: XCTestCase {
                        "路径不能被拆成两半")
     }
 
-    /// ⚠️ 漏掉 tag 会**静默**落到软解 —— 更慢更烫且不报错，肉眼看不出来。
-    /// 这是本文件最要紧的一条断言。
+    /// 漏掉 `-tag:v hvc1` 会**静默**落到软解 —— 更慢更烫且不报错，肉眼看不出来，只能靠这条断言发现。
     func testHvc1TagIsPresentForHardwareDecode() {
         let argv = FpsDownscaleCommand.arguments(input: input, output: output)
         guard let index = argv.firstIndex(of: "-tag:v") else {
@@ -88,15 +85,13 @@ final class FpsDownscaleCommandTests: XCTestCase {
         XCTAssertEqual(FpsDownscaleCommand.maxHeight, 1440)
     }
 
-    /// 恰好 30 不算超 —— NTSC 的 29.97 也走这条路。
+    /// NTSC 的 29.97 也走这条路，不算超标。
     func testExactlyThirtyIsNotDownscaled() {
         XCTAssertFalse(FpsDownscaleCommand.needsDownscale(30))
         XCTAssertFalse(FpsDownscaleCommand.needsDownscale(29.97))
     }
 
-    /// ⚠️ 这条钉的是真实数据里的 bug：`nominalFrameRate` 对 NTSC 源会读出
-    /// 30.04 / 30.05 这类值（理论 29.97 或 30）。裸 `> 30` 会把它们全判成需降帧 ——
-    /// 实测 491 个文件里有 3 个是这种情况，于是转码了根本不该转的片。
+    /// `nominalFrameRate` 对 NTSC 源会读出 30.04 / 30.05 这类浮点噪声值（理论 29.97 或 30）。裸 `> 30` 会把它们全判成需降帧，转码了根本不该转的片。
     func testFrameRateJustAboveThirtyIsNotDownscaled() {
         for fps in [30.04, 30.05, 30.001] {
             XCTAssertFalse(FpsDownscaleCommand.needsDownscale(fps),
@@ -104,15 +99,14 @@ final class FpsDownscaleCommandTests: XCTestCase {
         }
     }
 
-    /// 容差不能大到放过真的超标 —— 48/50fps 仍必须降。
+    /// 48/50fps 这种真超标仍必须降 —— 容差不能大到把它们放过。
     func testGenuinelyAboveThirtyStillDownscaled() {
         for fps in [48.0, 50.03, 59.92, 60.0, 120.0] {
             XCTAssertTrue(FpsDownscaleCommand.needsDownscale(fps), "\(fps)fps 确实超标，必须降")
         }
     }
 
-    /// 容差的上界：35fps 必须仍判超标。容差放大到 5 时 48fps 照样会被降 ——
-    /// 这条钉住「容差不能变成 5」而不是笼统地测「48 要降」。
+    /// 容差上界：35fps 必须仍判超标。容差放大到 5 时 48fps 那条照样绿，只有本条会红。
     func testToleranceStaysTightAtThirtyFiveFps() {
         XCTAssertTrue(FpsDownscaleCommand.needsDownscale(35),
                       "35fps 明显超标 —— 容差若被放大到 5 这条会红")
@@ -124,8 +118,7 @@ final class FpsDownscaleCommandTests: XCTestCase {
         XCTAssertTrue(FpsDownscaleCommand.needsDownscale(120))
     }
 
-    /// 读不到帧率时按「不降」——宁可文件大一点，不在元数据缺失时猜错画质。
-    /// 判据吃非可选 Double，nil 由队列侧提前挡掉。
+    /// 判据 `needsDownscale` 吃非可选 Double，nil 由队列侧提前挡掉；元数据缺失时不做猜测。
     func testFrameRateNilIsDecidedByCallerNotPredicate() {
         XCTAssertNil(VideoAssetMetadata(hasVideoTrack: true, frameRate: nil).frameRate)
     }

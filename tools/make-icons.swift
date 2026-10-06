@@ -7,10 +7,8 @@ func roundedRectPath(_ r: CGRect, _ radius: CGFloat) -> CGPath {
     CGPath(roundedRect: r, cornerWidth: radius, cornerHeight: radius, transform: nil)
 }
 
-// 对齐修正后的几何（全部按 512 轴）
-// 前窗 x=212 w=600 → 212..812 中心512 | 后窗 x=252 w=520 → 252..772 中心512
-// 三角 448..576 中心512，y 469..597 居中于前窗 | 基线 300..724 中心512
-// 整体 y 250..770 → 中心510
+// 几何全部按 512 轴对齐：前窗 x=212 w=600 → 212..812 中心512 | 后窗 x=252 w=520 → 252..772 中心512
+// 三角 448..576 中心512，y 469..597 居中于前窗 | 基线 300..724 中心512 | 整体 y 250..770 → 中心510
 func drawAppIcon(ctx cg: CGContext, px: CGFloat, menuBar: Bool = false) {
     let k = px / S
     func X(_ v: CGFloat) -> CGFloat { v * k }
@@ -114,11 +112,7 @@ for (name, px) in [("icon_16x16",16),("icon_16x16@2x",32),("icon_32x32",32),("ic
 }
 
 
-// ═══════════════════════════════════════════════════════════
-// 菜单栏模板图 —— 必须靠透明间隙成形，实心填充会糊成一块黑矩形
-// v1 = 单窗 + 实心三角（最简，小尺寸最清楚）
-// v2 = 双窗 + 实心三角（与 app 图标同源）
-// ═══════════════════════════════════════════════════════════
+// 菜单栏模板图必须靠透明间隙成形，实心填充会糊成一块黑矩形。v1 单窗 + 实心三角，v2 双窗 + 实心三角。
 func drawMenuBar(_ cg: CGContext, _ px: CGFloat, twoLayer: Bool) {
     let k = px / 1024
     func X(_ v: CGFloat) -> CGFloat { v * k }

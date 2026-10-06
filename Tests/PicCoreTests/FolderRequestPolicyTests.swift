@@ -1,12 +1,7 @@
 import XCTest
 @testable import PicCore
 
-/// 「该不该弹文件夹选择框」的纯函数判据。
-///
-/// 不 import AppKit、不依赖 fixtures/ —— 干净 clone 上必须绿。
-/// setUp/tearDown 形状沿用 SettingsStoreTests（独立 suite + unsetenv）：
-/// 输入要能表达 `PIC_SOURCE_FOLDER` 那一级（三级优先），
-/// 测试进程里那个环境变量必须先摘掉，免得外部环境漏进来。
+/// 纯函数判据，不 import AppKit、不依赖 fixtures/，干净 clone 上必须绿。setUp/tearDown 的 unsetenv 不能省：输入要能表达 `PIC_SOURCE_FOLDER` 那一级（三级优先），测试进程里那个环境变量必须先摘掉，免得外部环境漏进来。
 @MainActor
 final class FolderRequestPolicyTests: XCTestCase {
 
@@ -46,7 +41,7 @@ final class FolderRequestPolicyTests: XCTestCase {
     func testIsAcceptableSelectionRejectsNilAndRegularFiles() {
         XCTAssertFalse(FolderRequestPolicy.isAcceptableSelection(nil),
                        "取消面板（nil）必须被拒")
-        // 测试二进制自己必定存在且是普通文件 —— 不依赖 fixtures/（干净 clone 上没有）。
+        // 测试二进制自己必定存在且是普通文件，不依赖 fixtures/。
         let fileURL = URL(fileURLWithPath: ProcessInfo.processInfo.arguments[0])
         XCTAssertFalse(FolderRequestPolicy.isAcceptableSelection(fileURL),
                        "指向普通文件的 URL 必须被拒（否则扫描器在文件上枚举，表现是「选对了却没反应」）")

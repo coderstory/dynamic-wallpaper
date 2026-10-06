@@ -1,11 +1,8 @@
 import AVFoundation
 import Foundation
 
-/// 降帧队列 —— 扫描 + 串行 drain + 暂停/继续 + 取消。
-///
-/// 与 `TranscodeQueue` 同形（依赖注入、四道预检、tmp→rename），差别在三处：
-/// 候选来自**帧率表**而非扩展名白名单、派生产物**顶替**原片而非追加、
-/// 且带暂停/取消两个控制通道。
+/// 降帧队列。与 `TranscodeQueue` 同形（依赖注入、四道预检、tmp→rename），三处不同：
+/// 候选来自帧率表而非扩展名白名单、派生产物顶替原片而非追加、带暂停/取消两个控制通道。
 @MainActor
 public final class FpsTranscodeQueue {
 
@@ -36,8 +33,7 @@ public final class FpsTranscodeQueue {
     public private(set) var jobs: [Job] = []
     public private(set) var scannedCount = 0
     public private(set) var reusedCount = 0
-    /// 帧率表卡的读数：总行数 / 无需处理数。⚠️ 探测失败的文件也算一行 ——
-    /// 它被看过了，只是判不出帧率；不算进「已达标」。
+    /// 帧率表卡的读数：总行数 / 无需处理数。探测失败的文件也算一行 —— 它被看过了，只是判不出帧率，不算进 `okAt30Count`。
     public private(set) var tableTotal = 0
     public private(set) var okAt30Count = 0
 
@@ -53,7 +49,7 @@ public final class FpsTranscodeQueue {
     private let specProvider: (URL) async -> VideoAssetMetadata
     private let tableURL: URL
 
-    /// 控制位。与 UI 的 await 不同线程，用锁保护。
+    /// 暂停/取消标志。与 UI 的 await 不同线程，用锁保护。
     private let controlLock = NSLock()
     private var _pauseRequested = false
     private var _cancelRequested = false
@@ -84,8 +80,7 @@ public final class FpsTranscodeQueue {
         controlLock.withLock { _pauseRequested = false }
     }
 
-    /// 取消：终止当前进程。**不**取消一个没在跑的队列的语义 ——
-    /// 没有进程时它只是个标志，`run()` 会立刻返回。
+    /// 取消：置标志并终止当前进程。没有进程在跑时它只是个标志 —— `run()` 会立刻返回，且把当前 job 退回 pending。
     public func cancel() {
         controlLock.withLock { _cancelRequested = true }
         (runner as? ProcessTranscodeRunner)?.cancel()
@@ -106,8 +101,7 @@ public final class FpsTranscodeQueue {
 
     // MARK: - 扫描
 
-    /// 遍历壁纸目录，把 >30fps 的文件排进队列。走帧率表做增量 ——
-    /// 表里有效的行不重开 `AVURLAsset`。
+    /// 遍历壁纸目录，把超过 30fps 的文件排进队列。走帧率表做增量：表里有效的行不重开 `AVURLAsset`。
     public func scan() async {
         var table = FrameRateTable.load(from: tableURL)
         var candidates: [Job] = []
@@ -120,8 +114,7 @@ public final class FpsTranscodeQueue {
             options: [.skipsHiddenFiles]
         ) else { return }
 
-        // ⚠️ 不能 `for ... in enumerator` —— async 上下文里 makeIterator 不可用。
-        // 取一次 nextObject 的类型再循环。
+        // 不能写 `for ... in enumerator` —— async 上下文里 makeIterator 不可用。先 nextObject() 取类型，再循环。
         var cursor: URL? = enumerator.nextObject() as? URL
         while let entry = cursor {
             cursor = enumerator.nextObject() as? URL
@@ -152,8 +145,7 @@ public final class FpsTranscodeQueue {
                                   reused: inout Int) async -> Double? {
         if let cached = table.reusableEntry(for: source) {
             reused += 1
-            // ⚠️ `.done` 不等于「不用降」——`recovered` 只把 converting/failed 退回可重试。
-            // 已完成的必须跳过，否则每次扫描都把 198 个已转文件重排一遍。
+            // `.done` 不等于「不用降」—— `recovered` 只把 converting/failed 退回可重试，已完成的必须跳过，否则每次扫描都把已转文件重排一遍。
             guard cached.state.recovered == .needsConvert else { return nil }
             let cachedFPS = cached.fps
             return FpsDownscaleCommand.needsDownscale(cachedFPS) ? cachedFPS : nil
@@ -189,8 +181,7 @@ public final class FpsTranscodeQueue {
 
     // MARK: - drain
 
-    /// 串行 drain。⚠️ 用 `while` 重取下标而不是 `for in jobs.indices` ——
-    /// 索引范围在循环开始时求值一次，运行中追加的 job 本轮看不到。
+    /// 串行 drain。用 `while` 重取下标而不是 `for in jobs.indices` —— 索引范围在循环开始时求值一次，运行中追加的 job 本轮看不到。
     public func run() async {
         guard !isRunning else { return }
         isRunning = true
@@ -199,7 +190,7 @@ public final class FpsTranscodeQueue {
         var didWork = false
         while true {
             guard let index = jobs.firstIndex(where: { $0.state == .pending }) else { break }
-            // 暂停/取消在**每个 job 之前**判定 —— 暂停语义是「当前文件跑完再停」。
+            // 暂停/取消在每个 job 之前判定 —— 暂停语义是「当前文件跑完再停」。
             if shouldStop() {
                 if consumeCancel() { jobs[index].state = .pending; onJobsChanged?() }
                 break
@@ -255,8 +246,7 @@ public final class FpsTranscodeQueue {
                 }
                 try FileManager.default.moveItem(at: temporary, to: final)
                 jobs[index].state = .done
-                // ⚠️ 必须写回表：不写的话下次扫描这些行仍是 needsConvert，
-                // 200 个文件会被重新排队 —— 13 小时的活白干一遍。
+                // 必须写回表：不写的话下次扫描这些行仍是 needsConvert，已转文件会被重新排队。
                 writeTableState(.done, for: source)
             } catch {
                 try? FileManager.default.removeItem(at: temporary)
@@ -279,8 +269,7 @@ public final class FpsTranscodeQueue {
     }
 }
 
-/// 进度累加器的 `@MainActor` 壳 —— 回调是 `@Sendable`，不能可变捕获
-/// `Accumulator`；所有读写都在 `Task { @MainActor }` 里。
+/// 进度累加器的 `@MainActor` 壳 —— `onProgressLine` 是 `@Sendable`，不能可变捕获 `Accumulator`；所有读写都在 `Task { @MainActor }` 里。
 @MainActor
 private final class ProgressState {
     private var accumulator = ProgressParser.Accumulator()

@@ -3,7 +3,7 @@ import Foundation
 // MARK: - 注入 seam
 
 /// 轮换的调度 seam。**不标 `@MainActor`**：协议整体标会让 Swift 6 的 conformance 报
-/// `#ConformanceIsolation`，由持有它的 `@MainActor` 类负责隔离。单测注入 `ManualScheduler`，生产注入系统调度器。
+/// `#ConformanceIsolation`，由持有它的 `@MainActor` 类负责隔离。
 public protocol RotationScheduling: AnyObject {
     func schedule(after interval: TimeInterval, _ body: @escaping () -> Void)
     func cancel()
@@ -15,8 +15,7 @@ public protocol RandomSource: AnyObject {
     func nextInt(upperBound: Int) -> Int
 }
 
-/// 可播种的随机源（xorshift64）。同 seed 两次给出完全相同的序列；两个不同 seed
-/// 至少有一个顺序不同 —— 证明随机源真接上了，不是恒等实现。
+/// 可播种的随机源（xorshift64）。同 seed 两次给出完全相同的序列 —— 可复现判据靠它。
 public final class SeededRandomSource: RandomSource {
 
     private var state: UInt64
@@ -40,11 +39,11 @@ public final class SeededRandomSource: RandomSource {
 
 /// 轮换内核 ——「下一条播哪条、多久换一条」的唯一真相源。**与播放端彻底解耦**：
 /// `init` 里没有 player、文件里零播放进度读取，「到点就切」在结构上不可被绕过成
-/// 「等播完再切」。这不是洁癖：只要轮换器能读到播放位置，一个「等播完」的实现就能悄悄混进来。
+/// 「等播完再切」。只要轮换器能读到播放位置，一个「等播完」的实现就能悄悄混进来。
 @MainActor
 public final class RotationController {
 
-    /// 为什么切换。轮换到点 / 用户手动「立即下一个」。
+    /// 为什么切换。
     public enum AdvanceReason: String, Equatable, Sendable {
         case rotationElapsed
         case userRequested
@@ -101,14 +100,13 @@ public final class RotationController {
         bag = []
     }
 
-    /// 与 `mode` 属性共用同一个真相源（`mode = newMode`），不另存副本。
-    /// 保留方法入口是因为计划冻结的公开面两者都在。
+    /// 与 `mode` 属性共用同一个真相源，不另存副本。
     public func setMode(_ newMode: PlayMode) {
         mode = newMode
     }
 
     /// **当场重排程**：取消旧定时器、用新间隔重新排，让设置改动立即生效。尚未
-    /// `start()` 时不排（排了会把首程提前到 `start()` 之前，`scheduleCount` 的读数就漂了）。
+    /// `start()` 时不排（排了会把首程提前到 `start()` 之前）。
     public func setInterval(_ seconds: TimeInterval) {
         interval = seconds
         guard isRunning, !items.isEmpty else { return }
@@ -133,7 +131,7 @@ public final class RotationController {
 
     // MARK: 切换
 
-    /// 立即下一个（菜单「立即下一个」的行为侧）。
+    /// 立即下一个（行为侧）。
     public func advanceNow() {
         advance(reason: .userRequested)
     }
@@ -143,8 +141,6 @@ public final class RotationController {
         advance(reason: .rotationElapsed)
     }
 
-    /// 三种模式的选取逻辑。名字（`nextIndex` / `bag` / `refillBag()`）是判据依赖的
-    /// 名字，逐字照写 —— 变异插桩的 perl 正则正按它们匹配。
     private func advance(reason: AdvanceReason) {
         // 空列表：不打点、不回调、不崩，也**不重排程**（定时器自然熄火）。
         guard !items.isEmpty else { return }

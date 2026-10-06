@@ -4,9 +4,7 @@ import QuartzCore
 
 /// 桌面层壁纸窗口 —— 播放与渲染之间的接缝的最外层。
 ///
-/// 窗口配置**逐行照抄** Phase 1 的 spike（那份已实跑通过 `ORDER=ok` /
-/// `FINDER_RESTART_ALIVE=1`），只把 spike 用来证明「画面在动」的帧号叠加层换成真正的
-/// 视频图层。层级写法不重新推导。
+/// 窗口配置已实跑验证过（`ORDER=ok` / `FINDER_RESTART_ALIVE=1`），层级写法不重新推导。
 public final class WallpaperWindow: NSWindow {
 
     /// 视频图层。本窗口是它唯一的持有者，控制器经 `videoLayer` 取用 —— 它也是
@@ -33,8 +31,8 @@ public final class WallpaperWindow: NSWindow {
         // 变更通知的订阅。
         collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
 
-        // 第二组配置。isOpaque=true + 黑色底的功耗结论仍停在「没跑过」栏
-        // （powermetrics 需要 root，实测 AB_GROUPS_MEASURED=0），照写但不声称已验证。
+        // isOpaque=true + 黑色底的功耗结论未跑过（powermetrics 需要 root），
+        // 照写但不声称已验证。
         isOpaque = true
         hasShadow = false
         ignoresMouseEvents = true
@@ -54,8 +52,7 @@ public final class WallpaperWindow: NSWindow {
     public override var canBecomeMain: Bool { false }
 }
 
-/// 视频宿主视图。翻转坐标系只为让布局计算与 NSView 惯例一致；
-/// 视频图层自己会钉满整个 bounds，缩放时不留黑边。
+/// 视频宿主视图。翻转坐标系只为让布局计算与 NSView 惯例一致。
 final class HostView: NSView {
     var videoLayer: AVPlayerLayer?
 

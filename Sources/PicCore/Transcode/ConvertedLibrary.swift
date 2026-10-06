@@ -1,10 +1,7 @@
 import Foundation
 
-/// D-23 的播放第二入口：扫 `<壁纸目录>/Converted/` 子树产出可播清单，
-/// 在 `router.start(with:)` 调用点与根扫描 items 合并（06-05 落地装配）。
-///
-/// 与 `MediaLibrary` 同隔离域（最终被 AppDelegate 在主线程驱动）。不做缓存 ——
-/// 转码完成事件会触发全量重扫（见 06-05），加缓存反而要管失效。
+/// 播放第二入口：扫 `<壁纸目录>/Converted/` 子树，产出与根扫描 items 合并的清单。
+/// 与 `MediaLibrary` 同隔离域。不做缓存 —— 转码完成会触发全量重扫，加缓存反而要管失效。
 @MainActor
 public final class ConvertedLibrary {
 
@@ -16,8 +13,7 @@ public final class ConvertedLibrary {
         self.entryCap = entryCap
     }
 
-    /// 扫 `folder/Converted/` 子树。目录不存在 → `[]` 不抛错
-    /// （还没转过任何东西是常态，SC#5 的前提是不吓人）。
+    /// 扫 `folder/Converted/` 子树。目录不存在 → `[]` 不抛错（还没转过任何东西是常态）。
     public func scan(folder: URL) async throws -> [VideoItem] {
         let fm = FileManager.default
         let converted = folder.appendingPathComponent(
@@ -34,7 +30,7 @@ public final class ConvertedLibrary {
         while let entry = enumerator.nextObject() as? URL {
             scanned += 1
             if scanned > entryCap { break }
-            // 符号链接一律不收（T-06-03，与 04-01 扫描器同规则）。
+            // 符号链接一律不收（与 `MediaLibrary` 扫描器同规则）。
             guard let values = try? entry.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey]),
                   values.isRegularFile == true,
                   values.isSymbolicLink != true else { continue }
@@ -47,8 +43,7 @@ public final class ConvertedLibrary {
         return items
     }
 
-    /// 合并纯函数：root 顺序保留在前，converted 按序追加在后，按 `url.path` 去重
-    /// —— `router.start(with:)` 的入参由它产出（D-23 的核心）。
+    /// 合并纯函数：`router.start(with:)` 的入参由它产出。root 顺序保留在前，converted 按序追加在后，按 `url.path` 去重。
     public static func playbackItems(root: [VideoItem], converted: [VideoItem]) -> [VideoItem] {
         var seen = Set(root.map { $0.url.path })
         var merged = root

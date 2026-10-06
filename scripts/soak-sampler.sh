@@ -1,11 +1,8 @@
 #!/usr/bin/env bash
-# soak-sampler.sh —— SC5 长跑的**单次**采样：读一次系统状态，往 soak.log 追加一行。
+# 长跑的**单次**采样：读一次系统状态，往 soak.log 追加一行。用法 `SOAK_DIR=<dir> SOAK_PID=<pid> bash scripts/soak-sampler.sh`。
 #
-#   SOAK_DIR=<dir> SOAK_PID=<pid> bash scripts/soak-sampler.sh
-#
-# 调度不归本脚本 —— 「每小时」是 launchd 的 StartInterval（见 scripts/soak-agent.sh）。
-# 脚本自己再睡一小时就变成常驻循环：进程一死采样就停，而「进程还活着」恰好是长跑
-# 最需要证明的事 —— 把它交给 launchd 比自己保活更可信。
+# 调度不归本脚本 —— 「每小时」是 launchd 的 StartInterval（见 scripts/soak-agent.sh）。脚本自己再睡一小时就变成常驻循环：
+# 进程一死采样就停，而「进程还活着」恰好是长跑最需要证明的事 —— 把它交给 launchd 比自己保活更可信。
 #
 # 行形状（键名与顺序）是 soak-analyze.sh 的输入契约，一处漂移全部判据失明：
 #   ts rss vsz fd crashes sleeps wakes alive locked batt missing

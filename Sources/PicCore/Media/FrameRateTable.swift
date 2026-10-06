@@ -26,8 +26,7 @@ public struct FrameRateEntry: Codable, Equatable, Sendable {
         self.state = state
     }
 
-    /// 这一行还能信吗。size 与 mtime 都参与 —— 只比 mtime 会漏掉「换成同时间戳
-    /// 的另一个视频」，那种情况下旧帧率会把该转的文件判成不必转。
+    /// 这一行还能信吗。size 与 mtime 都参与：只比 mtime 会漏掉「换成同时间戳的另一个视频」，那种情况下旧帧率会把该转的文件判成不必转。
     public func isValid(against attributes: [FileAttributeKey: Any]) -> Bool {
         guard let size = attributes[.size] as? Int,
               let mtime = attributes[.modificationDate] as? Date else { return false }
@@ -54,8 +53,7 @@ public enum ProbeState: String, Codable, Equatable, Sendable {
     case done
     case failed
 
-    /// 从磁盘读回时 `converting` / `failed` 退回可重试 —— 没有半个进程在跑，
-    /// 半成品不该被当成「已处理过」而永久跳过。
+    /// 从磁盘读回时 `converting` / `failed` 退回可重试：没有半个进程在跑，半成品不该被当成「已处理过」而永久跳过。
     public var recovered: ProbeState {
         switch self {
         case .converting, .failed: return .needsConvert
@@ -64,9 +62,7 @@ public enum ProbeState: String, Codable, Equatable, Sendable {
     }
 }
 
-/// 帧率表 —— 单个 JSON 文件。约 500 行 60 KB，sqlite 的收益为零却要引入 C API。
-///
-/// 形状照 `LaunchAgentWriter`：**写抛、读静默**。读失败一律当空表。
+/// 帧率表 —— 单个 JSON 文件。规模在几百行量级，换 sqlite 的收益为零却要引入 C API。形状照 `LaunchAgentWriter`：**写抛、读静默**。
 public struct FrameRateTable: Codable, Equatable, Sendable {
 
     public var entries: [FrameRateEntry]
@@ -77,9 +73,7 @@ public struct FrameRateTable: Codable, Equatable, Sendable {
 
     // MARK: - 查询
 
-    /// ⚠️ 路径比统一走 `standardized`：`FileManager.enumerator` 返回的是
-    /// `/private/var/...`，而调用方给的可能是 `/var/...` 或 `/Users/...`。
-    /// 直接 `==` 比 path 会永远命中不了 —— 症状是增量扫描静默退化成全量重探。
+    /// 路径比统一走 `standardized`：`FileManager.enumerator` 返回的是 `/private/var/...`，而调用方给的可能是 `/var/...` 或 `/Users/...`。直接 `==` 比 path 会永远命中不了 —— 症状是增量扫描静默退化成全量重探。
     public func entry(for source: URL) -> FrameRateEntry? {
         let key = Self.key(for: source)
         return entries.first { Self.key(forPath: $0.sourcePath) == key }

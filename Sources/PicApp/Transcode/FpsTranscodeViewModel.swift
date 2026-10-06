@@ -2,8 +2,7 @@ import Combine
 import Foundation
 import PicCore
 
-/// 降帧队列的观察者（呈现层）。形状照 `TranscodeViewModel` ——
-/// 数据只经 `onJobsChanged` 回调进来，PicCore 保持零 UI 框架。
+/// 降帧队列的观察者（呈现层）。数据只经 `onJobsChanged` 回调进来，PicCore 保持零 UI 框架。
 @MainActor
 final class FpsTranscodeViewModel: ObservableObject {
 
@@ -57,7 +56,7 @@ final class FpsTranscodeViewModel: ObservableObject {
 
     var isPaused: Bool { queue.isPaused }
 
-    /// UI 的启用判定。可转 = 有 pending 且工具就绪且没在跑。
+    /// UI 的启用判定：可转 = 有 pending 且工具就绪且没在跑。
     var canStart: Bool {
         !isRunning && !isScanning &&
         availabilityIsAvailable && jobs.contains { $0.state == .pending }
@@ -86,7 +85,6 @@ final class FpsTranscodeViewModel: ObservableObject {
         jobs = queue.jobs
         scannedCount = queue.scannedCount
         reusedCount = queue.reusedCount
-        // ⚠️ 这两个曾经只有声明没有赋值 —— 帧率表卡永远显示 0。
         tableTotal = queue.tableTotal
         okAt30Count = queue.okAt30Count
     }

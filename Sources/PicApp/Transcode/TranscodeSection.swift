@@ -1,19 +1,12 @@
 import SwiftUI
 import PicCore
 
-/// 转码区块 —— 原「转码窗口」内容，2026-10-04 起并入设置窗，作为第二个 TAB。
-///
-/// 与设计稿 `.planning/design/ui-rotation-a.html` 的转码页一一对应。
-/// 全 app 唯一出现列表的地方（例外已在 UI-SPEC §8 存档）。
-///
-/// 四要素：ffmpeg 徽章 / 待转码队列表 / 底部实际命令（可审计）/ 产物规则说明。
-/// 深色令牌已换晨雾浅色，组件复用设置窗那一套，不自造。
+/// 转码区块 —— 设置窗的第二个 TAB。全 app 唯一出现列表的地方。
 struct TranscodeSection: View {
     @ObservedObject var viewModel: TranscodeViewModel
     @Binding var showingPathways: Bool
     let refresh: () -> Void
 
-    /// 底部命令区展示谁：running 优先，其次用户点选的那条。
     @State private var selectedJobID: TranscodeJob.ID?
 
     var body: some View {
@@ -23,7 +16,6 @@ struct TranscodeSection: View {
             SectionHead(t: "待转码", badge: viewModel.jobs.isEmpty ? nil : "\(viewModel.jobs.count) 个任务")
             CompactCard {
                 if viewModel.jobs.isEmpty {
-                    // 空态画在卡内：用户语义「待转码就是个表格」。
                     Text("没有待转码的文件。壁纸目录里的 MKV / AVI / WEBM 会出现在这里。")
                         .font(.system(size: 11.5))
                         .foregroundStyle(Color.pMuted)
@@ -70,8 +62,7 @@ struct TranscodeSection: View {
         }
     }
 
-    /// ffmpeg 可用性容器。**已安装时只显示一行状态，不给「安装途径」入口** ——
-    /// 装好了还摆个安装按钮会让人以为没装成功。容器本身就是未安装时的出口。
+    /// ffmpeg 可用性容器。已安装时不给「安装途径」入口：装好了还摆个安装按钮会让人以为没装成功。
     private var availabilityBar: some View {
         StatusBar(text: isAvailable ? "ffmpeg 已就绪" : "ffmpeg 未安装",
                   meta: isAvailable ? [] : ["其余壁纸功能不受影响"],
@@ -83,9 +74,7 @@ struct TranscodeSection: View {
                         .accessibilityIdentifier("transcode-pathways")
                 }
             }
-            // ⚠️ 转码并入设置窗后本区块不再有 `.onAppear` 的宿主（旧版是 TranscodeScene 的
-            // 壳在 onAppear 调 refresh + loadCandidates）。不补这里，availability 会停在
-            // 初始值 `.unavailable`，装好的 ffmpeg 也显示「未安装」。
+            // 本区块的 onAppear 宿主不能删：不调 refresh 会让 availability 停在初始值 .unavailable
             .onAppear {
                 refresh()
                 viewModel.refresh()
@@ -122,7 +111,7 @@ struct TranscodeSection: View {
                 Text(stateLabel(job.state))
                     .font(mono(10.5))
                     .foregroundStyle(isFailure(job.state) ? Color.pWarnFg : Color.pAccent)
-                // 未知进度时给一条不确定态细条，不假装知道百分比。
+                // 未知进度时给一条固定细条，不假装知道百分比。
                 progressBar(job)
                     .frame(width: 96, height: 4)
             }
@@ -182,7 +171,7 @@ struct TranscodeSection: View {
 
     private var toolbar: some View {
         HStack(spacing: 9) {
-            // 用户手动选择目录/文件（目录递归展开成 N 个候选）—— 手动来源的源文件不删。
+            // 手动来源：目录递归展开成候选，转码成功后源文件保留
             Button("选择目录或文件…") {
                 Task { await viewModel.loadPickedSources() }
             }

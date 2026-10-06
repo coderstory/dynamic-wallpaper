@@ -1,10 +1,7 @@
 import XCTest
 @testable import PicCore
 
-/// ExternalToolLocator 决策表单测（三态）。
-///
-/// 全部走 Fake 注入，**不真跑 which**（`ProcessWhichProbe` 不在本文件实例化 —— C6）。
-/// 样本路径硬编码，不依赖 fixtures/ 已生成：干净 clone 上 `swift test` 也必须绿。
+/// 全部走 Fake 注入，不真跑 which（`ProcessWhichProbe` 不在本文件实例化）；样本路径硬编码、不依赖 `fixtures/`，干净 clone 上 `swift test` 也必须绿。
 final class ExternalToolLocatorTests: XCTestCase {
 
     /// 可配 status/path 的 which 替身（status 是 terminationStatus 语义）。

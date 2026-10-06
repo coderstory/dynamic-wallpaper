@@ -1,14 +1,13 @@
 import XCTest
 @testable import PicCore
 
-/// TEST-06 / TRANS-03 参数侧 —— argv 逐 token 断言（C6：只断参数构造，绝不跑 ffmpeg）。
+/// argv 逐 token 断言，只断参数构造，绝不跑 ffmpeg（换台机器也必须照样过）。
 final class TranscodeCommandTests: XCTestCase {
 
     private let input = URL(fileURLWithPath: "/tmp/p6-root/样本 movie.mkv")
     private let output = URL(fileURLWithPath: "/tmp/p6-root/Converted/样本 movie.mp4.tmp")
 
-    /// 期望 argv —— 逐 token 手写，绝不从产品代码生成（从产品代码生成期望值等于没测）。
-    /// 含空格中文的路径必须是单个元素，顺带锁死「无字符串拼接」。
+    /// 期望 argv 逐 token 手写，绝不从产品代码生成（那样等于没测）。含空格中文的路径必须是单个元素，顺带锁死「无字符串拼接」。
     private var expectedTokens: [String] {
         [
             "-nostdin", "-y",
@@ -36,9 +35,7 @@ final class TranscodeCommandTests: XCTestCase {
         XCTAssertEqual(expectedTokens.count, 30, "基线 argv 恰好 30 个 token")
     }
 
-    /// ⚠️ 这条钉的是实测 bug：产物先写 `.tmp` 再 rename，而 ffmpeg 按**最后一个**
-    /// 扩展名判输出格式 —— `x.mp4.tmp` 被判成未知格式，muxer 初始化失败、进程秒退
-    /// （降帧侧已实测踩到，转码侧是同一个形状，只是还没被触发过）。
+    /// ffmpeg 按最后一个扩展名判输出格式，`.tmp` 后缀会判成未知格式、muxer 初始化失败进程秒退，必须显式 `-f mp4`。
     func testExplicitMuxerSoTmpExtensionDoesNotBreakFormatDetection() {
         let argv = TranscodeCommand.arguments(input: input, output: output)
         guard let index = argv.firstIndex(of: "-f") else {

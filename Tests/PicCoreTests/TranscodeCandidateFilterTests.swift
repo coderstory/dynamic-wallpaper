@@ -1,8 +1,7 @@
 import XCTest
 @testable import PicCore
 
-/// TRANS-05 第一闸门 —— mkv/avi/webm 白名单、`Converted/` 精确排除、符号链接跳过。
-/// 树全部用临时目录 + UUID 自造（D-22：绝不碰真实 42GB 目录）。
+/// mkv/avi/webm 白名单、`Converted/` 精确排除、符号链接跳过。树全部用临时目录 + UUID 自造，绝不碰真实片库目录。
 final class TranscodeCandidateFilterTests: XCTestCase {
 
     private var root: URL!
@@ -59,7 +58,7 @@ final class TranscodeCandidateFilterTests: XCTestCase {
         let names = Set(TranscodeCandidateFilter.candidates(in: root).map { $0.lastPathComponent })
         XCTAssertFalse(names.contains("x.mkv"),
                        "小写 converted/ 也必须排除 —— 目录名大小写不敏感全等")
-        // 后半句是这条判据有牙齿的原因：只判前半句的话，「子串匹配」的假实现照样绿。
+        // 后半句才有牙齿：只判前半句的话，「子串匹配」的假实现照样绿。
         XCTAssertTrue(names.contains("z.mkv"),
                        "converted-lower/ 只是子串相似，z.mkv 必须照收 —— 排除不是子串匹配")
     }

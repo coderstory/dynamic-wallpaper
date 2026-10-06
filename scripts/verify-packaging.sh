@@ -1,26 +1,18 @@
 #!/usr/bin/env bash
-# verify-packaging.sh —— 重复构建结果一致（锚 .app，不锚 DMG）。
+# 重复构建结果一致（锚 .app，不锚 DMG）。跑两遍 bash build.sh，各取四样读数（二进制 md5 / plist md5 / DMG 清单 / 挂载点二进制 md5），
+# 三项对比成立 → PACK_REPEAT_CONSISTENT=1；形态断言（adhoc / not set / spctl rc=3 / hdiutil verify）全部**正向**；
+# 无上架产物（无 .pkg、无 app-sandbox entitlements）→ PACK_NO_APPSTORE_ARTIFACTS=1。全部 PACK_* 行落 evidence/packaging.log。
 #
-#   bash scripts/verify-packaging.sh
-#     → 跑两遍 bash build.sh，各取四样读数（二进制 md5 / plist md5 / DMG 清单 / 挂载点二进制 md5）
-#     → 三项对比成立 → PACK_REPEAT_CONSISTENT=1
-#     → 形态断言（adhoc / not set / spctl rc=3 / hdiutil verify）全部**正向**
-#     → 无上架产物（无 .pkg、无 app-sandbox entitlements）→ PACK_NO_APPSTORE_ARTIFACTS=1
-#     → 全部 PACK_* 行落 evidence/packaging.log
+# **锚点纪律**：DMG 的 md5 不可复现 —— 四次独立 build.sh 得到四个不同的 md5，而两次 DMG 内的 Pic.app 逐字节相同，
+#    差异在 UDIF 容器层。所以「重复执行结果一致」锚 .app 的内容与 DMG 的**文件清单**，**不打 DMG md5 对比**；
+#    那种不可复现性以 PACK_DMG_MD5_NOTE 一行显式记录，留给审计看「为什么不断言它」。
 #
-# ⚠️ **锚点纪律**：DMG 的 md5 已实测不可复现 —— 四次独立 build.sh 得到四个不同的
-#    md5，而两次 DMG 内的 Pic.app 逐字节相同。差异在 UDIF 容器层。所以「重复执行
-#    结果一致」锚 .app 的内容与 DMG 的**文件清单**，**不打 DMG md5 对比**；那条
-#    不可复现性以 PACK_DMG_MD5_NOTE 一行显式记录，留给审计看「为什么不断言它」。
+# **spctl 是正向断言**：未签名未公证的 app **应当**被拒绝，`spctl -a -t exec` 返回 rc=3 是形态面成立。把它当失败是把判据方向写反了。
 #
-# ⚠️ **spctl 是正向断言**：未签名未公证的 app **应当**被拒绝，`spctl -a -t exec`
-#    返回 rc=3 是形态面成立。把它当失败是把判据方向写反了。
+# **create-dmg 主路在本机从未成功**（AppleEvent→Finder 自动化授权缺失，-1743），build.sh 每次都走 hdiutil 降级。
+#    本脚本对此**不假装**：DMG 生成走哪条路由 build.sh 自己打 DMG_FALLBACK= 行决定，本脚本只读不判。
 #
-# ⚠️ **create-dmg 主路在本机从未成功**（AppleEvent→Finder 自动化授权缺失，
-#    -1743），build.sh 每次都走 hdiutil 降级。本脚本对此**不假装**：DMG 生成走哪条路
-#    由 build.sh 自己打 DMG_FALLBACK= 行，本脚本只读不判。
-#
-# 纪律（同 probe 系）：`set -u` + `export LC_ALL=C`，外部命令套 alarm，不用 set -e。
+# 纪律：`set -u` + `export LC_ALL=C`，外部命令套 alarm，不用 set -e。
 
 set -u
 export LC_ALL=C
@@ -46,8 +38,7 @@ log() { printf '%s\n' "$*" >&2; }
 emit_line() { printf '%s\n' "$*" >> "$LOG"; }
 fail() { FAILURES="$FAILURES $1"; }
 
-# 一遍构建的四个读数。$1 = 轮次标签（A / B）。
-# DMG 挂载后 detach —— 挂载点留着会让第二批 .pkg/清单的 find 看见别人的东西。
+# 一遍构建的四个读数。$1 = 轮次标签（A / B）。DMG 必须挂载后 detach —— 挂载点留着会让后续 find 看见别人的东西。
 collect() {
   local tag="$1" mnt=""
   alarm 1200 bash build.sh > "$TMP/build-$tag.log" 2>&1
@@ -93,7 +84,6 @@ collect() {
   return 0
 }
 
-# ================= 两遍构建 =================
 collect A
 collect B
 
@@ -122,7 +112,6 @@ fi
 # 不断言 DMG md5 —— 理由显式落一行，别让审计以为漏了。
 emit_line "PACK_DMG_MD5_NOTE=anchor_app_not_dmg reason=udif_container_nondeterministic"
 
-# ================= 形态断言（全部正向）=================
 SIG="$(alarm 20 codesign -dv --verbose=2 "$APP" 2>&1)"
 echo "$SIG" | /usr/bin/grep -q '^Signature=adhoc' \
   && emit_line "PACK_SIGNATURE=adhoc" || { emit_line "PACK_SIGNATURE=$(echo "$SIG" | sed -n 's/^Signature=//p' | head -1)"; fail "signature"; }
@@ -146,7 +135,6 @@ else
   fail "mount_binary_mismatch"
 fi
 
-# ================= 无上架产物（PACK-02）=================
 PKG_COUNT=$(find "$ROOT/dist" -name '*.pkg' 2>/dev/null | wc -l | tr -d ' ')
 emit_line "PACK_PKG_COUNT=$PKG_COUNT"
 SANDBOX_COUNT=$(alarm 20 codesign -d --entitlements :- "$APP" 2>&1 | /usr/bin/grep -c 'app-sandbox' || true)

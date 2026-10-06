@@ -1,20 +1,17 @@
 #!/usr/bin/env bash
-# probe-transcode.sh —— 执行 tracer 活体证据采集。一条命令，无参数：
-#
-#   bash scripts/probe-transcode.sh
-#     → 编译 throwaway driver（与产品源码一起编 —— 证据跑的是产品代码）
-#     → 跑 driver（FakeRunner，零真实转码调用），stdout 落 evidence/transcode-tracer.log
+# 执行 tracer 活体证据采集。一条命令，无参数：编译 throwaway driver（与产品源码一起编 —— 证据跑的是产品代码）
+# → 跑 driver（FakeRunner，零真实转码调用），stdout 落 evidence/transcode-tracer.log。
 #
 # 纪律：
-#   ① 所有外部命令套 perl -e 'alarm N; exec @ARGV' —— 本机没有 timeout 命令。
+#   ① 所有外部命令套 `alarm N 命令 …` —— 本机没有 timeout 命令。
 #   ② 探针失败不中止脚本（不用 set -e）：失败原样写进日志，由人读日志判定。
 #   ③ evidence 支持 PIC_EVIDENCE_DIR 重定向，不覆盖入库证据。
 #   ④ 编译失败也要落日志（空 evidence 会让后续判据静默通过）。
 #
-# ⚠️ SRC 清单是**手写**的（probe-lock.sh 头注的真事故：漏列一个文件 → 编译失败
-#    且日志被清空）。Transcode/ 或 Media/ 下新增文件必须同步改这里。
-#    MediaLibrary.swift 是 ConvertedLibrary / TranscodeOutputNaming /
-#    TranscodeCandidateFilter 引用 excludedDirectoryName / allowedExtensions 的宿主。
+# SRC 清单是**手写**的，`swift build` 不会替我们更新它。漏列一个文件 → 编译失败且日志被清空 → 证据静默变成空文件、判据假绿。
+# **Transcode/ 或 Media/ 下新增文件必须同步改这里。**
+# MediaLibrary.swift 是 ConvertedLibrary / TranscodeOutputNaming / TranscodeCandidateFilter 引用
+# excludedDirectoryName / allowedExtensions 的宿主，删它会连带编译红。
 
 set -u
 export LC_ALL=C

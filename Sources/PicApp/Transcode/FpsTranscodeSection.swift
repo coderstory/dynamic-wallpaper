@@ -1,12 +1,8 @@
 import SwiftUI
 import PicCore
 
-/// 降帧区块 —— 设置窗的第三个 TAB。照 `.planning/design/ui-fps-tab.html` 五个状态。
-///
-/// 复用转码页那一套组件（CompactCard / IconBox / StatusBar / SectionHead / GlowButton），
-/// 不自造。⚠️ 进度条宽度是 `96 * percent` 而不是 `96 * percent / 100` ——
-/// `ProgressParser.percent` 返回的已经是 0…1（转码页那个除以 100 是既有的 bug，
-/// 本页不跟）。
+/// 降帧区块 —— 设置窗第三个 TAB。进度条宽度是 `96 * percent`：
+/// `ProgressParser.percent` 返回的已是 0…1。
 struct FpsTranscodeSection: View {
     @ObservedObject var viewModel: FpsTranscodeViewModel
     @Binding var showingPathways: Bool
@@ -51,8 +47,7 @@ struct FpsTranscodeSection: View {
         .accessibilityIdentifier("fps-scan-badge")
     }
 
-    /// 副行要说清「哪些读表、哪些探测」—— 否则用户看到 491 会以为是全量重扫。
-    /// 表行数会**小于**扫描数：探测不出帧率的文件不进表（`fps` 存不了「失败」）。
+    /// 表行数小于扫描数：探测不出帧率的文件不进表（`fps` 存不了「失败」）。
     private var tableSubLine: String {
         if viewModel.isScanning {
             return "本次探测 \(viewModel.scannedCount - viewModel.reusedCount) · 表内复用 \(viewModel.reusedCount)"
@@ -76,7 +71,6 @@ struct FpsTranscodeSection: View {
     private var queueCard: some View {
         CompactCard {
             if viewModel.isEmpty {
-                // 空态要说清「为什么空」和「下一步」—— 这是「不需要处理」不是「没找到文件」。
                 Text("片库里没有高于 \(Int(FpsDownscaleCommand.maxFrameRate))fps 的文件，无需处理。新增文件后点「重新扫描」。")
                     .font(.system(size: 11.5))
                     .foregroundStyle(Color.pMuted)
@@ -90,8 +84,7 @@ struct FpsTranscodeSection: View {
                     .frame(maxWidth: .infinity, minHeight: 56)
                     .padding(Metrics.tilePaddingH)
             } else {
-                // ⚠️ 全 app 第二个 ScrollView（第一个是转码队列，例外已存档 UI-SPEC §8）。
-                // 198 行不滚会让窗口长到几千 pt。
+                // 队列不设上限，maxHeight 必须封顶，否则窗口会长到几千 pt
                 ScrollView {
                     LazyVStack(spacing: 0) {
                         ForEach(viewModel.jobs) { job in
@@ -117,7 +110,6 @@ struct FpsTranscodeSection: View {
                     .foregroundStyle(Color.pFg)
                     .lineLimit(1)
                     .truncationMode(.middle)
-                // 副标题写成「60fps → 30」而不是只写源帧率 —— 箭头那一侧就是这行存在的理由。
                 Text("\(Int(job.fps))fps → \(Int(FpsDownscaleCommand.maxFrameRate)) · \(viewModel.sizeText(of: job))")
                     .font(mono(11))
                     .monospacedDigit()
@@ -240,7 +232,6 @@ struct FpsTranscodeSection: View {
                 .buttonStyle(GlowButton())
                 .disabled(viewModel.isRunning || viewModel.isScanning)
                 .accessibilityIdentifier("fps-rescan")
-            // 暂停时「继续」才是主按钮，「开始降帧」退为次要。
             if viewModel.isPaused {
                 Button("继续") { viewModel.resume() }
                     .buttonStyle(GlowButton(primary: true))

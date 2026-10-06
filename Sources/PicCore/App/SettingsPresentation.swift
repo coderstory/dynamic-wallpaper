@@ -1,8 +1,7 @@
 import Foundation
 
-/// 设置窗的纯显示映射。职责边界：只做「值 ↔ 显示形态」的换算，不碰
-/// SwiftUI/AppKit/AVFoundation（剥注释判据锁着），不做任何决策。窗口常量是 SC-1
-/// 两个数的唯一来源，视图与探针都读它，**不许**在别处散落字面量。
+/// 设置窗的纯显示映射：只做「值 ↔ 显示形态」的换算，不碰 SwiftUI/AppKit/AVFoundation，
+/// 不做任何决策。窗口常量是唯一来源，视图与探针都读它，不许在别处散落字面量。
 public enum SettingsPresentation {
     /// 设置窗打开时的宽度（`.defaultSize` / `idealWidth` 读这里）。
     public static let windowWidth: CGFloat = 780
@@ -11,8 +10,7 @@ public enum SettingsPresentation {
     /// 速度滑杆的合法区间。
     public static let rateBounds: ClosedRange<Float> = 0.5...2.0
 
-    /// 速度读数（`1.00×`）。越界值先 clamp 进 `rateBounds` 再格式化 ——
-    /// 持久化值被外部改坏时 UI 也不显示离谱数字。
+    /// 速度读数（`1.00×`）。越界值先 clamp 进 `rateBounds` 再格式化。
     public static func rateLabel(_ rate: Float) -> String {
         let clamped = min(max(rate, rateBounds.lowerBound), rateBounds.upperBound)
         return String(format: "%.2f×", clamped)
@@ -31,8 +29,7 @@ public enum SettingsPresentation {
 
     // MARK: - 轮换值表与两条置灰联动
 
-    /// 轮换间隔的封闭值表（分钟）。UI 只在表内选，
-    /// 换算的**唯一**落点在下面两个函数（视图里不出现第二份 ×60）。
+    /// 轮换间隔的封闭值表（分钟）。换算只落在下面两个函数（视图里不出现第二份 ×60）。
     public static let rotationChoicesMinutes: [Int] = [5, 10, 15, 30, 60, 120]
 
     /// 步进器读数：`>= 60` 显示「N 小时」，否则「N 分钟」。
@@ -45,8 +42,7 @@ public enum SettingsPresentation {
         TimeInterval(minutes) * 60
     }
 
-    /// store 秒 → 表内分钟。**就近吸附**：持久化旧值（例如 299×60）对不上值表时
-    /// 回落到最近的表项，否则步进器会索引到越界位置（量纲红线）。
+    /// store 秒 → 表内分钟，就近吸附：对不上值表的旧值回落到最近的表项，否则步进器会索引越界。
     public static func rotationMinutes(seconds: TimeInterval) -> Int {
         let target = seconds / 60
         return rotationChoicesMinutes.min {
@@ -54,13 +50,12 @@ public enum SettingsPresentation {
         } ?? rotationChoicesMinutes[0]
     }
 
-    /// 置灰联动①。判据字面量只允许出现在下面这一行 return 上 ——
-    /// 写进注释会让变异的替换打在注释上、代码没坏（03-04 踩过）。
+    /// 置灰联动①。判据只允许出现在下面这一行 return 上。
     public static func rotationControlsEnabled(playMode: PlayMode) -> Bool {
         return playMode != .loopSingle
     }
 
-    /// 置灰联动②。同上：判据只出现在 return 行。
+    /// 置灰联动②。同上。
     public static func volumeControlsEnabled(isMuted: Bool) -> Bool {
         return !isMuted
     }
@@ -76,12 +71,10 @@ public enum SettingsPresentation {
 
     // MARK: - 空态 / 运行状态卡的文案映射
 
-    /// 空态副行（逐字硬需求）。**全仓唯一一份**：视图与探针都引用它，
-    /// 第二份拷贝不会自己漂移提醒，只会漂成两个版本的承诺。
+    /// 空态副行（逐字硬需求）。全仓唯一一份：视图与探针都引用它。
     public static let emptyStateBody = "没找到能播的文件。壁纸已隐藏，桌面显示的是系统原壁纸。"
 
-    /// 三态一张皮：没配过 / 目录没了 / 扫到 0 在 UI 上**不区分**，
-    /// 判定就是「不该显示壁纸」的反面。
+    ///  三态一张皮：没配过 / 目录没了 / 扫到 0 在 UI 上**不区分**， 判定就是「不该显示壁纸」的反面。
     public static func isEmptyState(_ state: LibraryState) -> Bool {
         return !state.shouldShowWallpaper
     }
@@ -100,10 +93,7 @@ public enum SettingsPresentation {
     }
 
     /// 多原因按 `order` 排序后顿号连接（veto 集合下叠加原因必须全列 —— 只列一个会让用户
-    /// 误判成 bug）。空集合 → 空串，调用方据此走「播放中」分支。
-    ///
-    /// ⚠️ 排序调用**只允许出现在本函数**：这是变异靶点，抄进注释会让「拿掉排序」打偏
-    /// 而不改代码。
+    /// 误判成 bug）。空集合 → 空串，调用方据此走「播放中」分支。排序只允许出现在本函数。
     public static func joinedReasons(_ reasons: [HoldReason]) -> String {
         guard !reasons.isEmpty else { return "" }
         return reasons.sorted().map(holdReasonLabel).joined(separator: "、")

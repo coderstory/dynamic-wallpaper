@@ -1,15 +1,12 @@
 import XCTest
 @testable import PicCore
 
-/// 系统事件 → 仲裁 → 播放端的**纵向集成**用例。
-///
-/// 本文件**不得引入播放框架**（`System/` 与 `State/` 零 AVFoundation）。
+/// 系统事件 → 仲裁 → 播放端的**纵向集成**用例。`System/` 与 `State/` 零 AVFoundation。
 @MainActor
 final class SystemEventPipelineTests: XCTestCase {
 
-    /// 记录式播放端。与 `HoldArbiterTests` 里的那个是两回事：
-    /// 那份测纯仲裁语义，本份测「信号 → 仲裁 → 播放端」这条纵线，
-    /// 故不复用（复用在两个 `@testable import` 的测试目标里反而要跨文件耦合）。
+    /// 记录式播放端。不复用 `HoldArbiterTests` 里那一个（那份测纯仲裁语义，本份测纵线）——
+    /// 测试替身跨文件耦合后，失败时分不清是替身坏了还是被测代码坏了。
     private final class RecordingTarget: PlaybackTarget {
         var position: TimeInterval = 0
         var seeks: [TimeInterval] = []
@@ -20,8 +17,8 @@ final class SystemEventPipelineTests: XCTestCase {
         func arbiterApply(_ decision: PlaybackDecision) { applies.append(decision) }
     }
 
-    /// 合成通知一律用这个前缀，**绝不投系统通知名** ——
-    /// `com.apple.screenIsLocked` 由别的进程投递，往它投会污染同机其它壁纸 app。
+    /// 合成通知一律用这个前缀，**绝不投系统通知名** —— `com.apple.screenIsLocked` 由别的进程投递，
+    /// 往它投会污染同机其它壁纸 app。
     private static let prefix = "com.local.pic.tests.lock."
 
     private func makeNames() -> LockSignalNames {
@@ -33,15 +30,8 @@ final class SystemEventPipelineTests: XCTestCase {
         RunLoop.main.run(until: Date().addingTimeInterval(seconds))
     }
 
-    // MARK: - start() 的同步回调
-
-    /// `start()` 必须在**不投递任何通知**的情况下当场把当前锁屏状态喂给仲裁器。
-    ///
-    /// 这是装配层正确性的前提，不是礼貌：`com.apple.screenIsLocked` 是跃迁通知，
-    /// 本会话自 `applicationDidFinishLaunching` 起屏幕一直锁着，没有任何跃迁可等。
-    /// 少了这次同步回调，`holds` 在起播那一刻是空集 → 锁屏会话下起播不暂停。
-    ///
-    /// 会话字典注入 `[String: Any]` 夹具，所以本用例**自足**：换一台解锁的机器也照样过。
+    /// 锁屏通知是跃迁通知，无跃迁时永远等不到 —— 少了这次同步回调，锁屏会话下起播那一刻 `holds` 是空集。
+    /// 会话字典注入 `[String: Any]` 夹具，换一台解锁的机器也照样过。
     func testStartDeliversCurrentStateSynchronouslyEvenWithoutAnyTransition() {
         let center = DistributedNotificationCenter()
         let watcher = LockWatcher(
@@ -61,19 +51,16 @@ final class SystemEventPipelineTests: XCTestCase {
             }
         }
 
-        // 未投递任何通知：回调必须**当场**发生一次，且参数是当前真实状态。
         XCTAssertEqual(deliveries.flags, [true], "start() 返回前必须同步回调一次 currentLockState()")
         XCTAssertEqual(arbiter.decision.holds, [.screenLocked], "订阅前已锁屏 → start 后 holds 立即含 screenLocked")
         XCTAssertFalse(arbiter.decision.shouldPlay)
         XCTAssertTrue(watcher.isRunning)
-        // 进入 hold 时记锚点，不 seek。
         XCTAssertEqual(target.seeks, [], "进入 hold 只记锚点，不 seek")
 
         watcher.stop()
         XCTAssertFalse(watcher.isRunning)
     }
 
-    /// 未锁屏时同步回调 `false`：`holds` 保持空集，播放不被误暂停。
     func testStartDeliversUnlockedStateSynchronously() {
         let watcher = LockWatcher(
             center: DistributedNotificationCenter(),
@@ -99,10 +86,7 @@ final class SystemEventPipelineTests: XCTestCase {
         watcher.stop()
     }
 
-    // MARK: - 会话字典取值的纯函数
-
-    /// 「读不到」与「没锁」是两件事。三种夹具把三者的输出都钉死：
-    /// 字典为 nil / 键缺失 → `false`；值为 0 → `false`；值为 1 → `true`。
+    /// 「读不到」与「没锁」是两件事，都按没锁处理。
     func testLockStatePureFunctionHandlesMissingKeyZeroAndOne() {
         XCTAssertFalse(LockWatcher.lockState(fromSession: nil), "字典读不到 → 视作没锁")
         XCTAssertFalse(LockWatcher.lockState(fromSession: [:]), "键缺失 → 视作没锁")
@@ -112,8 +96,7 @@ final class SystemEventPipelineTests: XCTestCase {
         XCTAssertFalse(LockWatcher.lockState(fromSession: ["CGSSessionOnConsoleKey": 1]))
     }
 
-    /// 真读系统会话字典：本机会话锁着，键存在且值为非零。
-    /// 只断言「读得到一个 Bool」，不断言具体是 true —— 换一台解锁的机器也要过。
+    /// 真读系统会话字典：不断言具体是 true —— 换一台解锁的机器也要过。
     func testCurrentLockStateReadsRealSessionDictionary() {
         let watcher = LockWatcher(center: DistributedNotificationCenter(), names: makeNames())
         let live = watcher.currentLockState()
@@ -122,17 +105,13 @@ final class SystemEventPipelineTests: XCTestCase {
         watcher.stop()
     }
 
-    // MARK: - 纵向：注入的通知走完订阅 → 仲裁 → 播放端
-
-    /// 合成锁屏通知 → `holds == [.screenLocked]`、`shouldPlay == false`、
-    /// 播放端收到 `arbiterApply`。PAUSE-02 / PAUSE-06 的接线证据。
     func testInjectedLockSignalAppliesHoldThroughToPlaybackTarget() {
         let center = DistributedNotificationCenter()
         let names = makeNames()
         let watcher = LockWatcher(
             center: center,
             names: names,
-            sessionReader: { ["CGSSessionScreenIsLocked": 1] }   // 通知到达后会重读（T-03-01）
+            sessionReader: { ["CGSSessionScreenIsLocked": 1] }   // 通知到达后会重读
         )
         let target = RecordingTarget()
         target.position = 42.0
@@ -141,12 +120,12 @@ final class SystemEventPipelineTests: XCTestCase {
         watcher.start { locked in MainActor.assumeIsolated { arbiter.set(.screenLocked, active: locked) } }
         XCTAssertEqual(arbiter.decision.holds, [.screenLocked], "同步回调已置位")
 
-        // 幂等：重复置位不重复打扰播放端。
+        // 幂等：重复置位不重复打扰播放端
         let appliesAfterStart = target.applies.count
         arbiter.set(.screenLocked, active: true)
         XCTAssertEqual(target.applies.count, appliesAfterStart, "同一 reason 重复置位只 apply 一次")
 
-        // 解除：换掉会话字典再投「已解锁」通知 —— 通知只当触发器。
+        // 解除：sessionReader 注入后不可换，所以另起一个带「已解锁」字典的 watcher —— 通知只当触发器
         watcher.stop()
         let watcher2 = LockWatcher(
             center: center,
@@ -160,7 +139,6 @@ final class SystemEventPipelineTests: XCTestCase {
         watcher2.stop()
     }
 
-    /// `stop()` 之后通知不再触发回调 —— 与注册配对的语义。
     func testStopRemovesObserversSoLaterSignalsAreIgnored() {
         let center = DistributedNotificationCenter()
         let names = makeNames()
@@ -192,7 +170,7 @@ final class SystemEventPipelineTests: XCTestCase {
         XCTAssertEqual(arbiter.decision.holds, [.screenLocked], "stop 不得改变已有状态")
     }
 
-    /// 重复 `start()` 是幂等的 —— 不会注册出第二对 observer（内存单调上涨的防线）。
+    /// 重复 `start()` 不会注册出第二对 observer（内存单调上涨的防线）。
     func testRepeatedStartDoesNotRegisterDuplicateObservers() {
         let center = DistributedNotificationCenter()
         let names = makeNames()
@@ -211,6 +189,7 @@ final class SystemEventPipelineTests: XCTestCase {
                 arbiter.set(.screenLocked, active: locked)
             }
         }
+        // 重复 start 若真接管了回调，计数 +100 让断言炸得一眼可见，别降成 1
         watcher.start { _ in MainActor.assumeIsolated { deliveries.bump(by: 100) } }
         XCTAssertEqual(deliveries.count, 1, "重复 start() 不再同步回调，也不接管回调")
 
@@ -221,10 +200,7 @@ final class SystemEventPipelineTests: XCTestCase {
         watcher.stop()
     }
 
-    // MARK: - HoldReason 的形状
-
-    /// 6 个 case、幂集恰 64 组、order 互不相同。
-    /// 子集在**运行时**从 `allCases` 生成，不存在手抄的 64 条断言。
+    /// 幂集组数在运行时由 `allCases` 算出，不存在手抄的 64 条断言。
     func testHoldReasonPowerSetIsExactlySixtyFour() {
         let all = HoldReason.allCases
         XCTAssertEqual(all.count, 6, "manualPause + 5 个系统原因；实际 \(all.count)")

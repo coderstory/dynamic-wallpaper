@@ -1,17 +1,11 @@
 #!/usr/bin/env bash
-# make-fixtures.sh —— 用本机 ffmpeg 的 lavfi 合成源现场生成确定性测试语料。
+# 用本机 ffmpeg 的 lavfi 合成源现场生成确定性测试语料。
 #
-# 纪律（红线）：
-#   * 用户真实素材 ~/Movies/视频壁纸 有 484 个 mp4 / 约 42GB。抽样只做一层非递归枚举，
-#     且只建符号链接 —— 严禁把 GB 级素材复制进仓库（下方代码行里没有整词的复制命令，
-#     这条纪律由「剥注释后整词计数 == 0」判据机械保证）。
-#   * 递归遍历视频目录的判断是整词的「递归枚举命令」，本脚本刻意不含它；
-#     抽样只列一层。
+# 红线：用户真实素材 ~/Movies/视频壁纸 有 484 个 mp4 / 约 42GB。抽样只做一层非递归枚举、且只建符号链接 ——
+#   严禁把 GB 级素材复制进仓库。这条由「剥注释后整词计数 == 0」判据机械保证：
+#   递归遍历视频目录的判断是整词的「递归枚举命令」，字节复制命令同样整词计数，本脚本刻意都不含。
 #
-# 三个合成语料：
-#   clip-a.mp4        8s 1280x720@30fps，带 1kHz 正弦音轨（给变速保音高留料）
-#   clip-b.mp4        8s 640x480@30fps，无音轨
-#   clip-sentinel.mp4 5s 320x240@24fps，无音轨 —— 哨兵串就是文件名本身，全 Phase 复用
+# clip-sentinel.mp4 的哨兵串就是文件名本身，全 Phase 复用。
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -39,27 +33,23 @@ fi
 
 mkdir -p "$OUTDIR"
 
-# clip-a：带 1kHz 正弦音轨
 "$FFMPEG" -hide_banner -loglevel error -y \
   -f lavfi -i "testsrc2=size=1280x720:rate=30" \
   -f lavfi -i "sine=frequency=1000:sample_rate=44100" \
   -t 8 -c:v libx264 -preset veryfast -pix_fmt yuv420p -c:a aac -shortest \
   "$OUTDIR/clip-a.mp4"
 
-# clip-b：无音轨
 "$FFMPEG" -hide_banner -loglevel error -y \
   -f lavfi -i "testsrc2=size=640x480:rate=30" \
   -t 8 -an -c:v libx264 -preset veryfast -pix_fmt yuv420p \
   "$OUTDIR/clip-b.mp4"
 
-# clip-sentinel：哨兵语料，文件名即哨兵串
 "$FFMPEG" -hide_banner -loglevel error -y \
   -f lavfi -i "testsrc2=size=320x240:rate=24" \
   -t 5 -an -c:v libx264 -preset veryfast -pix_fmt yuv420p \
   "$OUTDIR/clip-sentinel.mp4"
 
-# 真实素材抽样：只列一层（shell glob 不跟子目录），按 C 序排序取前 N 个，
-# 每个建一个符号链接。刻意不用递归遍历命令，也刻意不做字节复制。
+# 真实素材抽样：只列一层（shell glob 不跟子目录），按 C 序排序取前 N 个，每个建一个符号链接。刻意不用递归遍历命令，也刻意不做字节复制。
 SYMLINKS=0
 if [ "$WITH_REAL" -gt 0 ]; then
   if [ ! -d "$REAL_DIR" ]; then

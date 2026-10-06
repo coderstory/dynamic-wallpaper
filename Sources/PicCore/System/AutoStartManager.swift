@@ -1,20 +1,11 @@
-// AutoStartManager.swift —— 开机自启的「先 A 后 B」决策内核。
-//
-// ⚠️ 为什么是双路线：ad-hoc / 未签名 app 上 `SMAppService.register()` 的真实行为
-// 没有可靠公开资料（Apple DTS 只给风险提示，不给结论）。本文件因此不赌任何一条：
-// A 抛错或 status 停在未注册即自动落 B，并把 A 的失败形态逐字打出来可 grep。
-//
-// ⚠️ `routeB()` 不 throwing 是**刻意的**：它的两个调用点分别在 `catch` 块与
-// `status` 的兜底分支里，让它 throwing 会把整条 `ensureRegistered()` 拖成 throwing，
-// 与 `disableBoth()` 的既有形状不一致。故写盘走 `try?`。
-//
-// ⚠️ 绝不出现 launchd 的 load/unload 子命令（已废弃写法），只走 bootstrap / bootout。
+// 开机自启的「先 A 后 B」决策内核。
+// A（SMAppService）在未签名 app 上真实行为无可靠公开资料，故 A 抛错或未注册即自动落 B，
+// 并把 A 的失败形态逐字打出来可 grep。绝不出现已废弃的 launchd load/unload 子命令。
 
 import Foundation
 import ServiceManagement
 
-/// 路线 A 的注入面。`SMAppService.mainApp` 是系统单例，包一层是为了让
-/// 单测能在**不碰真实登录项**的前提下驱动全部四个分支。
+/// 路线 A 的注入面。包一层是为了让单测在不碰真实登录项的前提下驱动全部四个分支。
 public protocol LoginItemRegistration: Sendable {
     /// 注册为登录项。失败形态由调用方逐字记录。
     func register() throws
@@ -26,8 +17,8 @@ public protocol LoginItemRegistration: Sendable {
     func openSettings()
 }
 
-/// 路线 A 的产品实现。**不持有** `SMAppService` —— 每次读 `SMAppService.mainApp`
-/// 静态单例，避免把一个非 Sendable 的系统类型拖进 `Sendable` 协议的实现里。
+/// 路线 A 的产品实现。不持有 `SMAppService`，每次现读静态单例 ——
+/// 免得把一个非 Sendable 的系统类型拖进 `Sendable` 协议的实现里。
 public struct SMAppServiceAdapter: LoginItemRegistration {
     public init() {}
 
@@ -46,8 +37,7 @@ public struct SMAppServiceAdapter: LoginItemRegistration {
     }
 }
 
-/// 路线 B 的进程执行面。抽出来是为了单测能断言**命令与顺序**，
-/// 而不是真的去动用户会话的 launchd 域。
+/// 路线 B 的进程执行面。抽出来是为了单测能断言命令与顺序，而不是真去动用户会话的 launchd 域。
 public protocol ShellRunner {
     /// 返回终止状态（调用方按需忽略，见 `routeB()`）。
     func run(_ path: String, _ arguments: [String]) -> Int32
@@ -129,8 +119,10 @@ public final class AutoStartManager {
     }
 
     /// 路线 B：bootout → 写盘 → bootstrap。
+    /// 不 throwing：两个调用点都在 catch 块 / 兜底分支里，让它 throwing 会把整条
+    /// `ensureRegistered()` 拖成 throwing，写盘因而走 `try?`。
     ///
-    /// ⚠️ bootout 的 rc 一律忽略 —— plist 可能压根不存在（首次开启），
+    /// bootout 的 rc 一律忽略 —— plist 可能压根不存在（首次开启），
     /// 也可能指向已被移动的旧路径（两种都要能被 bootstrap 覆盖掉）。
     private func routeB() {
         let domain = "gui/\(getuid())"
@@ -141,8 +133,7 @@ public final class AutoStartManager {
         emit("SYS01_ROUTE=launchagent")
     }
 
-    /// 关：两条路线都清。路线 A 的注销失败也必须继续清 B，
-    /// 否则系统里会留下一条用户已经关掉的登录项。
+    ///  关：两条路线都清。路线 A 的注销失败也必须继续清 B， 否则系统里会留下一条用户已经关掉的登录项。
     private func disableBoth() {
         do {
             try registration.unregister()
@@ -156,9 +147,7 @@ public final class AutoStartManager {
 
     /// 状态行只打状态 token，不打路径、不打文件名（状态一行、路由另一行）。
     ///
-    /// ⚠️ 必须显式映射：`SMAppService.Status` 是从 ObjC 导入的枚举，
-    /// `String(describing:)` 给的是 `SMAppServiceStatus(rawValue: 1)` 而**不是** case 名
-    /// —— 判据 grep 的正是 `SMAPP_STATUS=enabled` 这个 token。
+    ///  必须显式映射：`String(describing:)` 给的是 `SMAppServiceStatus(rawValue: 1)` 而不是 case 名。
     private static func statusToken(_ status: SMAppService.Status) -> String {
         switch status {
         case .notRegistered: return "notRegistered"

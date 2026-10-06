@@ -5,7 +5,7 @@ import XCTest
 @MainActor
 final class ConvertedLibraryTests: XCTestCase {
 
-    /// 文件内自带替身（既有纪律：不跨文件引用 MediaLibraryTests 的 FakeAssetProbe）。
+    /// 文件内自带替身，不跨文件引用 MediaLibraryTests 的 FakeAssetProbe（耦合后失败时分不清是替身坏了还是被测代码坏了）。
     private struct FakeProbe: VideoAssetProbe {
         func metadata(_ url: URL) async -> VideoAssetMetadata {
             VideoAssetMetadata(hasVideoTrack: url.lastPathComponent != "broken.mp4")
@@ -30,7 +30,6 @@ final class ConvertedLibraryTests: XCTestCase {
         super.tearDown()
     }
 
-    /// 在 root/Converted/ 下造一个几字节的占位文件（支持多级相对路径）。
     @discardableResult
     private func makeConvertedFile(_ relativePath: String) -> URL {
         let parts = relativePath.split(separator: "/").map(String.init)

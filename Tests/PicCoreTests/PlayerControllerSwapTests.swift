@@ -2,11 +2,7 @@ import AVFoundation
 import XCTest
 @testable import PicCore
 
-/// 不变量：`load` 返回时队列已经非空。
-///
-/// 旧的清空形态在「清空后」到「looper 异步补位前」有一段空队列，图层无
-/// currentItem 可呈现。判据在第二次装载上取：装载一返回就同步读队列，
-/// 不给 runloop 补位的机会。
+/// 不变量：`load` 返回时队列已经非空。清空后到 looper 异步补位前有一段空队列，图层无 currentItem 可呈现。判据在第二次装载上取：装载一返回就同步读队列，不给 runloop 补位的机会。
 @MainActor
 final class PlayerControllerSwapTests: XCTestCase {
 

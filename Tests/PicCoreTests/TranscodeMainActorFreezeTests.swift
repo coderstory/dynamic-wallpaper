@@ -1,17 +1,13 @@
 import XCTest
 @testable import PicCore
 
-/// 🔴 反向门禁：转码执行期间主 actor 必须保持可服务。判据是「run 尚未返回时
-/// percent 已被观察到非 nil」—— 同步 `waitUntilExit` 冻住 `@MainActor` 时观察窗
-/// 一次都进不去（实测 0），修好后 130~170。老七道门全是瞬时替身，这类 BLOCKER 全躲过去了。
+/// 转码执行期间主 actor 必须保持可服务。判据是「run 尚未返回时 percent 已被观察到非 nil」—— 同步 `waitUntilExit` 冻住 `@MainActor` 时观察窗一次都进不去（实测 0，修好后 130~170）。瞬时替身挡不住这类 BLOCKER，必须用真进程慢桩。
 ///
-/// 合规（红线）：桩是 `/bin/sh` + `sleep` —— 不转码、零编码负载。
-/// 不得为了「更真实」把它换成真转码器。
+/// 桩是 `/bin/sh` + `sleep`，零编码负载。不要为了「更真实」把它换成真转码器。
 @MainActor
 final class TranscodeMainActorFreezeTests: XCTestCase {
 
-    /// 慢桩：真 `ProcessTranscodeRunner` + `/bin/sh -c 'printf…; sleep…'`。
-    /// 把真实进程（长时运行）接进真实队列 —— 正是七道门从来没跑过的组合。
+    /// 真 `ProcessTranscodeRunner` + `/bin/sh -c 'printf…; sleep…'`，把真实长时进程接进真实队列。
     private final class SlowShellRunner: TranscodeRunning {
         private let script: String
         init(script: String) { self.script = script }
@@ -44,7 +40,7 @@ final class TranscodeMainActorFreezeTests: XCTestCase {
         try "placeholder-mkv".write(to: source, atomically: true, encoding: .utf8)
 
         // 9 行进度、约 0.9s 进程存活；末尾把占位 payload 写进 tmp（走成功路径）。
-        // tmp 路径以 `$0` 传进桩（`-c script <path>`），桩 argv 不吃队列那套 ffmpeg 参数。
+        // tmp 路径以 `$0` 传进桩（`-c script <path>`）—— 桩 argv 不吃队列那套 ffmpeg 参数。
         let script = """
         printf 'frame=1\\nout_time_ms=100000000\\n'; sleep 0.3
         printf 'frame=2\\nout_time_ms=400000000\\n'; sleep 0.3

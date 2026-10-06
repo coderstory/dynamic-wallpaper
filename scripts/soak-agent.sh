@@ -1,22 +1,16 @@
 #!/usr/bin/env bash
-# soak-agent.sh —— SC5 长跑的 LaunchAgent（com.local.pic.soak）装卸：
+# 长跑的 LaunchAgent（com.local.pic.soak）装卸：start [SOAK_DIR] / stop / status。
 #
-#   bash scripts/soak-agent.sh start [SOAK_DIR]
-#   bash scripts/soak-agent.sh stop
-#   bash scripts/soak-agent.sh status
+# plist 只有四个键（Label / ProgramArguments / RunAtLoad / StartInterval）。刻意**不用 KeepAlive**：
+# 配一次性脚本 = 跑完立刻被拉起 = 紧循环烤机；逐时唤醒是 StartInterval 的职责，采样器真死了由「缺口 >5% 作废」兜住。
 #
-# plist 只有四个键（Label / ProgramArguments / RunAtLoad / StartInterval）。
-# 刻意**不用 KeepAlive**：配一次性脚本 = 跑完立刻被拉起 = 紧循环烤机；
-# 逐时唤醒是 StartInterval 的职责，采样器真死了由「缺口 >5% 作废」兜住。
-#
-# 路径全部从脚本自身位置推导，plist 里没有任何用户输入 —— 常驻执行面被篡改就是
-# 「任意命令每小时跑一次」，所以这个文件里唯一可变量只有可选的 SOAK_DIR。
+# 路径全部从脚本自身位置推导，plist 里没有任何用户输入 —— 常驻执行面被篡改就是「任意命令每小时跑一次」，
+# 所以这个文件里唯一可变量只有可选的 SOAK_DIR。
 #
 # 只用 bootstrap/bootout。load/unload 是废弃写法，新版 launchd 上语义已变。
 #
-# start 的第二参数把 SOAK_DIR 写进 EnvironmentVariables：没有它，RunAtLoad 立刻跑
-# 的那一次采样会落进默认目录（repo 的 evidence/soak/），把 7 天序列的第一行换成
-# 一条不属于本次测试的样本。
+# start 的第二参数把 SOAK_DIR 写进 EnvironmentVariables：没有它，RunAtLoad 立刻跑的那一次采样会落进默认目录
+# （repo 的 evidence/soak/），把 7 天序列的第一行换成一条不属于本次测试的样本。
 
 set -u
 export LC_ALL=C

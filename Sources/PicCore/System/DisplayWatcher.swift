@@ -1,40 +1,8 @@
-// DisplayWatcher.swift —— 显示器熄屏（PAUSE-03）与系统睡眠（PAUSE-04）的信号源（事件通知，不是轮询）。
-//
-// ── 分层红线 ────────────────────────────────────────────────────────────
-// 本文件**零 AVFoundation**、不持有播放端引用、也不出现仲裁器的类型名 —— 它只产出
-// `DisplaySignals`，「拆成两次 `set`」的接线由装配层做。
-// `test.sh` 的「System/ 四个 Watcher 零 AVFoundation」每次重验这条。
-//
-// ── 为什么两个 reason 住在一个类型里 ────────────────────────────────────
-// 熄屏与睡眠同属显示/电源域，且共享同一条「重算」路径。拆成两个类型会让 Pitfall 7 的
-// 「暂停与恢复走同一个 `re-evaluate()`」这条规则写两遍，两遍迟早漂移。
-//
-// ── 事件驱动，零轮询 ────────────────────────────────────────────────────
-// 本文件里没有任何定时器。两个信号位的来源：
-//   displayAsleep   ← 重配置回调 / 睡眠回调触发时**重读** `CGDisplayIsAsleep(CGMainDisplayID())`
-//   systemSleeping  ← `willSleep` / `didWake` 这一对通知（内存里的一个布尔量）
-// Phase 2 实测 `.app` 下显示刷新回调仍是降级路径（27 Hz timer fallback），
-// 逐帧轮询这条路在原理上就已排除。
-//
-// ⚠️ 唯一的内部状态是下面那一个 `Bool`。它**只**由上面那对通知切换，不来自任何采样 ——
-//    采样一个布尔量再与通知混用，就等于凭空多出一个真相源。
-//
-// ⚠️ `CGDisplayRegisterReconfigurationCallback` 签名里**没有 display 参数**
-//    （`CGDisplayConfiguration.h:235`），注册与摘除都是**进程级**的 —— 下面那张全局
-//    单槽表正对真实语义，「按 display 摘」那种写法根本编译不过。也正因摘不掉，
-//    漏掉配对就是进程内永久泄漏。
-//
-// ⚠️ 两个 `NSWorkspace` 观察者用 `queue: .main`（与 `FullscreenDetector` 同形）。
-//    代价：`willSleep` 投递与进程真正进入睡眠之间的间隔未在本会话实测
-//    （屏幕锁着，且不允许无人值守地让机器睡）。本文件不假装测过它。
-//
-// ── 启动即重算（装配层的启动契约）────────────────────────────────────────
-// `willSleep` / `didWake` / 重配置回调**都只在跃迁时投递**。本会话既不熄屏也不睡眠，
-// 等不到跃迁；`start()` 若只注册观察者，装配层读到的 `DisplaySignals` 会是默认的
-// `(false, false)`，而 `evidence/display-sleep-signals.log` 的 `CGDisplay_IS_ASLEEP` 行
-// 记着本机启动那一刻熄屏位**本来就是 true** —— 那条契约在本机不是形式主义。
-// 所以 `start()` 在注册完之后**必须**跑一次 `re-evaluate()`，
-// 让 `onChange` 在 `start()` 返回前就被调用过一次。
+// 显示器熄屏与系统睡眠的信号源（事件通知，不是轮询）。零 AVFoundation，只产出 `DisplaySignals`，
+// 不碰仲裁器和播放器。
+// 唯一的内部状态是那一个 `Bool`，只由 `willSleep` / `didWake` 切换，不来自任何采样（采样再与通知
+// 混用就等于凭空多出一个真相源）；`start()` 注册完之后必须同步跑一次 `re-evaluate()`，这几个信号
+// 都只在跃迁时投递，等不到。
 
 import Foundation
 import AppKit
@@ -63,7 +31,8 @@ public protocol DisplayReconfigurationHook: AnyObject {
     /// 注册；返回是否注册成功。
     @discardableResult
     func register(_ onReconfigured: @escaping () -> Void) -> Bool
-    /// 摘除。必须与 `register` 严格配对（Pitfall 4）。
+    /// 摘除。必须与 `register` 严格配对 —— 注册是**进程级**的（签名里没有 display 参数），
+    /// 漏掉配对就是进程内永久泄漏。
     func unregister()
 }
 
@@ -81,7 +50,8 @@ private let reconfigTrampoline: CGDisplayReconfigurationCallBack = { _, _, _ in
     }
 }
 
-/// 真机实现：直接调 CoreGraphics 的那两个公开函数（`CGDisplayConfiguration.h:235`）。
+/// 真机实现：直接调 CoreGraphics 的那两个公开函数。注册与摘除都是进程级的，
+/// 所以下面那张全局单槽表正对真实语义。
 public final class SystemDisplayReconfigurationHook: DisplayReconfigurationHook {
     public init() {}
 
@@ -106,21 +76,20 @@ public final class DisplayWatcher {
     /// `CGDisplayRegisterReconfigurationCallback` 的返回值 —— 探针与单测都读它。
     public private(set) var isReconfigurationRegistered = false
 
-    /// 睡眠通知名。公开成常量，供装配层接线与探针打印**确切**名字
-    /// （本机实测 rawValue = `NSWorkspaceWillSleepNotification`）。
+    /// 睡眠通知名。公开成常量，供装配层接线与探针打印**确切**名字。
     public static let sleepNotificationName = NSWorkspace.willSleepNotification
-    /// 唤醒通知名（本机实测 rawValue = `NSWorkspaceDidWakeNotification`）。
+    /// 唤醒通知名。
     public static let wakeNotificationName = NSWorkspace.didWakeNotification
 
     private let center: NotificationCenter
     private let displayAsleepReader: () -> Bool
     private let reconfigurationHook: any DisplayReconfigurationHook
 
-    /// 唯一的内部状态字段 —— 它由上面那对通知驱动，不来自任何采样（见文件头）。
+    /// 唯一的内部状态字段 —— 由那对通知驱动，不来自任何采样。
     private var systemSleeping = false
 
     private var onChange: ((DisplaySignals) -> Void)?
-    /// Pitfall 4：注册与注销严格配对，token 存数组，`stop()` 逐个摘。
+    /// 注册与注销严格配对，token 存数组，`stop()` 逐个摘。
     private var tokens: [NSObjectProtocol] = []
     private var reconfigurationRegistered = false
 
@@ -135,8 +104,7 @@ public final class DisplayWatcher {
     /// 注册两个 `NSWorkspace` 观察者 + 一个重配置回调，然后**同步**重算一次，再置 `isRunning`。
     ///
     /// 顺序固定为「先注册后重算」：反过来会漏掉注册与重算之间发生的那次跃迁。
-    /// 三个入口（睡眠、唤醒、重配置）都汇入同一个 `re-evaluate()`，不各写各的
-    /// —— 否则唤醒路径与暂停路径会不对称（Pitfall 7）。
+    /// 三个入口（睡眠、唤醒、重配置）都汇入同一个 `re-evaluate()`，否则唤醒路径与暂停路径不对称。
     /// 重复调用是幂等的。
     public func start(onChange: @escaping (DisplaySignals) -> Void) {
         guard !isRunning else { return }
@@ -168,7 +136,7 @@ public final class DisplayWatcher {
         isReconfigurationRegistered = reconfigurationRegistered
         isRunning = true
 
-        // 启动即重算：不依赖任何跃迁。
+        // 启动即重算：这几个信号都只在跃迁时投递。
         `re-evaluate`()
     }
 
@@ -192,7 +160,7 @@ public final class DisplayWatcher {
         DisplaySignals(displayAsleep: displayAsleepReader(), systemSleeping: systemSleeping)
     }
 
-    /// **唯一**的重算与回调出口。暂停与恢复走的是同一条路径（Pitfall 7）。
+    /// **唯一**的重算与回调出口，暂停与恢复走同一条。
     /// 这里不做去重 —— 幂等是仲裁器那一层的职责，信号源只管如实重算。
     private func `re-evaluate`() {
         onChange?(currentSignals())

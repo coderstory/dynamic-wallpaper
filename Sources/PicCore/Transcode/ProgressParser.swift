@@ -1,19 +1,15 @@
 import Foundation
 
 /// ffmpeg `-progress pipe:1` 输出解析（TRANS-06 进度侧）。
-///
-/// 纯函数、零正则、零 Date 解析、零 UI —— stderr 的人话输出**不要**去啃
-/// （格式随版本漂），只认 `-progress` 的 key=value 机器可读输出。
+/// 纯函数、零正则、零 Date 解析、零 UI —— stderr 的人话输出不要去啃（格式随版本漂），只认 `-progress` 的 key=value 机器可读输出。
 public enum ProgressParser {
 
     /// 一段 stdout 读数解析出的进度快照。
     public struct Snapshot: Equatable, Sendable {
         /// 已解码帧数；nil = 尚未收到。
         public let frame: Int64?
-        /// ffmpeg 的 `out_time_ms` 键，**值是微秒**（ffmpeg 历史命名陷阱 ——
-        /// 字段名直接叫 Us 把语义钉在类型上）。
+        /// ffmpeg 的 `out_time_ms` 键，值是微秒（键名的 ms 是历史遗留 —— 字段名直接叫 Us 把语义钉在类型上）。
         public let outTimeUs: Int64?
-        /// `progress=end` 标志。
         public let isEnd: Bool
 
         public init(frame: Int64?, outTimeUs: Int64?, isEnd: Bool) {
@@ -26,8 +22,7 @@ public enum ProgressParser {
     /// 与 ffmpeg 输出键逐字一致（注意：值是微秒，不是键名写的毫秒）。
     public static let progressKeyOutTime = "out_time_ms"
 
-    /// 单行 key=value 解析：按**第一个** `=` 切（值里可能还有 `=`），
-    /// trim 空白；无 `=` 或空键 → nil。
+    /// 单行 key=value 解析：按第一个 `=` 切（值里可能还有 `=`），trim 空白；无 `=` 或空键 → nil。
     public static func parseLine(_ line: String) -> (key: String, value: String)? {
         guard let eq = line.firstIndex(of: "=") else { return nil }
         let key = line[..<eq].trimmingCharacters(in: .whitespaces)
@@ -36,19 +31,16 @@ public enum ProgressParser {
         return (key, value)
     }
 
-    /// 增量解析器 —— 只吃**新到的**那一段，状态留在自己身上。
+    /// 增量解析器 —— 只吃新到的那一段，状态留在自己身上。
     ///
-    /// 为什么存在（perf）：`parseChunk` 每次都要重扫传入的**整个**累积 buffer。
-    /// 转码 1 小时 = 数万行 `-progress` 输出，逐行全量重扫是 O(n²) —— 第 n 行
-    /// 要重读前 n−1 行的字符。累加器每段只 parse 一次，n 段总共 O(n)。
+    /// 不得改回全量重扫：转码 1 小时 = 数万行 `-progress` 输出，逐行全量重扫是 O(n²)。
+    /// 累加器每段只 parse 一次，n 段总共 O(n)。
     ///
-    /// 语义与 `parseChunk` 逐字一致（它是 parseChunk 的唯一实现）：
+    /// 语义（`parseChunk` 转调本类型，两者必须逐字一致）：
     ///   · 后值覆盖前值；
     ///   · 未知键 / 无 `=` / 空键 → 静默忽略；
-    ///   · `frame=` / `out_time_ms=` 的**值解析失败 → 该键置 nil**（不是保持旧值），
-    ///     这条是照抄原实现：`frame = Int64(value)` 对非法值给 nil 并覆盖。
-    ///   · `progress=` 每次都重写 isEnd（`continue` 会把先前的 `end` 打回 false），
-    ///     也是照抄原实现 —— 不是「只在 end 时置位」。
+    ///   · `frame=` / `out_time_ms=` 的值解析失败 → 该键置 nil（不是保持旧值）：`Int64(value)` 对非法值给 nil 并覆盖；
+    ///   · `progress=` 每次都重写 isEnd（`continue` 会把先前的 `end` 打回 false），不是「只在 end 时置位」。
     public struct Accumulator {
         private var frame: Int64?
         private var outTimeUs: Int64?
@@ -56,8 +48,7 @@ public enum ProgressParser {
 
         public init() {}
 
-        /// 吸收一段 ffmpeg 输出（可含多行，内部按 `\n` 切），返回**当前**快照。
-        /// 调用方直接把这个返回值喂给 `percent(...)`。
+        /// 吸收一段 ffmpeg 输出（可含多行，内部按 `\n` 切），返回当前快照。调用方直接把它喂给 `percent(...)`。
         public mutating func consume(_ text: String) -> Snapshot {
             for line in text.split(separator: "\n", omittingEmptySubsequences: true) {
                 guard let (key, value) = parseLine(String(line)) else { continue }
@@ -76,19 +67,15 @@ public enum ProgressParser {
         }
     }
 
-    /// 多行块解析：逐行 parseLine，已知键（frame / out_time_ms / progress）
-    /// 后值覆盖前值；未知键与解析失败的行**静默忽略**（格式漂移不崩）。
+    /// 多行块解析：已知键（frame / out_time_ms / progress）后值覆盖前值；未知键与解析失败的行静默忽略（格式漂移不崩）。
     ///
-    /// ⚠️ 这是 `Accumulator` 的批量入口，实现只有一份（转调 consume）——
-    /// 「批量 = 逐行折叠」必须由构造保证，不靠两份代码碰巧一致。
+    /// 这是 `Accumulator` 的批量入口，实现只有一份（转调 consume）——「批量 = 逐行折叠」必须由构造保证，不靠两份代码碰巧一致。
     public static func parseChunk(_ text: String) -> Snapshot {
         var accumulator = Accumulator()
         return accumulator.consume(text)
     }
 
-    /// 百分比换算：微秒 → 秒 → 除以时长，clamp 到 0...1（ffmpeg 起步瞬间
-    /// 可能报负值或超尾部）。时长缺失/非正/尚无 outTimeUs → nil
-    /// （进度条隐藏路径，不是假 0%）。
+    /// 百分比换算：微秒 → 秒 → 除以时长，clamp 到 0...1（ffmpeg 起步瞬间可能报负值或超尾部）。时长缺失/非正/尚无 outTimeUs → nil —— nil 是进度条隐藏路径，不是假 0%。
     public static func percent(snapshot: Snapshot, durationSeconds: Double?) -> Double? {
         guard let durationSeconds, durationSeconds > 0,
               let outTimeUs = snapshot.outTimeUs else { return nil }

@@ -1,12 +1,8 @@
 import Foundation
 import Observation
 
-/// 「当场生效」的唯一落点。UI 只写 store 再调这里 —— 本类是 store 值与播放内核之间
-/// 唯一的中转。@Observable 是 SwiftUI `@Environment(SettingsApplier.self)` 注入的前提，
-/// 无其它可变状态。
-///
-/// ⚠️ 不 import AVFoundation：它只调 `PlayerController` 公开面，
-/// UI/applier 都不直接摸 `AVPlayer`。
+/// 「当场生效」的唯一落点。UI 只写 store 再调这里 —— store 值与播放内核之间的唯一中转。
+/// 不 import AVFoundation：只调 `PlayerController` 公开面。
 @MainActor
 @Observable
 public final class SettingsApplier {
@@ -14,8 +10,7 @@ public final class SettingsApplier {
     private let player: PlayerController
     private let arbiter: HoldArbiter
 
-    /// 轮换。**可选持有**：装配点在 AppDelegate
-    /// `wiring()` 里 attach，单测不必构造整个调度器栈就能测另外四个 apply。
+    /// 轮换。可选持有：装配点在 AppDelegate `wiring()` 里 attach，单测不必构造整个调度器栈。
     public private(set) var rotation: RotationController?
 
     public init(store: SettingsStore, player: PlayerController, arbiter: HoldArbiter) {
@@ -28,9 +23,8 @@ public final class SettingsApplier {
         self.rotation = rotation
     }
 
-    /// 速度。第一行的门是变异验证的靶点：`PlayerController.setRate(r)` 的实现就是
-    /// `player.rate = r`，无条件调用会把已 hold 的播放器重新拉起（起播门禁的设置路径延伸，
-    /// B1 同型风险）。门内当场生效并打证据行；门外只记不拉起。
+    /// 速度。门控必须存在：`setRate(r)` 的实现就是 `player.rate = r`，
+    /// 无条件调用会把已 hold 的播放器重新拉起。门内当场生效并打证据行；门外只记不拉起。
     public func applyRate() {
         let gated = arbiter.decision.shouldPlay
         if gated {
@@ -40,13 +34,12 @@ public final class SettingsApplier {
             let reasons = arbiter.decision.activeReasons
                 .map { String(describing: $0) }
                 .joined(separator: ",")
-            // 空集写 (none) 与 PIC_HOLD 的既有形状一致（空串会让 grep 误伤别的行）。
+            // 空集写 (none) 与 PIC_HOLD 同形状：空串会让 grep 误伤别的行
             WallpaperWindowController.emit("PIC_SETTINGS_APPLY key=rate value=\(store.rate) applied=0 hold=(\(reasons.isEmpty ? "none" : reasons))")
         }
     }
 
-    /// 音量/静音无门直发：`setVolume`/`setMuted` 不会把播放器拉起
-    /// （机制前提，单测 `testVolumeAndMutedApplyWithoutGate`）。
+    /// 音量/静音无门直发：`setVolume`/`setMuted` 不会把播放器拉起。
     public func applyVolume() {
         player.setVolume(store.volume)
         WallpaperWindowController.emit("PIC_SETTINGS_APPLY key=volume value=\(store.volume) applied=1")
@@ -73,8 +66,8 @@ public final class SettingsApplier {
             "PIC_SETTINGS_APPLY key=rotationInterval value=\(Int(store.rotationInterval)) applied=\(rotation == nil ? 0 : 1)")
     }
 
-    /// 「电池时播放」开关的当场重估入口。电源跃迁与设置窗 toggle **走同一个方法**，故这是
-    /// 全仓唯一一处 `.battery` 的 set 落点 —— 搬家不复制：两处 set 会产生竞态双写。
+    /// 「电池时播放」开关的当场重估入口。电源跃迁与设置窗 toggle 走同一个方法，
+    /// 所以这是全仓唯一一处 `.battery` 的 set 落点 —— 两处 set 会产生竞态双写。
     public func applyBatteryPolicy(isOnBattery: Bool) {
         arbiter.set(.battery, active: BatteryHoldPolicy.shouldHold(
             isOnBattery: isOnBattery,

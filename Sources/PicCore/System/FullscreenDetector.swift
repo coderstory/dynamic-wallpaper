@@ -1,49 +1,22 @@
-// FullscreenDetector.swift —— 全屏检测（事件通知驱动，不是逐帧轮询）。
-//
-// 分层红线：本文件**零 AVFoundation**，不出现 player。
-// 单向流是 `FullscreenDetector → HoldArbiter.set(.fullscreen, active:) → PlaybackTarget.arbiterApply`。
-//
-// ── D-02 的落点（本文件存在的全部理由）────────────────────────────────────
-// Phase 1 用实测证伪了纯几何阈值：Ghostty 与 CC Switch 各把 visibleFrame 铺满 →
-// coverage=1.000 被判成全屏，但两者 bounds 高 833 < 屏幕 frame 高 956，结构上够不到刘海，
-// **可证不是全屏**。coverage 已顶在 1.000 上限，调阈值改不了。用户 2026-10-03 拍板走
-// 「几何之外加判别信号」，与几何取**合取**：`verdict = nonGeometricActive && covering`。
-//
-// ⚠️ **`FullscreenVerdict.verdict` 的函数体必须保持这个合取形状。**
-//    把它改成几何单侧，Phase 1 那条假阳性立刻复活（用户在没全屏时壁纸永久暂停），
-//    而纯几何层测不出来 —— 唯一能抓住它的就是注入式反向验证。
-//
-// ── `styleMask` 为什么不能当几何外信号（结构事实，不是推断）────────────────
-// 编排器 2026-10-03 一手实测：`CGWindowListCopyWindowInfo` 返回的字典共 11 个 key，
-// **无任何 key 含 `tyle` 或 `ullScreen`** → 公开 API 读不到**别的进程**窗口的 styleMask，
-// D-02 的候选 ① 结构上不适用。Phase 1 探针读到过 styleMask，是因为它读的是
-// **自己创建的那扇 NSWindow**。
-//
-// ⚠️ 因此本文件**绝不读窗口标题键**：枚举输出的字段白名单固定为
-//    pid / owner / layer / alpha / bounds / coverage —— 标题字段可能含用户文件名。
-//
-// ── 事件驱动 ────────────────────────────────────────────────────────────
-// 订阅三个 `NSWorkspace` 公开通知：Space 变更 / 应用激活 / 应用失活。
-// **每个通知都只当触发器**：收到后一律 `re-evaluate`() 重读当前几何，
-// 不靠「边沿」记忆 —— 这条与 `LockWatcher` 的处置同形。
-// 每个信号位的语义是「**本次重算是被谁触发的 + 此刻几何如何**」，不是「某个跃迁发生过」。
+// 全屏检测（事件通知驱动，不是逐帧轮询）。三个 `NSWorkspace` 通知都只当触发器，收到后一律重读
+// 当前几何，不靠边沿记忆。
+// 判定是 `nonGeometricActive && covering` 的合取，几何**不得单独生效** —— 纯几何阈值会把
+// 「铺满 visibleFrame 但够不到刘海」的应用误判成全屏，且 coverage 已封顶 1.0 调不动阈值。
 
 import Foundation
 import AppKit
 import CoreGraphics
 
-// MARK: - 判定（D-02）
+// MARK: - 判定
 
-/// 全屏判定的四个输入。全部由外部注入 —— 锁屏会话下四种组合都能单测覆盖，
+/// 全屏判定的输入。全部由外部注入 —— 四种组合都能单测覆盖，
 /// 不需要真的切一次 Space 或激活一次应用。
 public struct FullscreenSignals: Equatable, Sendable {
     /// 本次重算由 Space 变更通知触发，且此刻几何满覆盖。
     public var spaceChangedWhileFullyCovering: Bool
     /// 本次重算由前台应用激活/失活通知触发，且此刻几何满覆盖。
     public var frontmostAppChangedWhileFullyCovering: Bool
-    /// 几何足够（coverage 达到几何参考值）。
-    ///
-    /// ⚠️ 这个值**单独成立时不构成判定**。它只是合取的第二项。
+    /// 几何足够（coverage 达到几何参考值）。**单独成立时不构成判定**，它只是合取的第二项。
     public var covering: Bool
 
     public init(spaceChangedWhileFullyCovering: Bool,
@@ -56,20 +29,16 @@ public struct FullscreenSignals: Equatable, Sendable {
 
     /// 是否出现「几何之外」的可判别信号。
     ///
-    /// ⚠️ 已登记的语义降级：两个字段名里都编进了 `WhileFullyCovering`，所以本值恒蕴含
-    ///    「此刻几何满覆盖」。D-02 字面要求的「几何外信号可独立触发暂停」在当前形状下
-    ///    **不可达**；交付的是合取判定，不是独立触发。
+    /// 语义降级：两个字段名里都编进了 `WhileFullyCovering`，所以本值恒蕴含「此刻几何满覆盖」，
+    /// 交付的是合取判定，「几何外信号独立触发暂停」不可达。
     public var nonGeometricActive: Bool {
         spaceChangedWhileFullyCovering || frontmostAppChangedWhileFullyCovering
     }
 }
 
 public enum FullscreenVerdict {
-    /// D-02 的落点：几何**不得单独**作为判定依据。
-    ///
-    /// 形状写死：`nonGeometricActive && covering`。
-    /// 把函数体改成 `s.covering` 会让注入式反向验证立刻转红 —— 那是
-    /// 「合取没有被悄悄退回纯几何」的唯一机器证据。
+    /// 几何**不得单独**作为判定依据，形状写死：`nonGeometricActive && covering`。
+    /// 改成几何单侧，那条假阳性就复活 —— 纯几何层测不出来，只有注入式反向验证抓得住。
     public static func verdict(_ s: FullscreenSignals) -> Bool {
         s.nonGeometricActive && s.covering
     }
@@ -87,8 +56,7 @@ public struct ScreenGeometry: Equatable, Sendable {
         self.visible = visible
     }
 
-    /// 默认读 `NSScreen.main`。本机单屏（`inset.log:SCREENS_COUNT=1`），
-    /// 多屏留给以后 —— 那时 `NSScreen.main` 的选择本身就是一个待定决策。
+    /// 默认读 `NSScreen.main`。本机单屏；多屏留给以后 —— 那时选哪块屏本身就是一个待定决策。
     public static func current() -> ScreenGeometry? {
         guard let s = NSScreen.main else { return nil }
         let f = s.frame
@@ -103,10 +71,8 @@ public struct ScreenGeometry: Equatable, Sendable {
 
 /// 几何参考值：覆盖率到这个数才算「几何足够」。
 ///
-/// ⚠️ 它**不是判定阈值**。判定是 `nonGeometricActive && covering` 的合取；
-/// 把这个数调到 0 也不会让几何单独判全屏，把它调到 1 也一样不会。
+/// 它**不是判定阈值**：调到 0 也不会让几何单独判全屏，调到 1 也一样不会。
 /// 它唯一的作用是定义「covering」这个布尔量在什么时刻为真。
-/// Phase 1 之所以栽在这里，正是因为几何量本身被直接当成了结论。
 public enum FullscreenGeometryReference {
     public static let covering = 1.0
 }
@@ -149,7 +115,7 @@ public final class FullscreenDetector {
     }
 
     /// 注册三个观察者，然后**同步**跑一次重算 —— 与 `LockWatcher` 同一形状：
-    /// 本会话屏幕一直锁着，没有任何 Space / 应用跃迁可等。
+    /// 三个通知都只在跃迁时投递，等不到。重复调用是幂等的。
     public func start(onChange: @escaping @Sendable (Bool) -> Void) {
         guard !isRunning else { return }
 
@@ -181,7 +147,7 @@ public final class FullscreenDetector {
         isRunning = false
     }
 
-    /// 唤醒路径与暂停路径走同一条（Pitfall 7）：每次都重读当前值，不记边沿。
+    /// 唤醒路径与暂停路径走同一条：每次都重读当前值，不记边沿。
     private func `re-evaluate`(trigger: Trigger, onChange: (Bool) -> Void) {
         lastTrigger = trigger
 
@@ -195,8 +161,7 @@ public final class FullscreenDetector {
                                                     inset: inset)
             covering = coverage.global >= FullscreenGeometryReference.covering
         } else {
-            // 读不到屏幕就读不到几何。记 0 而不是猜 —— 编一个数会把「读不到」与「没满覆盖」
-            // 两件事抹成一件（Pitfall 1 同形的观测纪律）。
+            //  读不到屏幕就读不到几何。记 0 而不是猜 —— 编一个数会把「读不到」与 「没满覆盖」抹成一件。
             coverage = CoverageResult()
             covering = false
         }
@@ -207,9 +172,9 @@ public final class FullscreenDetector {
             frontmostAppChangedWhileFullyCovering: trigger == .frontmost && covering,
             covering: covering)
 
-        // ⚠️ 条件行：本会话屏幕锁着且无 Space / 应用切换，`non_geometric` 恒为 0，
-        // 跑不出这一行。**逻辑必须实现**（信号成立但几何不足是需要人看一眼的情形，
-        // 不能静默吞掉），但它不得进 AC 的必达行清单 —— 否则会有人为了让判据变绿去制造事件。
+        // 条件行：无 Space / 应用切换时 `non_geometric` 恒为 0，正常路径跑不出这一行。
+        // 逻辑必须实现（信号成立但几何不足需要人看一眼，不能静默吞掉），
+        // 但它不得进 AC 的必达行清单 —— 否则会有人为了让判据变绿去制造事件。
         if signals.nonGeometricActive && !signals.covering {
             emit(String(format: "FULLSCREEN_SIGNAL_ONLY covering=%.3f non_geometric=1", coverage.global))
         }
@@ -235,9 +200,8 @@ public final class FullscreenDetector {
 extension FullscreenDetector {
     /// 枚举 layer 0、alpha > 0、且**不属于本进程**的窗口矩形。
     ///
-    /// 按 PID 认领，不按 owner 名：同机有别的 app 来自同一个可执行文件，
-    /// 按名字排除会把它一起滤掉。
-    /// 字段白名单：pid / layer / alpha / bounds —— **不含标题**。
+    ///  按 PID 认领，不按 owner 名：同机有别的 app 来自同一个可执行文件， 按名字排除会把它一起滤掉。
+    /// 字段白名单：pid / layer / alpha / bounds —— **绝不读标题**，标题可能含用户文件名。
     nonisolated public static func currentWindowSamples() -> [WindowRectSample] {
         enumerateWindowEntries().map { WindowRectSample(pid: $0.pid, raw: $0.raw) }
     }
@@ -277,10 +241,10 @@ extension FullscreenDetector {
         return out
     }
 
-    /// 第一扇 layer 0 且 alpha > 0 的窗口的全部字典键名 —— D-02 候选 ① 的**实测**。
+    /// 第一扇 layer 0 且 alpha > 0 的窗口的全部字典键名。
     ///
     /// 键名里含 `tyle`（忽略大小写）或 `ullScreen` 的行数为 0 ⇒ 公开 API 读不到别的进程的
-    /// `styleMask`。`nil` 表示一扇候选窗口都没有（会话异常），返回空数组而不是编一个结论。
+    ///  `styleMask`，所以它当不了几何外信号。返回空数组表示一扇候选窗口都没有， 不编一个结论。
     nonisolated public static func firstOnscreenWindowDictionaryKeys() -> [String] {
         let raw = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] ?? []
         for e in raw {

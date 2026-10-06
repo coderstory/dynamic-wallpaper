@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 # MANUAL ONLY —— 本脚本绝不挂 test.sh / swift test / 任何自动验证路径。
-# 原因是一次 libvmaf 实测（n_threads=8）跑出过 779.9% CPU；挂在常规校验里
-# 等于每次校验烤一次机。STATE.md「ffmpeg / 转码类测试」表是这条红线的出处。
+# 原因是一次 libvmaf 实测（n_threads=8）跑出过 779.9% CPU；挂在常规校验里等于每次校验烤一次机。
 #
 # 降载：-t 5 -threads 2，跑前先确认预期单核以上占用，随时 Ctrl-C。
-# 抽样：D-22 —— 真实目录只 ls 一层取前三个名字，禁止递归遍历（42GB/484 文件）。
+# 抽样：真实目录只 ls 一层取前三个名字，禁止递归遍历（42GB/484 文件）。
 set -u
 export LC_ALL=C
 
@@ -25,7 +24,7 @@ if [ -z "$FFMPEG" ]; then
   exit 0
 fi
 
-# D-22：一层抽样，不递归。
+# 一层抽样，不递归。
 if [ ! -d "$SRC_DIR" ]; then
   echo "BENCH_SRC=missing"
   exit 0
@@ -48,7 +47,7 @@ alarm 120 "$FFMPEG" -nostdin -ss 30 -t 5 -threads 2 -i "${SAMPLES[0]}" \
   | sed 's/^/BENCH_PROGRESS_RAW /'
 echo ""
 
-# 经验阈值，可按口味调。采纳则改 Sources/PicCore/Transcode/TranscodeCommand.swift
+# 阈值是行业经验值，不是本机实测结论 —— 人工复核后再采纳。采纳则改 Sources/PicCore/Transcode/TranscodeCommand.swift
 # 的 baselineCRF / baselinePreset，并同 commit 更新 TranscodeCommandTests 测试 3。
 SSIM_MIN=0.98
 VMAF_MIN=95
@@ -87,10 +86,8 @@ for src in "${SAMPLES[@]}"; do
   done
 done
 
-# 采纳建议：达标档里取最大 CRF。纯 shell 算，判据自己能看到读数。
-# 阈值是行业经验值，不是本机实测结论 —— 人工复核后再采纳。
+# 采纳建议：达标档里取最大 CRF。同一档在多个样本上都达标才算该档可用。
 echo "--- 达标档（ssim>=$SSIM_MIN vmaf>=$VMAF_MIN）---"
-# 同一档在多个样本上都达标才算该档可用；取其中最大 CRF。
 BEST="未定"
 for crf in $CRFS; do
   for preset in $PRESETS; do

@@ -30,3 +30,6 @@ fixtures/
 
 # 随手截的图（正式用的放 docs/）
 截屏*.png
+
+# CMake 构建产物（devdesk 的 cmake 在本仓跑过会落在这里）
+CMakeFiles/
