@@ -105,6 +105,27 @@ public final class RotationController {
         mode = newMode
     }
 
+    /// 重扫换列表 —— 与 `setItems` 的差别是：**正在播的那条还在就不打断它**。
+    ///
+    /// 返回 true = 那条片子还在（已挪到新下标），调用方什么都不用做，播放继续；
+    /// 返回 false = 它已经不在了（被删 / 换目录 / 转码删了源），该由调用方重开一轮。
+    ///
+    /// 洗牌袋里存的是**旧列表的下标**，列表一换就全部失效 —— 必须作废，留着会按旧下标
+    /// 挑出已经不在列表里的条目（越界或播到错片）。
+    @discardableResult
+    public func refreshItems(_ newItems: [VideoItem]) -> Bool {
+        bag = []
+        guard let currentURL = current?.url,
+              let newIndex = newItems.firstIndex(where: { $0.url == currentURL }) else {
+            items = newItems
+            currentIndex = 0
+            return false
+        }
+        items = newItems
+        currentIndex = newIndex
+        return true
+    }
+
     /// **当场重排程**：取消旧定时器、用新间隔重新排，让设置改动立即生效。尚未
     /// `start()` 时不排（排了会把首程提前到 `start()` 之前）。
     public func setInterval(_ seconds: TimeInterval) {

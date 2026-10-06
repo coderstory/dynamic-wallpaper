@@ -21,6 +21,9 @@ public final class PlaybackRouter {
 
     private let rotation: RotationController
     private let loader: any VideoLoading
+    /// `start()` 之后才为 true。判的是「有没有把 `onAdvance` 绑上」，与播放是否暂停无关 ——
+    /// `stop()` 解绑了 `onAdvance`，所以它也跟着回落 false（否则 refresh 会走进一条没有订阅的路径）。
+    private var isBound = false
 
     public init(rotation: RotationController, loader: any VideoLoading) {
         self.rotation = rotation
@@ -28,20 +31,41 @@ public final class PlaybackRouter {
     }
 
     /// 装载分派：换列表并起转。**顺序写死** —— 先绑 `onAdvance`、`setItems`、再 `start()`
-    ///（这一步立刻用 `items[0]` 回调一次）。绑在 `start()` 之前是硬要求：反序会漏掉首条。
+    ///（这一步立刻回调一次首条）。绑在 `start()` 之前是硬要求：反序会漏掉首条。
     public func start(with items: [VideoItem]) {
+        bind()
+        rotation.setItems(items)
+        rotation.start()
+    }
+
+    /// 重扫后的清单更新 —— **唯一的「不打断当前播放」入口**。
+    /// 正在播的那条还在新清单里 → 一次装载都没有（播放原地继续）；
+    /// 它已经不在了（被删 / 换目录 / 转码删了源）→ 才从头起一轮。
+    /// 少了这条入口，任何一次重扫（换个设置、转完一个批次）都会把壁纸拽回列表第一条从头播。
+    public func refresh(with items: [VideoItem]) {
+        guard isBound else { start(with: items); return }
+        if rotation.refreshItems(items) { return }
+        rotation.start()
+    }
+
+    private func bind() {
         // 记的是**真的交出去的装载次数，不是播放状态**。
         rotation.onAdvance = { [weak self] item in
             self?.loader.loadPlayback(url: item.url)
             self?.loadCount += 1
         }
-        rotation.setItems(items)
-        rotation.start()
+        isBound = true
     }
+
+    /// 是否已经起过一轮（`start()` 或 `refresh()` 的回退路径绑上过 `onAdvance`）。
+    /// 启动路径上 `rescanAndApply()` 已经起过一轮，再 start 一次会把首条重新装载一遍
+    /// （随机模式下还会重新抽签，观感是开场闪一下）。
+    public var isStarted: Bool { isBound }
 
     /// 停转并解绑（`RotationController.stop()` 内部已清 `onAdvance`）。
     public func stop() {
         rotation.stop()
+        isBound = false
     }
 
     public func advanceNow() {

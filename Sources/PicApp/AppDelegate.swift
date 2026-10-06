@@ -375,9 +375,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 传的是 AVQueuePlayer 实例本身，不是 AVPlayerItem —— looper 的模板 item 属性在 init
         // 时就冻结，挂在 item 上「改设置立即生效」是假的。
         wallpaper.attach(player: player.player)
-        // `Converted/` 产物与根扫描清单合并后才进轮换。
-        router.start(with: await mergedPlaybackItems(report))
-        emit("PIC_ROT_START=1")
+        // 启动路径上 `rescanAndApply()` 已经通过 `dispatchPlayback` 起过一轮了，
+        // 这里再 start 一次会把首条重新装载一遍 —— 随机模式下还会重新抽签，观感是开场闪一下。
+        if !router.isStarted {
+            // `Converted/` 产物与根扫描清单合并后才进轮换。
+            router.start(with: await mergedPlaybackItems(report))
+            emit("PIC_ROT_START=1")
+        }
         // 起播决策**只**从仲裁器出。四个 Watcher 已在 wiring() 里同步置位，
         // 此刻 decision 已含本会话的全部系统信号。
         arbiter.applyCurrentDecision()
@@ -532,10 +536,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// `LibraryState` → 装载分派。只看 `coordinator.apply` 的返回值，不在这里再判「有没有视频」。
     /// 入参是 `report` 不是 `items`：`Converted/` 产物不在 `report.items` 里，合并只在这一处。
+    ///
+    /// `.playing` 走 `refresh` 而不是 `start`：重扫每天都发生（改个设置、转完一个批次、
+    /// 菜单「重新扫描」），而每次 `start` 都会把轮换索引打回第一条 —— 用户看到的症状是
+    /// 「壁纸突然跳回某个视频从头播」。`refresh` 只在「正在播的那条已经不在了」时才重开一轮。
     private func dispatchPlayback(for state: LibraryState, report: MediaLibraryReport?) async {
         switch state {
         case .playing:
-            router.start(with: await mergedPlaybackItems(report))
+            router.refresh(with: await mergedPlaybackItems(report))
         case .folderUnconfigured, .folderMissing, .noPlayableVideos:
             emit("PIC_ROT_STOP=1")
             router.stop()
