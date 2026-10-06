@@ -56,3 +56,17 @@ RotationController（轮换）→ PlaybackRouter（装载分派）
   新增打点前先确认目标脚本的 grep 模式。
 - 只改注释时，验证方式：剥掉所有 `//` 行后与 `HEAD` 逐字节比对，应完全相同。
 - 不改构建产物、不碰 `build/` `dist/` `fixtures/`。
+
+## Agent skills
+
+### Issue tracker
+
+票在 `coderstory/dynamic-wallpaper` 的 GitHub Issues 里，读写一律走 deck 的 `deck_*` 工具，不手敲 `gh`。See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+triage 的五个规范角色，标签串与角色同名（`needs-triage` / `needs-info` / `ready-for-agent` / `ready-for-human` / `wontfix`）。See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+single-context —— 一个仓库共用根目录一份 `CONTEXT.md`，架构决策放 `docs/adr/`。See `docs/agents/domain.md`.
