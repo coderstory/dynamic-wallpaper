@@ -51,6 +51,7 @@ public final class PlayerController: NSObject, PlaybackTarget {
         // 保音高必须显式设：macOS 12+ 默认 .timeDomain 会变调。
         item.audioTimePitchAlgorithm = .spectral
         // 定值 3.0。该属性属于 AVPlayerItem，AVQueuePlayer 上没有。
+        // 与下面两条一样必须设在 looper 之前 —— 克隆体不带，晚设只作用这一次。
         item.preferredForwardBufferDuration = 3.0
 
         // 解码分辨率上限。**必须设在 looper 之前** —— 与 `audioTimePitchAlgorithm`
