@@ -107,9 +107,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 开机自启的唯一写入口。必须强持有，emit 闭包捕获了 self。
     private lazy var autostart = AutoStartManager { [weak self] line in self?.emit(line) }
 
+#if !PIC_NO_PROBE
     private var ticker: Timer?
     private var tickSeq = 0
-#if !PIC_NO_PROBE
     private var loopProbe: LoopProbe?
 #endif
     /// observeHold() 的调用次数。计数打在去重门之前。
@@ -136,7 +136,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         startHoldObserver()
         scheduleQuitAfterIfRequested()
         openSettingsIfRequested()
+#if !PIC_NO_PROBE
         startObservability()
+#endif
     }
 
     /// 暂停/恢复的运行期可观测性，打一行 `PIC_HOLD`。这一层只读不写 ——
@@ -403,6 +405,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// 每 2 秒打一行播放推进读数，是循环探针与验收脚本共同的原始数据源。
+    /// 整个机制只服务探针/验收，release 版（`PIC_NO_PROBE`）整体剥掉 ——
+    /// 否则交付二进制每 2 秒读一次 currentTime() 后丢弃，纯空转。
+    #if !PIC_NO_PROBE
     private func startObservability() {
         let t = Timer(timeInterval: 2.0, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
@@ -415,10 +420,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         tickSeq += 1
         let seconds = player.player.currentTime().seconds
         let pos = seconds.isFinite ? String(format: "%.3f", seconds) : "nan"
-#if !PIC_NO_PROBE
         emit("TICK seq=\(tickSeq) pos=\(pos) status=\(LoopProbe.statusToken(player.player.timeControlStatus)) items=\(player.player.items().count)")
-#endif
     }
+    #endif
 
     ///  `scripts/run-probe.sh loop` 设 `PIC_LOOP_SECONDS=300` 才启动； 不设这个变量时代码一行都不跑。
     #if !PIC_NO_PROBE
