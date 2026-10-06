@@ -50,8 +50,9 @@ struct MenuContentView: View {
     private func activate(_ id: MenuItemID, isPaused: Bool) {
         switch id {
         case .pauseResume:
-            // 唯一入口是仲裁器，菜单自己不碰播放器、也不自己 seek。
-            arbiter.set(.manualPause, active: !isPaused)
+            // 唯一入口是模型层 perform：消掉这里与 MenuItem.perform 重复的 arbiter.set(.manualPause)，
+            // 否则「暂停/继续」语义有两份实现，测试测 perform、UI 走这里，改一处漏一处。
+            MenuBarModel.perform(id, isPaused: isPaused, store: store, arbiter: arbiter, quit: terminate)
         case .nextVideo:
             // 只调模型；行为体（轮换器）由 AppDelegate 的闭包注入。
             MenuBarModel.perform(id, isPaused: isPaused, store: store, arbiter: arbiter,
