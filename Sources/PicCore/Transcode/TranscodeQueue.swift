@@ -29,7 +29,9 @@ public struct TranscodeJob: Identifiable, Equatable, Sendable {
     public internal(set) var percent: Double?
     public let commandDisplay: String
     /// 「转码成功后删源」。**入队时不标** —— 打开转码页只是看一眼，不该提前把素材押上
-    /// 「成功即永久删除」；由 `armSourceDeletion(for:)` 在点「开始转码」的那一刻才落位。
+    /// 删除；由 `armSourceDeletion(for:)` 在点「开始转码」的那一刻才落位。
+    /// 注意：删源的实际时机是「转码成功 **且** 产物校验可用后」（runJob 里的 looksLikeUsableOutput 闸），
+    /// 产物不可用标 output_unverified 并保留源 —— 不是「退出码 0 就删」。
     public internal(set) var deletesSource: Bool
 
     init(id: UUID = UUID(), sourceURL: URL, state: TranscodeJobState = .pending,
