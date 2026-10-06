@@ -78,16 +78,22 @@ final class TranscodeViewModel: ObservableObject {
 
     /// 人类可读的源文件大小。读不到显示 `—`，不显示 0。
     func sizeText(of job: TranscodeJob) -> String {
-        let path = job.sourceURL.path
+        job.sourceURL.fileSizeText
+    }
+
+    private func reload() {
+        jobs = queue.jobs
+    }
+}
+
+/// 人类可读的文件大小。读不到显示 `—`，不显示 0。两个转码 VM 共用。
+extension URL {
+    var fileSizeText: String {
         guard let size = (try? FileManager.default.attributesOfItem(atPath: path))?[.size] as? Int64 else {
             return "—"
         }
         let formatter = ByteCountFormatter()
         formatter.countStyle = .file
         return formatter.string(fromByteCount: size)
-    }
-
-    private func reload() {
-        jobs = queue.jobs
     }
 }

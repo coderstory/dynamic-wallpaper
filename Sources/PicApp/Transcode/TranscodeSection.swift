@@ -90,14 +90,13 @@ struct TranscodeSection: View {
 
 
     private var isAvailable: Bool {
-        if case .available = viewModel.availability { return true }
-        return false
+        viewModel.availability.isAvailable
     }
 
 
     private func jobRow(_ job: TranscodeJob) -> some View {
         HStack(spacing: Metrics.rowGap) {
-            IconBox(symbol: stateSymbol(job.state), warn: isFailure(job.state))
+            IconBox(symbol: job.state.symbol, warn: job.state.isFailure)
             VStack(alignment: .leading, spacing: 2) {
                 Text(job.sourceURL.lastPathComponent)
                     .font(.system(size: 12.5))
@@ -112,9 +111,9 @@ struct TranscodeSection: View {
             }
             Spacer(minLength: 0)
             VStack(alignment: .trailing, spacing: 4) {
-                Text(stateLabel(job.state))
+                Text(job.state.label)
                     .font(mono(10.5))
-                    .foregroundStyle(isFailure(job.state) ? Color.pWarnFg : Color.pAccent)
+                    .foregroundStyle(job.state.isFailure ? Color.pWarnFg : Color.pAccent)
                 // 未知进度时给一条固定细条，不假装知道百分比。
                 progressBar(job)
                     .frame(width: 96, height: 4)
@@ -138,33 +137,6 @@ struct TranscodeSection: View {
             // 一点点」，而它代表的其实是「还没开始」——未开始就该是 0。
         }
     }
-
-    private func stateSymbol(_ state: TranscodeJobState) -> String {
-        switch state {
-        case .pending: return "clock"
-        case .running: return "play.circle.fill"
-        case .succeeded: return "checkmark.circle.fill"
-        case .skipped: return "minus.circle.fill"
-        case .failed: return "xmark.octagon.fill"
-        }
-    }
-
-    /// reason 是受控 token（`disk_space` / `ffmpeg_unavailable` / …），不是自由文本。
-    private func stateLabel(_ state: TranscodeJobState) -> String {
-        switch state {
-        case .pending: return "待转码"
-        case .running: return "转码中"
-        case .succeeded: return "已完成"
-        case .skipped: return "已跳过"
-        case .failed(let reason): return "失败 · \(reason)"
-        }
-    }
-
-    private func isFailure(_ state: TranscodeJobState) -> Bool {
-        if case .failed = state { return true }
-        return false
-    }
-
 
     private var commandOwner: TranscodeJob? {
         viewModel.jobs.first { $0.state == .running }

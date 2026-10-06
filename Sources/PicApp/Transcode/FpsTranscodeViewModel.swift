@@ -75,17 +75,12 @@ final class FpsTranscodeViewModel: ObservableObject {
     var isEmpty: Bool { jobs.isEmpty && !isScanning }
 
     private var availabilityIsAvailable: Bool {
-        if case .available = availability { return true }
-        return false
+        availability.isAvailable
     }
 
     /// 人类可读的源文件大小。读不到显示 `—`，不猜。
     func sizeText(of job: FpsTranscodeQueue.Job) -> String {
-        let attributes = try? FileManager.default.attributesOfItem(atPath: job.sourceURL.path)
-        guard let size = attributes?[.size] as? Int64 else { return "—" }
-        let formatter = ByteCountFormatter()
-        formatter.countStyle = .file
-        return formatter.string(fromByteCount: size)
+        job.sourceURL.fileSizeText
     }
 
     private func reload() {

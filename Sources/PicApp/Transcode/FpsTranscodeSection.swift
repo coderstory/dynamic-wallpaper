@@ -101,7 +101,7 @@ struct FpsTranscodeSection: View {
 
     private func jobRow(_ job: FpsTranscodeQueue.Job) -> some View {
         HStack(spacing: Metrics.rowGap) {
-            IconBox(symbol: stateSymbol(job.state), warn: isFailure(job.state))
+            IconBox(symbol: job.state.symbol, warn: job.state.isFailure)
             VStack(alignment: .leading, spacing: 2) {
                 Text(job.sourceURL.lastPathComponent)
                     .font(.system(size: 12.5))
@@ -116,9 +116,9 @@ struct FpsTranscodeSection: View {
             }
             Spacer(minLength: 0)
             VStack(alignment: .trailing, spacing: 4) {
-                Text(stateLabel(job.state))
+                Text(job.state.label)
                     .font(mono(10.5))
-                    .foregroundStyle(isFailure(job.state) ? Color.pWarnFg : Color.pAccent)
+                    .foregroundStyle(job.state.isFailure ? Color.pWarnFg : Color.pAccent)
                 progressBar(job)
                     .frame(width: progressWidth, height: 4)
             }
@@ -137,32 +137,6 @@ struct FpsTranscodeSection: View {
             // 没有读数就不画填充条：排着队还没开工的文件应当是 0%，
             // 画一条固定宽度的占位细条会被用户读成「已经在跑了一点点」。
         }
-    }
-
-    private func stateSymbol(_ state: FpsTranscodeQueue.JobState) -> String {
-        switch state {
-        case .pending: return "clock"
-        case .running: return "play.circle.fill"
-        case .done: return "checkmark.circle.fill"
-        case .failed: return "xmark.octagon.fill"
-        case .cancelled: return "slash.circle"
-        }
-    }
-
-    /// reason 是受控 token，不是 ffmpeg 原始日志。
-    private func stateLabel(_ state: FpsTranscodeQueue.JobState) -> String {
-        switch state {
-        case .pending: return "待降帧"
-        case .running: return "降帧中"
-        case .done: return "已完成"
-        case .cancelled: return "已取消"
-        case .failed(let reason): return "失败 · \(reason)"
-        }
-    }
-
-    private func isFailure(_ state: FpsTranscodeQueue.JobState) -> Bool {
-        if case .failed = state { return true }
-        return false
     }
 
     private func countText(_ n: Int, warn: Bool = false, ok: Bool = false, dim: Bool = false) -> some View {
@@ -192,8 +166,7 @@ struct FpsTranscodeSection: View {
     }
 
     private var isAvailable: Bool {
-        if case .available = viewModel.availability { return true }
-        return false
+        viewModel.availability.isAvailable
     }
 
     private var statusText: String {

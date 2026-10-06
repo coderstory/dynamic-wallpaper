@@ -7,8 +7,7 @@ public enum FFmpegAvailability {
 
     /// 判定投影：locator 的结论 → 状态卡的 `available` 参数。不判第二次。
     public static func available(_ status: FFmpegToolStatus) -> Bool {
-        if case .available = status { return true }
-        return false
+        status.isAvailable
     }
 
     /// 生产件 —— 判定层唯一的生产构造点。测试传假件（`WhichProbing` / `ExecutableFileProbing`）。

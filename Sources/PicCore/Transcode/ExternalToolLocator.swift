@@ -5,6 +5,12 @@ import Foundation
 public enum FFmpegToolStatus: Equatable {
     case available(path: String)
     case unavailable
+
+    /// 是否可用。收敛各处的 `if case .available` 判断，避免重复 pattern match。
+    public var isAvailable: Bool {
+        if case .available = self { return true }
+        return false
+    }
 }
 
 /// which 探测 seam：status 是 `Process.terminationStatus` 语义，path 是 stdout 去空白，空串按 nil。

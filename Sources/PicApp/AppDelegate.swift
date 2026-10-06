@@ -270,8 +270,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// 设置窗读数与入口置灰共用这一份（不出现两套判定）。
     var ffmpegIsAvailable: Bool {
-        if case .available = ffmpegAvailability { return true }
-        return false
+        ffmpegAvailability.isAvailable
     }
 
     /// 设置窗「维护」行「打开…」的行为侧：先重查，可用就开窗返回 true，
