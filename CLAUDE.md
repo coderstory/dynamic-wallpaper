@@ -134,3 +134,5 @@ triage 的五个规范角色，标签串与角色同名（`needs-triage` / `need
 ### Domain docs
 
 single-context —— 一个仓库共用根目录一份 `CONTEXT.md`，架构决策放 `docs/adr/`。See `docs/agents/domain.md`.
+两者目前**都不存在，且这是刻意的**：`docs/agents/domain.md` 规定它们由 `/domain-modeling` 懒创建。
+在那之前一律按它写的做 —— **静默跳过，不提示缺失，不主动创建**。
