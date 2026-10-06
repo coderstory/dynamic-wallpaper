@@ -1,9 +1,12 @@
 # ── 构建产物 ──
-ffmpeg-kit-next/
 build/
 dist/
 .build/
 *.dmg
+
+# 本地调研 clone（arthenica/ffmpeg-kit-next 的源码）：转码选型时读过它的源码，
+# **未被依赖** —— 交付二进制不链任何 ffmpeg 库，转码靠 spawn 系统 ffmpeg。
+ffmpeg-kit-next/
 
 # Xcode 用户数据（每人一份，不该进仓库）
 Pic.xcodeproj/xcuserdata/

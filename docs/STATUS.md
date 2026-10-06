@@ -47,6 +47,15 @@
 5. **验收不得再引入字符串打点**（`emit` / 输出行 grep）。那套体系需要产品代码常驻打点，
    比等价断言更脆弱，且会渗进交付二进制。
 
+## 本地目录（不在 git 里，别当成项目的一部分）
+
+| 目录 | 是什么 | 删了会怎样 |
+|---|---|---|
+| `ffmpeg-kit-next/` | `arthenica/ffmpeg-kit-next` 的**源码 clone**，转码选型时读过它（`PROJECT.md` 里「它不硬编码编码质量参数」那条结论出自它的 `apple/src/`）。**零依赖**：交付二进制不链任何 ffmpeg 库，转码是 spawn 系统 `ffmpeg` | 编译/测试/打包/运行都不受影响；要复核那条结论得重新 clone |
+| `.planning/` | 内部规划归档（research / phases / 证据），README 明说不对外 | 历史调研与验收证据丢失 |
+| `build/` `dist/` | 构建产物 | `./build.sh` 重建 |
+| `fixtures/` | 3 个短视频夹具 | 相关用例自动 skip（`PlayerControllerFreeze/Swap` 各一条） |
+
 ## 相关文档
 
 - `CLAUDE.md` —— 写代码时遵守的规则（注释纪律、红线、架构约束）
