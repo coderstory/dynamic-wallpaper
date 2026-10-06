@@ -1,0 +1,25 @@
+# Pic — 项目长期约定
+
+## CI / Release（.github/workflows/）
+
+- **runner 标签必须是 `xcode-27`**，不是 `macos-latest`。GitHub 托管镜像里 `xcode-27`
+  是 OS 最新的一个（macOS 27 / Xcode 27 / arm64 / public preview）；`macos-latest` 仍停在
+  macOS 26，而 `Package.swift` 是 `platforms: [.macOS("27.0")]`，部署目标高于镜像 SDK 会
+  直接构建失败。换标签前先确认这条。
+- 分支分工互斥：`ci.yml` 用 `push.branches-ignore: [master]`（+ PR→master + workflow_dispatch），
+  `release.yml` 用 `push.branches: [master]`。Release 不跑测试——**master 的提交不会过测试**。
+- Release tag 格式 `vYYYY.MM.DD-<run_number>`，说明由上次 tag 以来的提交信息汇总；
+  DMG 资产重命名成 `Pic-<tag>.dmg`（`build.sh` 里的 `VERSION="0.1.0"` 是写死的，不重命名各版本同名）。
+  无 Secrets 依赖：ad-hoc 签名，`GITHUB_TOKEN` 靠 workflow 自带 `permissions: contents: write`。
+- **CI 靠 `swift test --skip` 隔离了一条 VM 上必红的用例**：
+  `PowerWatcherTests/testPowerSourceStateKeyIsTheRealSDKKeyAndValuesAreStrings`
+  —— 它断言 `readPowerState()` 不得返回 `.failed`，前提是宿主真有电源源；runner 是 VM，
+  `IOPSCopyPowerSourcesList` 返回空列表，源码**如实**返回 `.failed`（源码行为正确）。
+  用户明确选择「不改代码与用例，只在 CI 侧隔离」。副作用：该用例若改名/删除，`--skip` 会静默
+  退化成空匹配（正常态 323 tests，退化成 324）——摘要行是唯一线索。
+- 缓存：`actions/cache@v6`，path `.build`，key `swiftpm-<OS>-<ARCH>-<sha>` + 前缀回溯。
+  冷启 ~60 MB。任务失败时 post 步被 skip，红的运行攒不下缓存。
+
+## 本机环境（与 CI 对齐的依据）
+
+macOS 27.0.1 / Xcode 27 / Swift 6.4 / arm64。
