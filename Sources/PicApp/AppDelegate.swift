@@ -43,8 +43,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     lazy var transcodeQueue: TranscodeQueue = {
         let queue = TranscodeQueue(
             runner: ProcessTranscodeRunner(),
+            // 闭包而非值：换目录后必须跟着走，否则产物写进已经不再使用的旧目录。
             naming: TranscodeOutputNaming(
-                root: store.resolvedFolderURL() ?? URL(fileURLWithPath: NSTemporaryDirectory())),
+                rootProvider: { [weak self] in self?.store.resolvedFolderURL()
+                    ?? URL(fileURLWithPath: NSTemporaryDirectory()) }),
             availability: { [weak self] in self?.ffmpegAvailability ?? .unavailable },
             freeSpaceProvider: { url in
                 (try? url.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]))?
@@ -74,7 +76,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     lazy var fpsTranscodeQueue: FpsTranscodeQueue = {
         let queue = FpsTranscodeQueue(
             runner: ProcessTranscodeRunner(),
-            root: store.resolvedFolderURL() ?? URL(fileURLWithPath: NSTemporaryDirectory()),
+            // 闭包而非值：同上，换目录后必须扫新目录、产物落新目录。
+            rootProvider: { [weak self] in self?.store.resolvedFolderURL()
+                ?? URL(fileURLWithPath: NSTemporaryDirectory()) },
             availability: { [weak self] in self?.ffmpegAvailability ?? .unavailable },
             freeSpaceProvider: { url in
                 (try? url.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]))?

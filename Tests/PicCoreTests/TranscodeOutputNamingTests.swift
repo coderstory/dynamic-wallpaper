@@ -79,4 +79,32 @@ final class TranscodeOutputNamingTests: XCTestCase {
         XCTAssertFalse(naming.skipDecision(source: source),
                        "产物不存在 → 不跳过")
     }
+
+    // MARK: - 换目录（场景 H4 / F10）
+
+    /// 设了壁纸目录之后又换一个：产物路径必须跟着走。
+    /// `init(root:)` 把目录在构造那一刻固化，换目录后产物会写进用户看不到的旧目录。
+    func testRootProviderFollowsFolderChange() {
+        var current = root!
+        let naming = TranscodeOutputNaming(rootProvider: { current })
+        let before = naming.outputURL(for: URL(fileURLWithPath: "/src/a.mkv"))
+
+        let second = FileManager.default.temporaryDirectory
+            .appendingPathComponent("p6-naming-2-\(UUID().uuidString)", isDirectory: true)
+        try? FileManager.default.createDirectory(at: second, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: second) }
+        current = second
+
+        let after = naming.outputURL(for: URL(fileURLWithPath: "/src/a.mkv"))
+        XCTAssertNotEqual(before.path, after.path, "换目录后产物路径必须变")
+        XCTAssertTrue(after.path.hasPrefix(second.path), "产物要写进**新**目录")
+        XCTAssertTrue(before.path.hasPrefix(root.path), "换之前的路径确实指向旧目录（判据有效）")
+    }
+
+    /// 静态构造是动态构造的退化形态 —— 两者路径必须一致，不能是两套算法。
+    func testStaticRootMatchesProvider() {
+        let url = URL(fileURLWithPath: "/src/a.mkv")
+        XCTAssertEqual(TranscodeOutputNaming(root: root).outputURL(for: url).path,
+                       TranscodeOutputNaming(rootProvider: { self.root }).outputURL(for: url).path)
+    }
 }

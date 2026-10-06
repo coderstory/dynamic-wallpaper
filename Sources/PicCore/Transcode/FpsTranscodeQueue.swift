@@ -43,7 +43,9 @@ public final class FpsTranscodeQueue {
     // MARK: - 依赖
 
     private let runner: any TranscodeRunning
-    private let root: URL
+    /// 壁纸目录。**取成闭包而不是值**：用户可以不重启 app 就换目录，构造时固化的话
+    /// 换完之后扫的还是旧目录，产物也落进用户看不到的地方（场景 H4 / G9）。
+    private let rootProvider: () -> URL
     private let availability: () -> FFmpegToolStatus
     private let freeSpaceProvider: (URL) -> Int64?
     private let specProvider: (URL) async -> VideoAssetMetadata
@@ -54,18 +56,32 @@ public final class FpsTranscodeQueue {
     private var _pauseRequested = false
     private var _cancelRequested = false
 
-    public init(runner: any TranscodeRunning, root: URL,
+    public init(runner: any TranscodeRunning, rootProvider: @escaping () -> URL,
                 availability: @escaping () -> FFmpegToolStatus,
                 freeSpaceProvider: @escaping (URL) -> Int64?,
                 specProvider: @escaping (URL) async -> VideoAssetMetadata,
                 tableURL: URL = FrameRateTable.defaultURL()) {
         self.runner = runner
-        self.root = root
+        self.rootProvider = rootProvider
         self.availability = availability
         self.freeSpaceProvider = freeSpaceProvider
         self.specProvider = specProvider
         self.tableURL = tableURL
     }
+
+    /// 固定目录的便捷构造（目录在整个生命周期内不变的调用方）。
+    public convenience init(runner: any TranscodeRunning, root: URL,
+                            availability: @escaping () -> FFmpegToolStatus,
+                            freeSpaceProvider: @escaping (URL) -> Int64?,
+                            specProvider: @escaping (URL) async -> VideoAssetMetadata,
+                            tableURL: URL = FrameRateTable.defaultURL()) {
+        self.init(runner: runner, rootProvider: { root },
+                  availability: availability, freeSpaceProvider: freeSpaceProvider,
+                  specProvider: specProvider, tableURL: tableURL)
+    }
+
+    /// 当前壁纸目录。
+    public var root: URL { rootProvider() }
 
     public var isPaused: Bool { controlLock.withLock { _pauseRequested } }
     public var isRunning = false
@@ -114,7 +130,7 @@ public final class FpsTranscodeQueue {
         var reused = 0
 
         guard let enumerator = FileManager.default.enumerator(
-            at: root,
+            at: rootProvider(),
             includingPropertiesForKeys: [.isRegularFileKey, .isSymbolicLinkKey],
             options: [.skipsHiddenFiles]
         ) else { return }
@@ -181,7 +197,7 @@ public final class FpsTranscodeQueue {
     // MARK: - 路径
 
     private var convertedDirectory: URL {
-        root.appendingPathComponent(MediaLibrary.excludedDirectoryName, isDirectory: true)
+        rootProvider().appendingPathComponent(MediaLibrary.excludedDirectoryName, isDirectory: true)
     }
 
     private func derivativeURL(for source: URL) -> URL {
