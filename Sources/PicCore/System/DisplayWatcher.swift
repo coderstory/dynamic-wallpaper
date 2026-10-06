@@ -70,10 +70,10 @@ public final class SystemDisplayReconfigurationHook: DisplayReconfigurationHook 
 @MainActor
 public final class DisplayWatcher {
     public private(set) var isRunning = false
-    /// `CGDisplayRegisterReconfigurationCallback` 的返回值 —— 探针与单测都读它。
+    /// `CGDisplayRegisterReconfigurationCallback` 的返回值 —— 单测读它。
     public private(set) var isReconfigurationRegistered = false
 
-    /// 睡眠通知名。公开成常量，供装配层接线与探针打印**确切**名字。
+    /// 睡眠通知名。公开成常量，供装配层接线与单测断言**确切**名字。
     public static let sleepNotificationName = NSWorkspace.willSleepNotification
     /// 唤醒通知名。
     public static let wakeNotificationName = NSWorkspace.didWakeNotification

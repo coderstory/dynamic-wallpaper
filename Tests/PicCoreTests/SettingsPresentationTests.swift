@@ -109,7 +109,7 @@ final class SettingsPresentationTests: XCTestCase {
         var hidden = 0
         for state in LibraryState.allCases {
             XCTAssertEqual(SettingsPresentation.isEmptyState(state),
-                           !state.shouldShowWallpaper, state.reasonToken)
+                           !state.shouldShowWallpaper, String(describing: state))
             if !state.shouldShowWallpaper { hidden += 1 }
         }
         XCTAssertEqual(hidden, 3)

@@ -47,7 +47,8 @@ public final class RotationController {
         case userRequested
     }
 
-    /// 一次切换的打点。**只记 reason 与 index，不记文件名**（隐私纪律）。
+    /// 一次切换的记录。**只记 reason 与 index，不记文件名**（隐私纪律）。
+    /// `reason` 只从这里出去：单测靠它区分「用户点的」与「轮换到点」，别删。
     public struct RotationAdvance: Equatable, Sendable {
         public let reason: AdvanceReason
         public let index: Int
@@ -126,7 +127,7 @@ public final class RotationController {
     }
 
     /// `setItems` 之后调一次：把首条交给 `onAdvance`，并用 `interval` 排下一程。
-    /// 首条装载**不记进 `advances`** —— 它不是一次切换。空列表时直接返回：不打点、
+    /// 首条装载**不记进 `advances`** —— 它不是一次切换。空列表时直接返回：不记录、
     /// 不回调、不排程（降级路径的共同前置）。
     ///
     /// **shuffle 下首条必须从洗牌袋取**，不能写死 `items[0]`：写死就是「每次开 app

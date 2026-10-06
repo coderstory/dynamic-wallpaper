@@ -27,7 +27,7 @@ final class FFmpegAvailabilityTests: XCTestCase {
             which: FakeWhich(status: whichStatus, path: whichPath),
             fileSystem: FakeFS(executables: executables)
         )
-        return FFmpegAvailability.available(locator.locate())
+        return locator.locate().isAvailable
     }
 
     func testExplicitProbePathIsReportedAvailable() {
@@ -51,11 +51,5 @@ final class FFmpegAvailabilityTests: XCTestCase {
     /// GUI 从 Dock 启动时 PATH 极简、which 失败，此时必须靠显式探测兜住，否则本机会误报「未安装」。
     func testGuiMinimalPathStillFindsHomebrewInstall() {
         XCTAssertTrue(statusCardSays(whichStatus: 1, executables: ["/opt/homebrew/bin/ffmpeg"]))
-    }
-
-    /// 状态卡只报可用性，版本串不在这一层。
-    func testLabelIsAvailableOrNotInstalledOnly() {
-        XCTAssertEqual(FFmpegAvailability.label(available: true), "可用")
-        XCTAssertEqual(FFmpegAvailability.label(available: false), "未安装")
     }
 }

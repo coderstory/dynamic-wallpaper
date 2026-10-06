@@ -1,6 +1,6 @@
 import Foundation
 
-/// 一次扫描的结果。各阶段计数必须分字段打点：合并任何一个都会让「是哪一道过滤器吃掉的条目」无法定位。
+/// 一次扫描的结果。各阶段计数必须分字段记录：合并任何一个都会让「是哪一道过滤器吃掉的条目」无法定位。
 public struct MediaLibraryReport: Equatable, Sendable {
     public let rootPath: String
     public let scannedEntryCount: Int

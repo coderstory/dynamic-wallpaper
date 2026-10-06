@@ -1,7 +1,7 @@
 import Foundation
 
 /// 设置窗的纯显示映射：只做「值 ↔ 显示形态」的换算，不碰 SwiftUI/AppKit/AVFoundation，
-/// 不做任何决策。窗口常量是唯一来源，视图与探针都读它，不许在别处散落字面量。
+/// 不做任何决策。窗口常量是唯一来源，视图与单测都读它，不许在别处散落字面量。
 public enum SettingsPresentation {
     /// 设置窗打开时的宽度（`.defaultSize` / `idealWidth` 读这里）。
     public static let windowWidth: CGFloat = 780
@@ -69,7 +69,7 @@ public enum SettingsPresentation {
     }
 
 
-    /// 空态副行（逐字硬需求）。全仓唯一一份：视图与探针都引用它。
+    /// 空态副行（逐字硬需求）。全仓唯一一份：视图与单测都引用它。
     public static let emptyStateBody = "没找到能播的文件。壁纸已隐藏，桌面显示的是系统原壁纸。"
 
     ///  三态一张皮：没配过 / 目录没了 / 扫到 0 在 UI 上**不区分**， 判定就是「不该显示壁纸」的反面。

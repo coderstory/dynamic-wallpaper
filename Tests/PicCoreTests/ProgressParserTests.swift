@@ -4,6 +4,12 @@ import XCTest
 /// 样本串全部硬编码（`-progress pipe:1` 的机器可读输出），零 ffmpeg 调用、不依赖 `fixtures/`，干净 clone 上 `swift test` 也必须绿。
 final class ProgressParserTests: XCTestCase {
 
+    /// 多行块按 `\n` 逐行喂给累加器 —— 与产品侧 `ProgressState.consume` 同一条路径。
+    private func parse(_ chunk: String) -> ProgressParser.Snapshot {
+        var accumulator = ProgressParser.Accumulator()
+        return accumulator.consume(chunk)
+    }
+
     func testParsesSampleChunkIntoSnapshot() {
         let chunk = """
         frame=120
@@ -12,7 +18,7 @@ final class ProgressParserTests: XCTestCase {
         total_size=4096
         progress=continue
         """
-        let snapshot = ProgressParser.parseChunk(chunk)
+        let snapshot = parse(chunk)
         XCTAssertEqual(snapshot, ProgressParser.Snapshot(
             frame: 120,
             outTimeUs: 2_500_000,
@@ -21,7 +27,7 @@ final class ProgressParserTests: XCTestCase {
     }
 
     func testProgressEndFlagDetected() {
-        let snapshot = ProgressParser.parseChunk("progress=end")
+        let snapshot = parse("progress=end")
         XCTAssertTrue(snapshot.isEnd)
     }
 
@@ -33,7 +39,7 @@ final class ProgressParserTests: XCTestCase {
         total garbage line
         frame=88
         """
-        let snapshot = ProgressParser.parseChunk(chunk)
+        let snapshot = parse(chunk)
         XCTAssertEqual(snapshot.frame, 88)
     }
 

@@ -17,16 +17,6 @@ public enum LibraryState: String, Equatable, Sendable, CaseIterable {
     public var shouldShowWallpaper: Bool {
         self == .playing
     }
-
-    /// 机器可读的小写 token。固定单词，**不得夹带路径或文件名**。
-    public var reasonToken: String {
-        switch self {
-        case .folderUnconfigured: return "folder_unconfigured"
-        case .folderMissing: return "folder_missing"
-        case .noPlayableVideos: return "no_playable_videos"
-        case .playing: return "playing"
-        }
-    }
 }
 
 /// 唯一的决策函数（静态命名空间，不持任何状态）。
@@ -46,10 +36,5 @@ public enum LibraryAvailability {
         case .success(let playableCount):
             return playableCount >= 1 ? .playing : .noPlayableVideos
         }
-    }
-
-    /// 供打点用，只回 `reasonToken`，不带任何路径或文件名。
-    public static func token(_ state: LibraryState) -> String {
-        state.reasonToken
     }
 }

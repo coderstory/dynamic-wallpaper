@@ -42,7 +42,7 @@ public enum PowerReadState: Equatable, Sendable {
 public final class PowerWatcher {
     public private(set) var isRunning = false
     /// `IOPSNotificationCreateRunLoopSource` 是否拿到非空 source 并挂上主 run loop。
-    /// 探针与单测都读它 —— 事件源没挂上就等于拔电源不会有任何反应。
+    /// 单测读它 —— 事件源没挂上就等于拔电源不会有任何反应。
     public private(set) var isSourceRegistered = false
 
     /// 挂在主 run loop 上的那个 source，持有 `Unmanaged` 原件由 `stop()` 显式还那一次 release。
@@ -93,7 +93,7 @@ public final class PowerWatcher {
     }
 
     /// 三态读数。**纯读取**，不打印任何东西 —— 上报那一层在 `currentIsOnBattery()`，
-    /// 这样探针与单测可以只取三态而拿到干净的 stdout。
+    /// 这样单测可以只取三态而拿到干净的 stdout。
     public static func readPowerState() -> PowerReadState {
         guard let rawState = currentPowerSourceStateValue() else { return .failed }
         // `kIOPSBatteryPowerValue` / `kIOPSACPowerValue` 是 `#define` 的字符串字面量，
@@ -107,7 +107,7 @@ public final class PowerWatcher {
     }
 
     /// `kIOPSPowerSourceStateKey` 的**实测**键名（本机 SDK：`"Power Source State"`，值是
-    /// **CFString** 不是 CFBoolean）。公开成常量，探针打的是从 SDK 读出来的字面量，不是手抄的字符串。
+    /// **CFString** 不是 CFBoolean）。公开成常量，单测断言的是从 SDK 读出来的字面量，不是手抄的字符串。
     public static let powerSourceStateKey: String = kIOPSPowerSourceStateKey
 
     /// 第一个电源源的 `kIOPSPowerSourceStateKey` 的**实测取值**（CFString），

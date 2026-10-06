@@ -27,11 +27,6 @@ public struct MenuBarModel {
         }
     }
 
-    /// 恰好六项，顺序即 `MenuItemID.allCases` 的声明序。
-    public static func labels(isPaused: Bool) -> [String] {
-        MenuItemID.allCases.map { label(for: $0, isPaused: isPaused) }
-    }
-
     @MainActor
     public static func perform(_ id: MenuItemID, isPaused: Bool,
                                arbiter: HoldArbiter,

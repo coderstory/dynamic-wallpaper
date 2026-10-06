@@ -26,7 +26,7 @@ final class MenuBarModelTests: XCTestCase {
 
     func testLabelsHaveExactlySixEntriesInEveryState() {
         for isPaused in [false, true] {
-            let labels = MenuBarModel.labels(isPaused: isPaused)
+            let labels = MenuItemID.allCases.map { MenuBarModel.label(for: $0, isPaused: isPaused) }
             XCTAssertEqual(labels.count, MenuItemID.allCases.count,
                            "菜单项数量必须恒等于 MenuItemID.allCases")
             XCTAssertEqual(labels.count, 6, "共六项菜单（Phase 2 三项 + Phase 4 两项 + 删除当前壁纸）")
@@ -45,7 +45,7 @@ final class MenuBarModelTests: XCTestCase {
 
     func testLabelsNeverContainAnyMediaFileName() {
         for isPaused in [false, true] {
-            let labels = MenuBarModel.labels(isPaused: isPaused)
+            let labels = MenuItemID.allCases.map { MenuBarModel.label(for: $0, isPaused: isPaused) }
             let blob = labels.joined(separator: "|")
 
             XCTAssertFalse(blob.contains(Self.sentinelFilename),

@@ -40,11 +40,12 @@ public struct DesktopWindowInset: Equatable, Sendable {
         self.bottom = bottom
     }
 
-    /// 桌面层窗口相对屏幕框的内缩（1470×956 单屏实测）。`--selftest` 用 `.zero` ——
-    /// 那三条基准量的是屏幕层窗口，没有桌面层内缩；带内缩的路径由单测第 4 条单独锁。
+    /// 桌面层窗口相对屏幕框的内缩（1470×956 单屏实测）。
+    /// 基准量屏幕层窗口时用 `.zero`（没有桌面层内缩）；带内缩的路径由单测单独锁。
+    /// 这两个数是**该分辨率实测值**，换屏要重新量 —— 量偏了的表现是「真全屏没被识别」，不是误判。
     public static let measured1470x956 = DesktopWindowInset(left: 14, top: 9, right: 14, bottom: 9)
 
-    /// 不补偿。用途只有一个：与 `--selftest` 的数值逐条对齐。
+    /// 不补偿。只用于「屏幕层窗口」语义的单测基准。
     public static let zero = DesktopWindowInset(left: 0, top: 0, right: 0, bottom: 0)
 }
 
@@ -120,7 +121,7 @@ public enum FullscreenGeometry {
     ///   - samples: 窗口矩形样本，`raw` 为 `CGWindowList` 原样值（**调用方负责去重/过滤**）。
     ///   - visible: `NSScreen.visibleFrame`，左下角原点。分母用它不用 `frame`：真全屏会因刘海而永远差一点。
     ///   - screenFrameHeight: 翻转用的屏幕高。
-    ///   - inset: 桌面层内缩补偿。`--selftest` 传 `.zero`。
+    ///   - inset: 桌面层内缩补偿。基准量屏幕层窗口时传 `.zero`。
     public static func aggregate(samples: [WindowRectSample],
                                  visible: ScreenRect,
                                  screenFrameHeight: Double,
