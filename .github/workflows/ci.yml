@@ -32,6 +32,16 @@ jobs:
           swift --version
           echo "架构: $(uname -m)　系统: $(sw_vers -productVersion)"
 
+      - name: SwiftPM 缓存
+        # 缓存整个 .build：SwiftPM 自己按内容判断是否需要重编，未改动的模块
+        # （PicCore、依赖）跨提交直接复用。零第三方依赖时 Package.resolved 不存在，
+        # 所以 key 用 sha + 前缀回溯，与参考仓 ccache 的做法同构。
+        uses: actions/cache@v6
+        with:
+          path: .build
+          key: swiftpm-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
+          restore-keys: swiftpm-${{ runner.os }}-${{ runner.arch }}-
+
       - name: 构建（debug）
         run: swift build
 

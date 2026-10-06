@@ -32,6 +32,14 @@ jobs:
         # 属于"能出包但交付质量下降"，所以这里显式装上
         run: brew install create-dmg
 
+      - name: SwiftPM 缓存
+        # build.sh 只清 build/ 与 dist/，不动 .build —— 缓存能在 release 构建里命中
+        uses: actions/cache@v6
+        with:
+          path: .build
+          key: swiftpm-${{ runner.os }}-${{ runner.arch }}-${{ github.sha }}
+          restore-keys: swiftpm-${{ runner.os }}-${{ runner.arch }}-
+
       - name: 构建 .app + DMG
         run: ./build.sh
 
