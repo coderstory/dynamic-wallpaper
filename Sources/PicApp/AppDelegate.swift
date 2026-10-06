@@ -579,6 +579,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
+        // 删掉的可能是降帧产物（产物顶替原片后，播放池里那条就是产物）。
+        // 表行此刻仍写着 `.done`，不去对账的话这条素材会以未降帧的原片形态一直播着 ——
+        // 下一次降帧扫描才会纠正，而用户可能根本不打开那个 tab。
+        var table = FrameRateTable.load()
+        try? table.reconcileWithDerivatives()
+
         // ⑤ 必须失效缓存 —— 否则清单里那条路径已不存在，下次轮换会装载失败。
         library.invalidateCache()
         Task { await rescanAndApply() }

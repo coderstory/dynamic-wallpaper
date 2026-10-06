@@ -178,6 +178,74 @@ final class FrameRateTableTests: XCTestCase {
         XCTAssertEqual(table.entries.count, 0, "片库删了文件，表里不能留孤儿行")
     }
 
+    /// 卸载重装 / 表丢过一次写入之后，产物还在磁盘上但表里仍是 `needsConvert` ——
+    /// 不对账的话这些文件会被重新排一遍（已经降过帧还要再烤一次），播放池也不再替换它们。
+    func testReconcileMarksEntryDoneWhenDerivativeIsOnDisk() throws {
+        let derivative = root.appendingPathComponent("Converted/a-30fps.mp4")
+        try FileManager.default.createDirectory(at: derivative.deletingLastPathComponent(),
+                                                withIntermediateDirectories: true)
+        try Data("d".utf8).write(to: derivative)
+
+        var entry = makeEntry(state: .needsConvert)
+        entry.derivativePath = derivative.path
+        var table = FrameRateTable(entries: [entry])
+        try table.save(to: tableURL)
+
+        try table.reconcileWithDerivatives(to: tableURL)
+
+        XCTAssertEqual(table.entries[0].state, .done, "产物在磁盘上 → 关系应当被认回来")
+        XCTAssertNotNil(table.entries[0].derivativeMtime,
+                        "`.done` 必须带上产物 mtime —— `hasLiveDerivative` 靠它判新鲜")
+    }
+
+    /// 反向：产物被手工删掉了，`.done` 必须退回可重试，否则这件事就被永久记成「已完成」。
+    func testReconcileDemotesDoneWhenDerivativeVanished() throws {
+        let missing = root.appendingPathComponent("Converted/gone-30fps.mp4")
+        var entry = makeEntry(state: .done)
+        entry.derivativePath = missing.path
+        entry.derivativeMtime = Date()
+        var table = FrameRateTable(entries: [entry])
+
+        try table.reconcileWithDerivatives(to: tableURL)
+
+        XCTAssertEqual(table.entries[0].state, .needsConvert, "产物没了 → 必须退回可重试")
+        XCTAssertNil(table.entries[0].derivativeMtime)
+    }
+
+    /// 没变化的旁观者不动：`.okAt30` 的行不该被顺手抬成 `.done`。
+    func testReconcileLeavesUnrelatedStatesAlone() throws {
+        var entry = makeEntry(state: .okAt30)
+        entry.derivativePath = root.appendingPathComponent("Converted/a-30fps.mp4").path
+        var table = FrameRateTable(entries: [entry])
+
+        try table.reconcileWithDerivatives(to: tableURL)
+
+        XCTAssertEqual(table.entries[0].state, .okAt30)
+    }
+
+    /// 对账必须真的落盘 —— 只改内存的话，下一次 `load` 拿回的还是旧状态。
+    func testReconcilePersistsToDisk() throws {
+        let derivative = root.appendingPathComponent("Converted/a-30fps.mp4")
+        try FileManager.default.createDirectory(at: derivative.deletingLastPathComponent(),
+                                                withIntermediateDirectories: true)
+        try Data("d".utf8).write(to: derivative)
+
+        var entry = makeEntry(state: .needsConvert)
+        entry.derivativePath = derivative.path
+        var table = FrameRateTable(entries: [entry])
+        try table.save(to: tableURL)
+        try table.reconcileWithDerivatives(to: tableURL)
+
+        XCTAssertEqual(FrameRateTable.load(from: tableURL).entries[0].state, .done)
+    }
+
+    /// 没有 derivativePath 的行必须原样跳过：既不能因为 nil 而崩，也不能被改状态。
+    func testReconcileSkipsEntriesWithoutDerivativePath() throws {
+        var table = FrameRateTable(entries: [makeEntry(state: .needsConvert)])
+        XCTAssertNoThrow(try table.reconcileWithDerivatives(to: tableURL))
+        XCTAssertEqual(table.entries[0].state, .needsConvert)
+    }
+
     func testCountsSplitNeedsConvertFromOkAt30() {
         let table = FrameRateTable(entries: [makeEntry(state: .needsConvert)])
         XCTAssertEqual(table.needsConvertCount, 1)

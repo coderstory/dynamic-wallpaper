@@ -170,6 +170,50 @@ final class FpsTranscodeQueueTests: XCTestCase {
         XCTAssertTrue(queue.jobs.isEmpty, "已在表里完成的文件不重复入队")
     }
 
+    /// 卸载重装的等价形态：磁盘上有产物，但表已经丢了 / 没写过。
+    /// 这时候必须靠磁盘把关系认回来，而不是把 60fps 的源再排一次队。
+    func testScanSkipsSourceWhoseDerivativeAlreadyExistsWithoutTable() async {
+        _ = makeSource("fresh.mp4")
+        _ = makeDerivative("fresh-30fps.mp4")
+        let queue = makeQueue()
+
+        await queue.scan()
+
+        XCTAssertTrue(queue.jobs.isEmpty, "产物已在磁盘上 → 不该再排一次队")
+        XCTAssertEqual(queue.okAt30Count, 0)
+    }
+
+    /// 表的状态落后于磁盘（一次性写入被覆盖）：行写着 `needsConvert`，产物却好好的。
+    func testScanReconcilesStaleNeedsConvertRowToDone() async throws {
+        let source = makeSource("stale.mp4")
+        let derivative = makeDerivative("stale-30fps.mp4")
+        let tableURL = root.appendingPathComponent("t.json")
+        let canonical = source.resolvingSymlinksInPath().path
+        let attributes = try FileManager.default.attributesOfItem(atPath: canonical)
+        var table = FrameRateTable()
+        try table.upsert(FrameRateEntry(
+            sourcePath: canonical,
+            sourceSize: attributes[.size] as? Int ?? 0,
+            sourceMtime: attributes[.modificationDate] as? Date ?? Date(),
+            fps: 60, durationSeconds: 10,
+            derivativePath: derivative.path, derivativeMtime: nil,
+            state: .needsConvert), to: tableURL)
+
+        let queue = FpsTranscodeQueue(
+            runner: runner, root: root,
+            availability: { .available(path: "/opt/homebrew/bin/ffmpeg") },
+            freeSpaceProvider: { _ in nil },
+            specProvider: { _ in VideoAssetMetadata(hasVideoTrack: true, frameRate: 60, durationSeconds: 10) },
+            tableURL: tableURL)
+
+        await queue.scan()
+
+        XCTAssertTrue(queue.jobs.isEmpty, "已经有产物的不该进队列")
+        let after = FrameRateTable.load(from: tableURL)
+        XCTAssertEqual(after.entries.first?.state, .done, "对账必须落盘，不然下次又从头来")
+        XCTAssertNotNil(after.entries.first?.derivativeMtime)
+    }
+
     func testRunProducesDerivativeAndMarksDone() async throws {
         let source = makeSource("a.mp4")
         let queue = makeQueue()
@@ -266,6 +310,140 @@ final class FpsTranscodeQueueTests: XCTestCase {
     makeQueue().cancel()
     }
 
+    // MARK: - 换目录后清表（场景 H2）
+
+    /// 换过目录之后，旧目录的行会永远留在表里 —— `prune()` 从未被生产代码调用过，
+    /// 于是「总行数」长期虚高，UI 报的片库规模比实际大。
+    func testScanPrunesRowsWhoseSourceIsGone() async throws {
+        let stale = root.appendingPathComponent("stale.mp4")
+        let tableURL = root.appendingPathComponent("fps-table.json")
+        var table = FrameRateTable()
+        try table.upsert(FrameRateEntry(
+            sourcePath: stale.path, sourceSize: 1,
+            sourceMtime: Date(timeIntervalSince1970: 0), fps: 60, durationSeconds: 1,
+            derivativePath: nil, state: .needsConvert), to: tableURL)
+        makeSource("live.mp4")
+
+        let queue = FpsTranscodeQueue(
+            runner: runner, root: root,
+            availability: { .available(path: "/opt/homebrew/bin/ffmpeg") },
+            freeSpaceProvider: { _ in nil },
+            specProvider: { _ in VideoAssetMetadata(hasVideoTrack: true, frameRate: 60, durationSeconds: 10) },
+            tableURL: tableURL)
+        await queue.scan()
+
+        let remaining = FrameRateTable.load(from: tableURL).entries.map(\.sourcePath)
+        XCTAssertFalse(remaining.contains(stale.path), "源已不在 → 行必须清掉")
+        XCTAssertTrue(remaining.contains { $0.hasSuffix("live.mp4") }, "还在的行不能误删")
+    }
+
+    /// 反例：一个文件都没扫到（盘被拔了 / 目录暂时不可读）时**不许**清表 ——
+    /// 那时候清等于把整个片库的历史一次抹掉。
+    func testEmptyScanDoesNotPruneTable() async throws {
+        let tableURL = root.appendingPathComponent("fps-table.json")
+        var table = FrameRateTable()
+        try table.upsert(FrameRateEntry(
+            sourcePath: root.appendingPathComponent("gone.mp4").path, sourceSize: 1,
+            sourceMtime: Date(timeIntervalSince1970: 0), fps: 60, durationSeconds: 1,
+            derivativePath: nil, state: .needsConvert), to: tableURL)
+
+        let emptyRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("p6-fpsq-empty-\(UUID().uuidString)", isDirectory: true)
+        try? FileManager.default.createDirectory(at: emptyRoot, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: emptyRoot) }
+
+        let queue = FpsTranscodeQueue(
+            runner: runner, root: emptyRoot,
+            availability: { .available(path: "/opt/homebrew/bin/ffmpeg") },
+            freeSpaceProvider: { _ in nil },
+            specProvider: { _ in VideoAssetMetadata(hasVideoTrack: true, frameRate: 60, durationSeconds: 10) },
+            tableURL: tableURL)
+        await queue.scan()
+
+        XCTAssertEqual(FrameRateTable.load(from: tableURL).entries.count, 1,
+                       "扫到 0 个文件时清表会把整个历史抹掉 —— 必须跳过")
+    }
+
+    // MARK: - 同名冲突（场景 F9）
+
+    /// 降帧产物名同样是扁平的，不同子目录的同名源文件会撞车。
+    func testSameStemInDifferentSubdirectoriesIsRefused() async {
+        let dirA = root.appendingPathComponent("a", isDirectory: true)
+        let dirB = root.appendingPathComponent("b", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dirA, withIntermediateDirectories: true)
+        try? FileManager.default.createDirectory(at: dirB, withIntermediateDirectories: true)
+        FileManager.default.createFile(atPath: dirA.appendingPathComponent("clip.mp4").path,
+                                       contents: Data("1".utf8))
+        FileManager.default.createFile(atPath: dirB.appendingPathComponent("clip.mp4").path,
+                                       contents: Data("2".utf8))
+
+        let queue = makeQueue()
+        await queue.scan()
+
+        let states = queue.jobs.map(\.state)
+        XCTAssertEqual(states.filter { $0 == .pending }.count, 1, "只有一个能进队列")
+        XCTAssertTrue(states.contains(.failed(reason: "name_collision")),
+                      "撞车的那个必须报冲突，不能静默覆盖前一个的产物")
+    }
+
+    // MARK: - 暂停 / 取消（场景 G7 / G8）
+
+    /// 暂停语义是「当前文件跑完再停」，drain 因此是**退出**而不是「挂起」。
+    /// 退出时顺手把暂停标志清掉的话，UI 会从「已暂停」自己跳回 idle，
+    /// 「继续」按钮随之置灰 —— 用户只能靠「开始转码」重来，且看不出刚才发生了什么。
+    func testPauseSurvivesDrainExit() async {
+        makeSource("a.mp4")
+        let queue = makeQueue()
+        await queue.scan()
+        queue.pause()
+        await queue.run()
+
+        XCTAssertTrue(runner.calls.isEmpty, "暂停后不该开跑")
+        XCTAssertTrue(queue.isPaused, "drain 退出不得顺手清掉暂停标志 —— UI 要凭它显示「已暂停」")
+
+        queue.resume()
+        XCTAssertFalse(queue.isPaused)
+        await queue.run()
+        XCTAssertEqual(runner.calls.count, 1, "继续之后必须真的接着跑")
+    }
+
+    /// 用户主动取消 ≠ 转码失败。旧实现把它记成 `.failed(exit_nonzero)`，
+    /// UI 上写「失败 · exit_nonzero」，用户以为转码器坏了。
+    func testCancelDuringJobMarksCancelledNotFailed() async {
+        runner.isCancelled = true
+        makeSource("a.mp4")
+        makeSource("b.mp4")
+        let queue = makeQueue()
+        // 转码途中点取消：runner 已被终止（退出码非零），但原因是用户按的按钮。
+        runner.onRun = { queue.cancel() }
+        await queue.scan()
+        await queue.run()
+
+        XCTAssertEqual(queue.jobs.first?.state, .cancelled,
+                       "用户主动取消不能显示成「失败 · exit_nonzero」")
+    }
+
+    /// 取消过的文件必须能重来 —— 表里要退回可重试态，否则它会被永久记成终态。
+    func testCancelledJobReturnsToRetryableTableState() async throws {
+        runner.isCancelled = true
+        let source = makeSource("a.mp4")
+        let tableURL = root.appendingPathComponent("fps-table.json")
+        let queue = FpsTranscodeQueue(
+            runner: runner, root: root,
+            availability: { .available(path: "/opt/homebrew/bin/ffmpeg") },
+            freeSpaceProvider: { _ in nil },
+            specProvider: { _ in VideoAssetMetadata(hasVideoTrack: true, frameRate: 60, durationSeconds: 10) },
+            tableURL: tableURL)
+        runner.onRun = { queue.cancel() }
+        await queue.scan()
+        await queue.run()
+
+        let state = FrameRateTable.load(from: tableURL)
+            .entry(for: source.resolvingSymlinksInPath())?.state
+        XCTAssertNotEqual(state, .failed, "取消不是失败，表里不该落 .failed")
+        XCTAssertEqual(state?.recovered, .needsConvert, "取消过的文件必须能重新排队")
+    }
+
     /// 产物落盘后必须把 `.done` 写回表 —— 否则下次扫描还是 `needsConvert`，同一批文件会被重新排队。
     func testSuccessWritesDoneBackToTable() async throws {
         makeSource("a.mp4")
@@ -322,5 +500,62 @@ final class FpsTranscodeQueueTests: XCTestCase {
         let states = table.entries.map(\.state)
         XCTAssertFalse(states.contains(.done), "取消时不该有已完成")
         XCTAssertEqual(states.count, 2, "两个文件都已在表里")
+    }
+
+    // MARK: - 产物目录排除（场景 H6）
+
+    /// 排除规则必须与 `MediaLibrary` 一致 —— 那里是大小写不敏感的。
+    /// 用户在壁纸目录里放了个小写 `converted/`，降帧就会把产物自己再降一遍帧，
+    /// 而根扫描根本不会把它算进播放清单（两边对同一件事看法不同）。
+    func testScanSkipsLowercaseConvertedDirectory() async {
+        let lower = root.appendingPathComponent("converted", isDirectory: true)
+        try? FileManager.default.createDirectory(at: lower, withIntermediateDirectories: true)
+        FileManager.default.createFile(atPath: lower.appendingPathComponent("prod-30fps.mp4").path,
+                                       contents: Data("d".utf8))
+
+        let queue = makeQueue()
+        await queue.scan()
+        XCTAssertTrue(queue.jobs.isEmpty,
+                      "小写 converted/ 同样是产物目录，必须整棵排除（与 MediaLibrary 同一套规则）")
+    }
+
+    // MARK: - 换目录（场景 H4 / G9）
+
+    /// 用户在设置里换了壁纸目录，**不重启 app**：降帧队列必须扫新目录、产物也落在新目录。
+    /// `init(root:)` 在构造时固化目录 → 换完之后扫的还是旧目录，产物写进用户看不到的地方。
+    func testRootProviderFollowsFolderChange() async {
+        let secondRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("p6-fpsq-2-\(UUID().uuidString)", isDirectory: true)
+        try? FileManager.default.createDirectory(at: secondRoot, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: secondRoot) }
+        FileManager.default.createFile(
+            atPath: secondRoot.appendingPathComponent("moved.mp4").path,
+            contents: Data("s".utf8))
+
+        var current = root!
+        let queue = FpsTranscodeQueue(
+            runner: runner,
+            rootProvider: { current },
+            availability: { .available(path: "/opt/homebrew/bin/ffmpeg") },
+            freeSpaceProvider: { _ in nil },
+            specProvider: { _ in VideoAssetMetadata(hasVideoTrack: true, frameRate: 60, durationSeconds: 10) },
+            tableURL: root.appendingPathComponent("fps-table.json"))
+        current = secondRoot
+
+        await queue.scan()
+        XCTAssertEqual(queue.jobs.count, 1, "换目录后必须扫新目录里的那个文件")
+        XCTAssertTrue(queue.jobs.first?.sourceURL.lastPathComponent == "moved.mp4")
+
+        await queue.run()
+        let product = secondRoot
+            .appendingPathComponent(MediaLibrary.excludedDirectoryName)
+            .appendingPathComponent("moved-30fps.mp4")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: product.path),
+                      "产物必须落在新目录的 Converted/ 下")
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: root.appendingPathComponent(MediaLibrary.excludedDirectoryName)
+                    .appendingPathComponent("moved-30fps.mp4").path),
+            "旧目录不该出现这个产物")
     }
 }

@@ -1,3 +1,4 @@
+    func resume() { queue.resume() }
 import Combine
 import Foundation
 import PicCore
@@ -51,7 +52,6 @@ final class FpsTranscodeViewModel: ObservableObject {
     }
 
     func pause() { queue.pause() }
-    func resume() { queue.resume() }
     func cancel() { queue.cancel() }
 
     var isPaused: Bool { queue.isPaused }

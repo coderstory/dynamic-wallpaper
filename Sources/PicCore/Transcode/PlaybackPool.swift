@@ -24,15 +24,39 @@ public enum PlaybackPool {
         return pool
     }
 
-    /// 该源此刻该换成哪个派生片。三个条件缺一不可：表说完成了、产物还在磁盘上、且产物真的在这次扫描结果里（表说有但扫不到 = 已被删，必须回落原片）。
+    /// 该源此刻该换成哪个派生片。两个来源，任一命中即可替换：
+    ///
+    /// ① **表说 vs 磁盘**：表里必须是 `.done`、且产物还在磁盘上。
+    /// ② **按名兜底**：`-30fps` 后缀的产物名是确定的（见 `FpsDownscaleCommand.derivativeName`），
+    ///    所以即使表丢了、被重置、或状态落后于磁盘（本机实测过一次：199 个产物全部停在
+    ///    `needsConvert`），关系照样能认回来。缺了 ② 的表现是：降帧产物被当成新素材追加一遍，
+    ///    同一段素材播两次，壁纸播出去的还是未降帧的原片，降帧白做。
+    ///
+    /// 两条路都要求产物**真的读得到** —— 只出现在清单里但文件没了 = 已被删，必须回落原片。
     private static func liveDerivative(for source: URL, in converted: [VideoItem],
                                        table: FrameRateTable) -> VideoItem? {
-        guard let entry = table.entry(for: source),
-              entry.state.recovered == .done,
-              entry.hasLiveDerivative(),
-              let path = entry.derivativePath
-        else { return nil }
-        return converted.first { $0.url.path == path }
+        if let entry = table.entry(for: source),
+           entry.state.recovered == .done,
+           entry.hasLiveDerivative(),
+           let path = entry.derivativePath,
+           let listed = converted.first(where: { $0.url.path == path }),
+           fileExists(listed.url) {
+            return listed
+        }
+        return derivativeByName(for: source, in: converted)
+    }
+
+    /// 按命名认回关系：`<Converted>/<stem>-30fps.mp4`。名字从 `FpsDownscaleCommand` 取，
+    /// 不在这里拼 —— 拼一份就会和真正写盘的那一份漂移。
+    private static func derivativeByName(for source: URL, in converted: [VideoItem]) -> VideoItem? {
+        let expected = FpsDownscaleCommand.derivativeName(for: source)
+        return converted.first {
+            $0.url.lastPathComponent == expected && fileExists($0.url)
+        }
+    }
+
+    private static func fileExists(_ url: URL) -> Bool {
+        FileManager.default.fileExists(atPath: url.path)
     }
 
     /// 降帧产物的源已被删 → 它是孤儿，留在池里等于凭空多一段素材。

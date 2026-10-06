@@ -90,11 +90,11 @@ public final class FpsTranscodeQueue {
         controlLock.withLock { _pauseRequested || _cancelRequested }
     }
 
+            _pauseRequested = false
     private func consumeCancel() -> Bool {
         controlLock.withLock { () -> Bool in
             let was = _cancelRequested
             _cancelRequested = false
-            _pauseRequested = false
             return was
         }
     }
@@ -104,6 +104,11 @@ public final class FpsTranscodeQueue {
     /// 遍历壁纸目录，把超过 30fps 的文件排进队列。走帧率表做增量：表里有效的行不重开 `AVURLAsset`。
     public func scan() async {
         var table = FrameRateTable.load(from: tableURL)
+        // 先在内存里把「源 ↔ 产物」对齐一次，再决定谁要进队列。
+        // 卸载重装（表被重置）、表丢过一次写入、`Converted/` 被手工删过 —— 这三种情况下
+        // 表里坐着 `.needsConvert`，磁盘上的产物却好好地在那儿。不先对齐的话，
+        // 已经降过帧的文件会被重新烤一遍，而且 UI 会把它们重新报成「待降帧」。
+        try? table.reconcileWithDerivatives(to: tableURL)
         var candidates: [Job] = []
         var scanned = 0
         var reused = 0
@@ -154,13 +159,21 @@ public final class FpsTranscodeQueue {
         guard meta.hasVideoTrack, let fps = meta.frameRate else { return nil }
 
         let attributes = try? FileManager.default.attributesOfItem(atPath: source.path)
+        let derivative = derivativeURL(for: source)
+        // 产物已经在磁盘上 → 这一次不排队。表可能会丢，但产物名是确定的
+        // `<stem>-30fps.mp4`：少了这一句，重装之后扫出来的全是「待降帧」，而它们其实早就降过。
+        let derivativeAttributes = try? FileManager.default.attributesOfItem(atPath: derivative.path)
+        let alreadyConverted = derivativeAttributes != nil
         let entry = FrameRateEntry(
             sourcePath: source.path,
             sourceSize: attributes?[.size] as? Int ?? 0,
             sourceMtime: attributes?[.modificationDate] as? Date ?? Date(timeIntervalSince1970: 0),
             fps: fps, durationSeconds: meta.durationSeconds ?? 0,
-            derivativePath: derivativeURL(for: source).path,
-            state: FpsDownscaleCommand.needsDownscale(fps) ? .needsConvert : .okAt30)
+            derivativePath: derivative.path,
+            derivativeMtime: derivativeAttributes?[.modificationDate] as? Date,
+            state: alreadyConverted
+                ? .done
+                : (FpsDownscaleCommand.needsDownscale(fps) ? .needsConvert : .okAt30))
         try? table.upsert(entry, to: tableURL)
         return entry.state == .needsConvert ? fps : nil
     }

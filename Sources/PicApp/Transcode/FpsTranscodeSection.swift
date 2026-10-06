@@ -1,3 +1,5 @@
+            } else {
+                Capsule().fill(Color.pAccent.opacity(0.5)).frame(width: 28)
 import SwiftUI
 import PicCore
 
@@ -135,8 +137,6 @@ struct FpsTranscodeSection: View {
             Capsule().fill(Color.pTrack)
             if let percent = job.percent {
                 Capsule().fill(Color.pAccent).frame(width: progressWidth * percent)
-            } else {
-                Capsule().fill(Color.pAccent.opacity(0.5)).frame(width: 28)
             }
         }
     }

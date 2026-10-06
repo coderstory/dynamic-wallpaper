@@ -53,11 +53,30 @@ final class PlaybackPoolReplacementTests: XCTestCase {
         XCTAssertEqual(pool.first?.url.path, derivative.url.path)
     }
 
-    func testWithoutTableFallsBackToPlainMerge() {
+    /// 卸载重装后表是空的（或被重置），但产物还在磁盘上 —— 这时候「没有表」不等于「没有关系」：
+    /// 产物命名是确定的 `<stem>-30fps.mp4`，按名字就能认回来。认不回来的代价是同一段素材播两遍。
+    func testWithoutTableStillReplacesByDerivativeName() {
         let source = item("clip.mp4")
         let derivative = makeFile("Converted/clip-30fps.mp4")
         let pool = PlaybackPool.build(root: [source], converted: [derivative], table: FrameRateTable())
-        XCTAssertEqual(pool.count, 2, "没有表就两条都留")
+        XCTAssertEqual(pool.count, 1, "表丢了也得认回来 —— 关系可由命名推导，不该依赖表记住")
+        XCTAssertEqual(pool.first?.url.path, derivative.url.path)
+    }
+
+    /// 状态落后于磁盘的场景（本机实测过：199 个产物全部停在 `needsConvert`）——
+    /// 表说了不算，磁盘上的产物说了算。
+    func testStaleTableRowStillReplacesByDerivativeName() {
+        let source = item("clip.mp4")
+        let derivative = makeFile("Converted/clip-30fps.mp4")
+        let stale = FrameRateEntry(
+            sourcePath: source.url.path, sourceSize: 0, sourceMtime: Date(timeIntervalSince1970: 0),
+            fps: 60, durationSeconds: 60,
+            derivativePath: derivative.url.path, derivativeMtime: nil,
+            state: .needsConvert)
+        let pool = PlaybackPool.build(root: [source], converted: [derivative],
+                                      table: FrameRateTable(entries: [stale]))
+        XCTAssertEqual(pool.count, 1, "表状态落后时也必须替换，不能把产物追加成第二条")
+        XCTAssertEqual(pool.first?.url.path, derivative.url.path)
     }
 
     /// 表说有派生片但文件已被删 → 回落原片，不能拿失效路径去装载。

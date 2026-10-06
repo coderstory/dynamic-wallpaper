@@ -138,6 +138,41 @@ public struct FrameRateTable: Codable, Equatable, Sendable {
 
     // MARK: - 落盘
 
+    /// 与磁盘对账：「源 ↔ 产物」的关系重建口。
+    ///
+    /// 产物路径由 `<Converted>/<stem>-30fps.mp4` 唯一确定，**不需要表记住它** ——
+    /// 所以卸载重装（表丢了/被重置）、一次写入被覆盖、`Converted/` 被手工删过，
+    /// 都能用这一条把关系认回来。缺了它，已经降过帧的文件会重新进队列再烤一遍，
+    /// 而且播放池不再做一对一替换，同一段素材被播两次。
+    ///
+    /// 只动 `.needsConvert ↔ .done` 这一对：`.okAt30` 的行没有产物可对，抬它成 `.done`
+    /// 会让「无需处理」的计数凭空少一截。`.needsProbe` 同理 —— 帧率都还没探出来，
+    /// 磁盘上的同名产物有可能是别的东西留下的。
+    public mutating func reconcileWithDerivatives(to url: URL = FrameRateTable.defaultURL()) throws {
+        var changed = false
+        for index in entries.indices {
+            guard let path = entries[index].derivativePath,
+                  entries[index].state != .needsProbe else { continue }
+            if let mtime = Self.modificationDate(atPath: path) {
+                guard entries[index].state == .needsConvert else { continue }
+                entries[index].state = .done
+                // `.done` 必须带上产物 mtime —— `hasLiveDerivative` 靠它判「还是不是当初那个产物」。
+                entries[index].derivativeMtime = mtime
+                changed = true
+            } else if entries[index].state == .done {
+                entries[index].state = .needsConvert
+                entries[index].derivativeMtime = nil
+                changed = true
+            }
+        }
+        if changed { try save(to: url) }
+    }
+
+    private static func modificationDate(atPath path: String) -> Date? {
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: path) else { return nil }
+        return attributes[.modificationDate] as? Date
+    }
+
     public static func defaultURL() -> URL {
         FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Application Support/Pic", isDirectory: true)

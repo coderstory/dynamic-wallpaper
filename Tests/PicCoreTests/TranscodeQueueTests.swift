@@ -116,6 +116,118 @@ final class TranscodeQueueTests: XCTestCase {
         XCTAssertEqual(queue.jobs.first { $0.sourceURL == userSource }?.deletesSource, false)
     }
 
+    /// 转码删源必须走废纸篓，不能 `removeItem` —— 转码产物与源同名不同后缀，
+    /// 一次误判就是不可恢复的素材丢失。用注入通道判据：替身不真删，所以
+    /// 「通道被调用」与「文件还在」同时成立才能证明走的是废纸篓那条路。
+    func testAutoSourceGoesToTrashChannelNotRemoveItem() async {
+        let source = makeSource("auto.mkv")
+        let runner = FakeRunner()
+        var trashed: [URL] = []
+        let queue = makeQueue(runner: runner, trashProvider: { url in trashed.append(url) })
+
+        queue.enqueue(sources: [source], deletesSource: true)
+        await queue.run()
+
+        XCTAssertEqual(queue.jobs.first?.state, .succeeded, "前置：必须真的转成功才谈删源")
+        XCTAssertEqual(trashed.map(\.path), [source.path],
+                       "删源必须走废纸篓通道 —— 直接 removeItem 时这里会是空")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: source.path),
+                      "替身不真删；文件还在说明删除确实交给了注入的通道")
+    }
+
+    /// 废纸篓失败（只读卷 / 权限）不得把 job 打成失败 —— 产物已经落盘了。
+    func testTrashFailureKeepsJobSucceeded() async {
+        let source = makeSource("auto.mkv")
+        let runner = FakeRunner()
+        let queue = makeQueue(runner: runner, trashProvider: { _ in throw CocoaError(.fileWriteNoPermission) })
+
+        queue.enqueue(sources: [source], deletesSource: true)
+        await queue.run()
+
+        XCTAssertEqual(queue.jobs.first?.state, .succeeded,
+                       "删源失败不影响转码结果：产物在，源也还在，下轮被幂等跳过")
+    }
+
+    /// 换目录（不重启 app）：产物必须落进新目录。
+    func testRootProviderFollowsFolderChange() async {
+        let secondRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("p6-trq-2-\(UUID().uuidString)", isDirectory: true)
+        try? FileManager.default.createDirectory(at: secondRoot, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: secondRoot) }
+
+        let source = secondRoot.appendingPathComponent("moved.mkv")
+        try? "placeholder".write(to: source, atomically: true, encoding: .utf8)
+
+        var current = root!
+        let queue = TranscodeQueue(
+            runner: FakeRunner(),
+            naming: TranscodeOutputNaming(rootProvider: { current }),
+            availability: { .available(path: "/opt/homebrew/bin/tool") },
+            freeSpaceProvider: { _ in 1_000_000_000 },
+            durationProvider: { _ in nil },
+            trashProvider: { _ in })
+        current = secondRoot
+
+        queue.enqueue(sources: [source])
+        await queue.run()
+
+        let product = secondRoot
+            .appendingPathComponent(MediaLibrary.excludedDirectoryName)
+            .appendingPathComponent("moved.mp4")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: product.path),
+                      "换目录后产物必须落在新目录的 Converted/ 下")
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: root.appendingPathComponent(MediaLibrary.excludedDirectoryName)
+                .appendingPathComponent("moved.mp4").path),
+            "旧目录不该出现这个产物")
+    }
+
+    // MARK: - 同名冲突（场景 F9）
+
+    /// 产物名是扁平的 `<stem>.mp4`，递归扫描下不同子目录的同名源文件算出同一个产物路径。
+    /// 不拦住的话后跑的那个静默覆盖前一个的产物 —— 一份素材无声消失。
+    func testSameStemInDifferentSubdirectoriesIsRefused() async {
+        let dirA = root.appendingPathComponent("a", isDirectory: true)
+        let dirB = root.appendingPathComponent("b", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dirA, withIntermediateDirectories: true)
+        try? FileManager.default.createDirectory(at: dirB, withIntermediateDirectories: true)
+        let first = dirA.appendingPathComponent("clip.mkv")
+        let second = dirB.appendingPathComponent("clip.mkv")
+        try? "one".write(to: first, atomically: true, encoding: .utf8)
+        try? "two".write(to: second, atomically: true, encoding: .utf8)
+
+        let runner = FakeRunner()
+        let queue = makeQueue(runner: runner)
+        queue.enqueue(sources: [first, second])
+        await queue.run()
+
+        XCTAssertEqual(queue.jobs.first { $0.sourceURL == first }?.state, .succeeded)
+        XCTAssertEqual(queue.jobs.first { $0.sourceURL == second }?.state,
+                       .failed(reason: "name_collision"),
+                       "同名产物必须拒绝，不能静默覆盖")
+        XCTAssertEqual(runner.calls.count, 1, "冲突的那个根本不该开跑")
+    }
+
+    // MARK: - 删源标记（场景 N6）
+
+    /// 打开转码页只是看一眼 —— 入队时不该把素材标记成「成功即永久删除」。
+    /// 标记只在用户真的点「开始转码」那一刻才落位。
+    func testSourceDeletionIsArmedOnlyWhenStartIsPressed() async {
+        let source = makeSource("auto.mkv")
+        var trashed: [URL] = []
+        let queue = makeQueue(runner: FakeRunner(), trashProvider: { url in trashed.append(url) })
+
+        queue.enqueue(sources: [source], deletesSource: false)
+        XCTAssertFalse(queue.jobs.first?.deletesSource ?? true,
+                       "扫一遍就标删源 = 用户只是切过来看一眼就丢了素材")
+
+        queue.armSourceDeletion(for: [source])
+        XCTAssertTrue(queue.jobs.first?.deletesSource ?? false, "点了开始才押上")
+
+        await queue.run()
+        XCTAssertEqual(trashed.map(\.path), [source.path], "押上之后确实走删源通道")
+    }
+
     func testFailedJobKeepsAutoSource() async {
         let source = makeSource()
         let runner = FakeRunner()
