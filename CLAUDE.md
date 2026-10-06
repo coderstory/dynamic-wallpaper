@@ -6,6 +6,7 @@ macOS 动态壁纸播放器。菜单栏常驻（`.accessory`，无 Dock 图标�
 - **包**：`PicApp`（可执行，AppKit + SwiftUI）/ `PicCore`（纯逻辑库），仅 macOS 27，零第三方依赖
 - **构建**：`swift build`；打包 .app + DMG 走 `./build.sh`（不签名）
 - **测试**：XCTest，`swift test`（框架锁死 XCTest，不引入 Swift Testing）
+- **现状与未修问题**：`docs/STATUS.md` —— 唯一一份活文档（历史审计报告已归并删除，别去 git 历史里翻旧结论）
 
 ## 架构
 
