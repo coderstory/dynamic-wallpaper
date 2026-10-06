@@ -18,7 +18,7 @@ final class PlayModeTests: XCTestCase {
 
     override func tearDown() async throws {
         unsetenv(SettingsStore.envSourceFolderKey)
-        defaults.removePersistentDomain(forName: suiteName)
+        TestDefaults.purge(suiteName)
         defaults = nil
         suiteName = nil
         try await super.tearDown()
@@ -67,7 +67,7 @@ final class PlayModeTests: XCTestCase {
         guard let baseline = UserDefaults(suiteName: baselineName) else {
             return XCTFail("baseline suite 创建失败")
         }
-        defer { baseline.removePersistentDomain(forName: baselineName) }
+        defer { TestDefaults.purge(baselineName) }
         let systemKeys = Set(baseline.dictionaryRepresentation().keys)
 
         let store = makeStore()

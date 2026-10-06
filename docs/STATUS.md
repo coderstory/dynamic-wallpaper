@@ -64,6 +64,14 @@
 | `fixtures/` | 3 个短视频夹具 | 相关用例自动 skip（`PlayerControllerFreeze/Swap` 各一条） |
 | `cpp-singleton-logger/` | 某轮会话交付的 C++ 单例日志器示例，刻意未纳入本仓库 | 与 Pic 无关 |
 
+**顺带修掉一个测试侧泄漏**：`UserDefaults(suiteName:)` 的域文件不会因 `removePersistentDomain`
+消失（cfprefsd 把空域写回磁盘），于是**每个用例在 `~/Library/Preferences/` 留一个 plist** ——
+实测已积压 3029 个 / 12M，占该目录九成。已加 `Tests/PicCoreTests/TestDefaults.swift`
+（清内存态 + 删域文件，带 `pic.tests.` 前缀守卫），实测跑完 321 个用例净增 3 个（此前约 321 个）。
+
+⚠️ **历史积压的 3029 个还没清** —— 它们在你的用户目录里（`~/Library/Preferences/pic.tests.*.plist`），
+不属本仓库，要清得你点头。
+
 ## 相关文档
 
 - `CLAUDE.md` —— 写代码时遵守的规则（注释纪律、红线、架构约束）

@@ -32,7 +32,7 @@ final class PowerWatcherTests: XCTestCase {
     }
 
     override func tearDown() async throws {
-        defaults.removePersistentDomain(forName: suiteName)
+        TestDefaults.purge(suiteName)
         defaults = nil
         suiteName = nil
         try await super.tearDown()

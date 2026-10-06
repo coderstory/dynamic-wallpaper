@@ -17,7 +17,7 @@ final class SettingsStoreTests: XCTestCase {
 
     override func tearDown() async throws {
         unsetenv(SettingsStore.envSourceFolderKey)
-        defaults.removePersistentDomain(forName: suiteName)
+        TestDefaults.purge(suiteName)
         defaults = nil
         suiteName = nil
         try await super.tearDown()
