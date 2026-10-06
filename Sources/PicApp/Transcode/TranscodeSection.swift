@@ -123,14 +123,16 @@ struct TranscodeSection: View {
         .accessibilityIdentifier("transcode-job-\(job.id)")
     }
 
+    /// `percent` 来自 `ProgressParser.percent`，量纲是 **0…1**（不是 0…100）——
+    /// 先前这里又除了一次 100，进度条最大只有 0.96pt，肉眼恒为空。
     private func progressBar(_ job: TranscodeJob) -> some View {
         ZStack(alignment: .leading) {
             Capsule().fill(Color.pTrack)
             if let percent = job.percent {
-                Capsule().fill(Color.pAccent).frame(width: 96 * percent / 100)
-            } else {
-                Capsule().fill(Color.pAccent.opacity(0.5)).frame(width: 28)
+                Capsule().fill(Color.pAccent).frame(width: 96 * percent)
             }
+            // 没有读数就不画填充条。给一条固定宽度的「占位细条」会被读成「已经开始了
+            // 一点点」，而它代表的其实是「还没开始」——未开始就该是 0。
         }
     }
 

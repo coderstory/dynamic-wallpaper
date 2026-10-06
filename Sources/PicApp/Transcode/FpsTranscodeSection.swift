@@ -1,5 +1,3 @@
-            } else {
-                Capsule().fill(Color.pAccent.opacity(0.5)).frame(width: 28)
 import SwiftUI
 import PicCore
 
@@ -138,6 +136,8 @@ struct FpsTranscodeSection: View {
             if let percent = job.percent {
                 Capsule().fill(Color.pAccent).frame(width: progressWidth * percent)
             }
+            // 没有读数就不画填充条：排着队还没开工的文件应当是 0%，
+            // 画一条固定宽度的占位细条会被用户读成「已经在跑了一点点」。
         }
     }
 
