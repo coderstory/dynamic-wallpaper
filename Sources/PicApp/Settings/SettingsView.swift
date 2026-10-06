@@ -248,18 +248,14 @@ struct SettingsView: View {
         session.lastLibraryState.map(SettingsPresentation.isEmptyState) ?? false
     }
 
-    private var running: Bool { arbiter.decision.shouldPlay }
-
-    /// 状态条主文案。空态优先说「暂停 + 原因」，正常态说在播什么。
+    /// 状态条主文案。空态优先说「暂停 + 原因」，正常态说在播什么；被系统压住时如实报原因。
     private var statusLine: String {
         if isEmpty { return "已暂停 · 没有可播文件" }
+        let reasons = arbiter.decision.activeReasons
+        guard reasons.isEmpty else {
+            return "已暂停 · \(SettingsPresentation.joinedReasons(reasons))"
+        }
         return "正在播放 · \(SettingsPresentation.playModeLabel(store.playMode))"
-    }
-
-    private var ffmpegStatusText: String {
-        session.ffmpegAvailable
-            ? "ffmpeg 已就绪"
-            : "ffmpeg 未安装 · 转码不可用"
     }
 
     private func ffmpegStatusLine() {

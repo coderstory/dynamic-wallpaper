@@ -22,12 +22,18 @@ struct TranscodeSection: View {
                         .frame(maxWidth: .infinity, minHeight: 56)
                         .padding(Metrics.tilePaddingH)
                 } else {
-                    ForEach(viewModel.jobs) { job in
-                        jobRow(job)
-                        if job.id != viewModel.jobs.last?.id {
-                            Rectangle().fill(Color.pSep).frame(height: 1)
+                    // 队列不设上限，maxHeight 必须封顶，否则窗口会长到几千 pt（与降帧页同规则）。
+                    ScrollView {
+                        LazyVStack(spacing: 0) {
+                            ForEach(viewModel.jobs) { job in
+                                jobRow(job)
+                                if job.id != viewModel.jobs.last?.id {
+                                    Rectangle().fill(Color.pSep).frame(height: 1)
+                                }
+                            }
                         }
                     }
+                    .frame(maxHeight: 220)
                 }
             }
             .accessibilityIdentifier("transcode-badge")
