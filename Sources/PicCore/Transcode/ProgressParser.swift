@@ -83,3 +83,17 @@ public enum ProgressParser {
         return min(max(seconds / durationSeconds, 0), 1)
     }
 }
+
+/// 进度累加器的 `@MainActor` 壳 —— `onProgressLine` 是 `@Sendable`，不能可变捕获 `Accumulator`；
+/// 所有读写都在 `Task { @MainActor }` 里，圈进主 actor 即可。两个转码队列共用这一份。
+@MainActor
+public final class ProgressState {
+    private var accumulator = ProgressParser.Accumulator()
+
+    public init() {}
+
+    public func consume(_ line: String, durationSeconds: Double?) -> Double? {
+        ProgressParser.percent(
+            snapshot: accumulator.consume(line), durationSeconds: durationSeconds)
+    }
+}

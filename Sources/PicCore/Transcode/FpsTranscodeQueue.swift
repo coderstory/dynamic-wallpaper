@@ -330,13 +330,3 @@ public final class FpsTranscodeQueue {
         try? table.updateState(state, for: source, to: tableURL)
     }
 }
-
-/// 进度累加器的 `@MainActor` 壳 —— `onProgressLine` 是 `@Sendable`，不能可变捕获 `Accumulator`；所有读写都在 `Task { @MainActor }` 里。
-@MainActor
-private final class ProgressState {
-    private var accumulator = ProgressParser.Accumulator()
-
-    func consume(_ line: String, durationSeconds: Double?) -> Double? {
-        ProgressParser.percent(snapshot: accumulator.consume(line), durationSeconds: durationSeconds)
-    }
-}
