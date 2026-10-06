@@ -102,13 +102,17 @@ public final class TranscodeQueue {
 
     /// 串行 drain：逐 job 预检 → 执行 → 终态。for 循环天然串行，不建 Task 组；
     /// 队列从非空排空（至少处理过一个 job）→ `onBatchFinished` 恰一次。
+    ///
+    /// 全部 job 都走幂等跳过（产物比源新）或预检失败时**不发** `onBatchFinished`：
+    /// 它接的是装配层的全库重扫，没转出任何新东西却通知一次，用户看到的就是一场没有来由的重扫。
     public func run() async {
-        guard jobs.contains(where: { Self.isActive($0.state) }) else { return }
+        var didWork = false
         for index in jobs.indices {
             guard case .pending = jobs[index].state else { continue }
             await runJob(at: index)
+            didWork = true
         }
-        onBatchFinished?()
+        if didWork { onBatchFinished?() }
     }
 
     /// 单个 job 的完整生命周期：预检（可用性 → 幂等 → 目录 → 磁盘）→ 执行 → 落盘。

@@ -263,6 +263,25 @@ final class TranscodeQueueTests: XCTestCase {
     }
 
     /// 串行是结构性的 —— for 循环里逐个 await，不建 Task 组；tmpPath 顺序必须等于入队顺序。
+    /// 全部 job 都命中幂等跳过时一个 runner 都没调用 —— 这时候不该通知装配层去重扫：
+    /// `onBatchFinished` 接的是全库重扫，没有新产物落地却扫一次是没有来由的开销。
+    func testSkippedBatchDoesNotAnnounceBatchFinished() async {
+        let source = makeSource()
+        let runner = FakeRunner()
+        let queue = makeQueue(runner: runner)
+        var batchFinishes = 0
+        queue.onBatchFinished = { batchFinishes += 1 }
+
+        queue.enqueue(sources: [source])
+        await queue.run()
+        XCTAssertEqual(batchFinishes, 1, "第一次真的转了一个 job")
+
+        let runnerCallsAfterFirstRun = runner.calls.count
+        await queue.run()   // 第二次走幂等跳过（产物已经比源新）
+        XCTAssertEqual(runner.calls.count, runnerCallsAfterFirstRun, "第二次不该再进 runner")
+        XCTAssertEqual(batchFinishes, 1, "一个 job 都没真跑 → 不许再触发重扫")
+    }
+
     func testJobsRunSeriallyInEnqueueOrder() async {
         let first = makeSource("a.mkv")
         let second = makeSource("b.mkv")

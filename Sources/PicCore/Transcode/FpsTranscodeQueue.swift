@@ -195,10 +195,13 @@ public final class FpsTranscodeQueue {
     // MARK: - drain
 
     /// 串行 drain。用 `while` 重取下标而不是 `for in jobs.indices` —— 索引范围在循环开始时求值一次，运行中追加的 job 本轮看不到。
+    ///
+    /// `onBatchFinished` 只在**真的处理过 job** 之后才发：它接的是装配层的全库重扫，
+    /// 一个都没跑却通知一次，用户看到的就是一场没有任何来由的重扫。
     public func run() async {
         guard !isRunning else { return }
         isRunning = true
-        defer { isRunning = false; onBatchFinished?() }
+        defer { isRunning = false }
 
         var didWork = false
         while true {
@@ -211,7 +214,7 @@ public final class FpsTranscodeQueue {
             await runJob(at: index)
             didWork = true
         }
-        _ = didWork
+        if didWork { onBatchFinished?() }
     }
 
     private func runJob(at index: Int) async {

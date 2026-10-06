@@ -263,6 +263,48 @@ final class FpsTranscodeQueueTests: XCTestCase {
         XCTAssertEqual(queue.jobs.first?.state, .failed(reason: "ffmpeg_unavailable"))
     }
 
+    /// `onBatchFinished` 是一次全库重扫的扳机。一个 job 都没处理就通知装配层的话，
+    /// 用户会看到没有任何来由的重扫。
+    func testRunWithoutProcessingAnyJobDoesNotAnnounceBatch() async {
+        let queue = makeQueue()
+        await queue.scan()
+        var batchFinishes = 0
+        queue.onBatchFinished = { batchFinishes += 1 }
+
+        await queue.run()
+
+        XCTAssertEqual(batchFinishes, 0, "一个 job 都没跑 → 不许通知装配层去重扫")
+    }
+
+    /// 还没开工就暂停同理 —— 对应「点开始又马上暂停」的真实操作。
+    func testPausedBeforeAnyJobDoesNotAnnounceBatch() async {
+        makeSource("a.mp4")
+        let queue = makeQueue()
+        await queue.scan()
+        queue.pause()
+        var batchFinishes = 0
+        queue.onBatchFinished = { batchFinishes += 1 }
+
+        await queue.run()
+
+        XCTAssertTrue(runner.calls.isEmpty)
+        XCTAssertEqual(batchFinishes, 0, "没干活就通知 = 白扫一次库")
+    }
+
+    /// 反面：真的转了东西就必须通知一次，且只通知一次。
+    func testRunAnnouncesBatchExactlyOnceAfterRealWork() async {
+        makeSource("a.mp4")
+        makeSource("b.mp4")
+        let queue = makeQueue()
+        await queue.scan()
+        var batchFinishes = 0
+        queue.onBatchFinished = { batchFinishes += 1 }
+
+        await queue.run()
+
+        XCTAssertEqual(batchFinishes, 1, "真的跑了 job 就得通知一次")
+    }
+
     func testRunWithNoPendingDoesNothing() async {
         let queue = makeQueue()
         await queue.scan()
