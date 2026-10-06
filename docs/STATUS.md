@@ -6,8 +6,8 @@
 
 ## 现状快照
 
-- 产品代码 **6127 行**（`PicCore` 纯逻辑 + `PicApp` 装配与 UI），零第三方依赖，仅 macOS 27
-- 测试 **5625 行 / 321 用例**（2 skipped），`swift test` 全绿
+- 产品代码 **6281 行**（`PicCore` 纯逻辑 + `PicApp` 装配与 UI），零第三方依赖，仅 macOS 27
+- 测试 **5642 行 / 324 用例，0 skipped**，`swift test` 全绿
 - 验收只有 XCTest 一条路：原 `scripts/` + `test.sh` + `UITests/` 那套「emit 打点 + shell grep」
   已整体删除（详见「明确不动」第 5 条）
 - 构建：`swift build` 编译交付；`./build.sh` 出 .app + DMG（不签名）
@@ -25,6 +25,9 @@
 + 标签 + 读数）；`RotationScheduling` 补主线程投递契约；`LineSplitter` 改为锁外 emit；
 转码途中换目录改为从同一个目录快照推路径；删掉恒 skip 的 `RealLibraryPlaybackPoolTests`
 （行为已被 9 条自足用例覆盖，且它会移动用户的真实文件）。
+**2026-10-06 第二轮**：删掉那份八签名编译期签名锁与它护着的两个死成员（`attach(to:)` 生产零调用、
+`playerLayer` 零读取）；夹具从 3.8M 缩到 52K 并**纳入版本控制**，两条用例的 `XCTSkip` 守卫随之删除 ——
+skipped 由 2 归 0，干净 clone 与 CI 上现在真跑。
 **已随之消失的旧问题**（留个交代，别再从旧报告里翻出来）：删源日志里「刻意打印文件名供审计」
 那 3 处随打点体系一起删了 —— 现在日志里一个文件名都没有，可审计性有轻微下降，这是删打点的既定代价。
 
@@ -37,8 +40,10 @@
    不是误判。
 2. **两个转码队列不抽公共流水线**。差异 6-7 处（终态语义、是否写帧率表、取消处置），硬抽要引
    6-7 个钩子，是 DRY 陷阱。别被「两段长得像」骗。
-3. **`PlayerControllerSurface` 签名锁保留**。删它只换来 `attach(to:)` + `playerLayer` 那 9 行死代码，
-   却先拆掉 12 行公开面防护网，净值是负的。该文件自己写着「改产品代码去迁就协议，不要改协议」。
+3. **不要再引入「编译期签名锁」**（用协议复刻签名来锁「签名没被改」）。曾经存在的那份
+   （`PlayerControllerSurface` + 空 conformance）**已删** —— 复核后确认它护住的 `attach(to:)`
+   生产侧零调用、`playerLayer` 零读取，等于用测试替两个死成员续命；两个成员已一并删除。
+   签名演进靠行为断言守护，不靠锁。
 4. **类型化观察口保留**（`scanCount` / `loadCount` / `isReconfigurationRegistered` /
    `isSourceRegistered` / `RotationController.advances`）。它们锁的是「缓存命中 / 未重载 / 注册幂等 /
    切换原因」这类真行为，删了要拿 mock 替代 —— 代码更多，判据更弱。
@@ -46,7 +51,7 @@
 5. **验收不得再引入字符串打点**（`emit` / 输出行 grep）。那套体系需要产品代码常驻打点，
    比等价断言更脆弱，且会渗进交付二进制。
 
-## 本地目录（不在 git 里，别当成项目的一部分）
+## 目录清单（哪些在 git 里、哪些不在）
 
 2026-10-06 清过一轮：`ffmpeg-kit-next/`(17M) / `.planning/`(12M) / 旧 `build/`+`dist/`(21M) /
 散落截图与 `.DS_Store` 已**移入废纸篓**（不是真删，要恢复直接拖回）。
@@ -55,13 +60,23 @@
 `.planning/design/assets/` —— 等于**干净 clone 上 `./build.sh` 必然失败**，交付构建不可复现。
 已把那 13 个资源搬进受版本控制的 `assets/`，并把 `build.sh` 指过去。
 
-| 目录 | 是什么 | 删了会怎样 |
-|---|---|---|
-| `assets/` | app 图标 10 档 + 菜单栏图标 3 档，**受版本控制**，是 `build.sh` 的唯一资源来源 | `./build.sh` 跑不起来 |
-| `build/` `dist/` | 构建产物（`.app` / `.dmg`） | `./build.sh` 重建 |
-| `.build/` | SwiftPM 构建缓存（约 190M，本仓最大的本地目录） | 下次 `swift build/test` 从零编，约 1~2 分钟 |
-| `fixtures/` | 3 个短视频夹具 | 相关用例自动 skip（`PlayerControllerFreeze/Swap` 各一条） |
-| `cpp-singleton-logger/` | 某轮会话交付的 C++ 单例日志器示例，刻意未纳入本仓库 | 与 Pic 无关 |
+| 目录 | 在 git？ | 是什么 | 删了会怎样 |
+|---|---|---|---|
+| `assets/` | ✅ | app 图标 10 档 + 菜单栏图标 3 档，`build.sh` 的唯一资源来源 | `./build.sh` 跑不起来 |
+| `fixtures/` | ✅ | `clip-a/b.mp4` 各 2 秒（共 52K），`PlayerController` 那两条用例需要真实可解码视频 | 用例直接红（刻意不 skip） |
+| `build/` `dist/` | ❌ | 构建产物（`.app` / `.dmg`） | `./build.sh` 重建 |
+| `.build/` | ❌ | SwiftPM 构建缓存（约 190M，本仓最大的本地目录） | 下次 `swift build/test` 从零编，约 1~2 分钟 |
+| `cpp-singleton-logger/` | ❌ | 某轮会话交付的 C++ 单例日志器示例，刻意不纳入本仓库 | 与 Pic 无关 |
+
+⚠️ `fixtures/real-*.mp4` 是 3 个**指向使用者真实片库的软链**（Oct 3 留下；使用者
+`RealLibraryPlaybackPoolTests` 已删，代码里零引用），已在 `.gitignore` 隔离，**不得入库**。
+
+夹具重造（需要系统 `ffmpeg`）：
+
+```bash
+ffmpeg -y -f lavfi -i "testsrc=size=320x240:rate=15:duration=2"  -c:v libx264 -pix_fmt yuv420p -crf 35 -movflags +faststart fixtures/clip-a.mp4
+ffmpeg -y -f lavfi -i "testsrc2=size=640x360:rate=15:duration=2" -c:v libx264 -pix_fmt yuv420p -crf 35 -movflags +faststart fixtures/clip-b.mp4
+```
 
 **顺带修掉一个测试侧泄漏**：`UserDefaults(suiteName:)` 的域文件不会因 `removePersistentDomain`
 消失（cfprefsd 把空域写回磁盘），于是**每个用例在 `~/Library/Preferences/` 留一个 plist** ——
@@ -73,6 +88,6 @@
 
 ## 相关文档
 
-- `CLAUDE.md` —— 写代码时遵守的规则（注释纪律、红线、架构约束）
+- `CLAUDE.md` —— 写代码时遵守的规则（注释 / 设计 / 删除 / 测试 / 文档纪律、操作红线、架构约束）
 - `docs/agents/*.md` —— 协作流程（issue tracker / triage 标签 / 领域文档约定）
 - `.workbuddy/memory/` —— 逐轮工作流水账（含每轮「为什么这么改」），不是给人读的文档
