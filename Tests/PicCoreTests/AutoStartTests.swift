@@ -33,7 +33,7 @@ final class AutoStartTests: XCTestCase {
         func openSettings() { openSettingsCount += 1 }
     }
 
-    /// 一条被测过的失败形态：错误要能逐字进 `SYS01_ROUTE_A_FAILED error=…` 那行。
+    /// 一条被测过的失败形态：注册抛错即落路线 B。
     private struct FakeRegisterError: LocalizedError, CustomStringConvertible {
         let description = "fake registration failure"
     }
@@ -69,11 +69,10 @@ final class AutoStartTests: XCTestCase {
 
     private func makeManager(registration: LoginItemRegistration,
                              runner: ShellRunner,
-                             emits: @escaping (String) -> Void = { _ in },
                              executablePath: String = "/Applications/Pic.app/Contents/MacOS/Pic")
         -> AutoStartManager {
         AutoStartManager(registration: registration, writer: writer, runner: runner,
-                         executablePath: executablePath, emit: emits)
+                         executablePath: executablePath)
     }
 
     private func plistKeys() throws -> [String: Any] {
@@ -110,8 +109,7 @@ final class AutoStartTests: XCTestCase {
         let registration = FakeRegistration()
         registration.registerError = FakeRegisterError()
         let runner = FakeRunner()
-        var emitted: [String] = []
-        let manager = makeManager(registration: registration, runner: runner) { emitted.append($0) }
+        let manager = makeManager(registration: registration, runner: runner)
 
         manager.setEnabled(true)
 
@@ -119,9 +117,6 @@ final class AutoStartTests: XCTestCase {
                        "A 失败必须自动落 B：plist 里的可执行路径就是 manager 持有的那个")
         XCTAssertEqual(runner.subcommands, ["bootout", "bootstrap"],
                        "routeB 固定是 bootout → 写盘 → bootstrap 的顺序")
-        XCTAssertTrue(emitted.contains { $0.hasPrefix("SYS01_ROUTE_A_FAILED error=") },
-                      "A 的失败形态必须逐字可 grep：\(emitted)")
-        XCTAssertTrue(emitted.contains("SYS01_ROUTE=launchagent"))
     }
 
     /// 注册已经成功，缺的只是用户点一次批准；此时再落 B 会变成两套登录项并存。
@@ -129,8 +124,7 @@ final class AutoStartTests: XCTestCase {
         let registration = FakeRegistration()
         registration.stubbedStatus = .requiresApproval
         let runner = FakeRunner()
-        var emitted: [String] = []
-        let manager = makeManager(registration: registration, runner: runner) { emitted.append($0) }
+        let manager = makeManager(registration: registration, runner: runner)
 
         manager.setEnabled(true)
 
@@ -139,31 +133,24 @@ final class AutoStartTests: XCTestCase {
         XCTAssertNil(writer.existingExecutablePath(),
                      "requiresApproval 不落路线 B —— 一次开启只对应一套登录项")
         XCTAssertTrue(runner.calls.isEmpty, "留在 A 就不该有任何 launchctl 调用")
-        XCTAssertTrue(emitted.contains("SYS01_REQUIRES_APPROVAL=1"))
-        XCTAssertTrue(emitted.contains("SMAPP_STATUS=requiresApproval"))
-        XCTAssertTrue(emitted.contains("SYS01_ROUTE=smappservice"))
     }
 
     func testRouteASuccessSkipsLaunchAgentWriter() {
         let registration = FakeRegistration()
         registration.stubbedStatus = .enabled
         let runner = FakeRunner()
-        var emitted: [String] = []
-        let manager = makeManager(registration: registration, runner: runner) { emitted.append($0) }
+        let manager = makeManager(registration: registration, runner: runner)
 
         manager.setEnabled(true)
 
         XCTAssertNil(writer.existingExecutablePath(), "A 成功时不许留下任何路线 B 产物")
         XCTAssertTrue(runner.calls.isEmpty)
-        XCTAssertTrue(emitted.contains("SMAPP_STATUS=enabled"))
-        XCTAssertTrue(emitted.contains("SYS01_ROUTE=smappservice"))
     }
 
     func testDisableCleansBothRoutes() {
         let registration = FakeRegistration()
         let runner = FakeRunner()
-        var emitted: [String] = []
-        let manager = makeManager(registration: registration, runner: runner) { emitted.append($0) }
+        let manager = makeManager(registration: registration, runner: runner)
         try? writer.write(executablePath: "/Applications/Pic.app/Contents/MacOS/Pic")
 
         manager.setEnabled(false)
@@ -172,7 +159,6 @@ final class AutoStartTests: XCTestCase {
         XCTAssertTrue(runner.subcommands.contains("bootout"), "关掉必须 bootout 掉路线 B")
         XCTAssertFalse(FileManager.default.fileExists(atPath: writer.plistURL().path),
                        "关掉必须删掉 plist —— 留着就是下一次登录时的一个幽灵登录项")
-        XCTAssertTrue(emitted.contains("SYS01_DISABLED=1"))
     }
 
     /// plist 存的是绝对路径：app 挪位置后 launchd 会照着旧路径拉一个不存在的可执行文件。

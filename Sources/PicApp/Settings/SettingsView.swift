@@ -253,13 +253,6 @@ struct SettingsView: View {
         return "正在播放 · \(SettingsPresentation.playModeLabel(store.playMode))"
     }
 
-    private func ffmpegStatusLine() {
-        let available = session.ffmpegAvailable
-        WallpaperWindowController.emit(
-            "PIC_FFMPEG available=\(available ? 1 : 0) label=\(FFmpegAvailability.label(available: available))")
-    }
-
-
     private var modeIndex: Binding<Int> {
         Binding(
             get: { PlayMode.allCases.firstIndex(of: store.playMode) ?? 0 },
@@ -329,7 +322,6 @@ struct SettingsView: View {
         // 开窗即重查 ffmpeg：用户中途装上的不必重启，回填 session 卡片当场刷新。
         refreshFFmpeg()
         applyWindowChrome()
-        ffmpegStatusLine()
     }
 
     /// hiddenTitleBar 窗口默认不可拖，开 isMovableByWindowBackground 让自绘标题行可拖窗。
@@ -339,13 +331,6 @@ struct SettingsView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             guard let win = NSApp.windows.first(where: { $0.title == "动态壁纸" }) else { return }
             win.isMovableByWindowBackground = true
-            emitWindowGeometry(win)
         }
-    }
-
-    ///  几何探针：窗口出现后打一行 `PIC_SETTINGS_WINDOW`， 经 `PIC_EVIDENCE_FILE` mirror 出去供 grep。
-    private func emitWindowGeometry(_ win: NSWindow) {
-        WallpaperWindowController.emit(
-            "PIC_SETTINGS_WINDOW width=\(Int(win.frame.width.rounded())) minWidth=\(Int(win.contentMinSize.width.rounded()))")
     }
 }

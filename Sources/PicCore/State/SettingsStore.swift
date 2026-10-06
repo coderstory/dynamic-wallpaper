@@ -41,7 +41,7 @@ public final class SettingsStore {
         }
     }
 
-    /// UserDefaults 键名 —— `scripts/dev-seed.sh` 写的键必须与这里一致。
+    /// UserDefaults 键名。
     public enum Key {
         public static let sourceFolderPath = "sourceFolderPath"
         public static let rate = "rate"

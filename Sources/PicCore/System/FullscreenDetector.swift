@@ -91,11 +91,6 @@ public final class FullscreenDetector {
     private let geometryReader: () -> ScreenGeometry?
     private let sampleReader: () -> [WindowRectSample]
     private let inset: DesktopWindowInset
-    /// 诊断输出（条件行 `FULLSCREEN_SIGNAL_ONLY`）。默认不输出，探针注入。
-    private let emit: (String) -> Void
-
-    private var lastTrigger: Trigger = .start
-    private var lastCoverage: CoverageResult?
 
     /// `start()` 只注册 3 个观察者，token 存数组；`re-evaluate`() 只读值不注册新观察者。
     private var tokens: [NSObjectProtocol] = []
@@ -103,13 +98,11 @@ public final class FullscreenDetector {
     public init(workspace: NSWorkspace = .shared,
                 geometryReader: @escaping () -> ScreenGeometry? = { ScreenGeometry.current() },
                 sampleReader: @escaping () -> [WindowRectSample] = { FullscreenDetector.currentWindowSamples() },
-                inset: DesktopWindowInset = .measured1470x956,
-                emit: @escaping (String) -> Void = { _ in }) {
+                inset: DesktopWindowInset = .measured1470x956) {
         self.center = workspace
         self.geometryReader = geometryReader
         self.sampleReader = sampleReader
         self.inset = inset
-        self.emit = emit
     }
 
     /// 注册三个观察者，然后**同步**跑一次重算 —— 与 `LockWatcher` 同一形状：
@@ -144,49 +137,25 @@ public final class FullscreenDetector {
 
     /// 唤醒路径与暂停路径走同一条：每次都重读当前值，不记边沿。
     private func `re-evaluate`(trigger: Trigger, onChange: (Bool) -> Void) {
-        lastTrigger = trigger
-
-        let samples = sampleReader()
-        let coverage: CoverageResult
         let covering: Bool
         if let g = geometryReader() {
-            coverage = FullscreenGeometry.aggregate(samples: samples,
-                                                    visible: g.visible,
-                                                    screenFrameHeight: g.frame.h,
-                                                    inset: inset)
+            let coverage = FullscreenGeometry.aggregate(samples: sampleReader(),
+                                                        visible: g.visible,
+                                                        screenFrameHeight: g.frame.h,
+                                                        inset: inset)
             covering = coverage.global >= FullscreenGeometryReference.covering
         } else {
-            //  读不到屏幕就读不到几何。记 0 而不是猜 —— 编一个数会把「读不到」与 「没满覆盖」抹成一件。
-            coverage = CoverageResult()
+            //  读不到屏幕就读不到几何。判「没满覆盖」而不是猜一个数 —— 编一个数会把「读不到」
+            // 与「没满覆盖」抹成一件。
             covering = false
         }
-        lastCoverage = coverage
 
         let signals = FullscreenSignals(
             spaceChangedWhileFullyCovering: trigger == .space && covering,
             frontmostAppChangedWhileFullyCovering: trigger == .frontmost && covering,
             covering: covering)
 
-        // 条件行：无 Space / 应用切换时 `non_geometric` 恒为 0，正常路径跑不出这一行。
-        // 逻辑必须实现（信号成立但几何不足需要人看一眼，不能静默吞掉），
-        // 但它不得进 AC 的必达行清单 —— 否则会有人为了让判据变绿去制造事件。
-        if signals.nonGeometricActive && !signals.covering {
-            emit(String(format: "FULLSCREEN_SIGNAL_ONLY covering=%.3f non_geometric=1", coverage.global))
-        }
-
         onChange(FullscreenVerdict.verdict(signals))
-    }
-
-    /// 最近一次重算的覆盖率。供装配层打日志用。
-    public func currentCoverage() -> CoverageResult? { lastCoverage }
-
-    /// 最近一次重算的信号位。供装配层打日志用。
-    public func currentSignals() -> FullscreenSignals {
-        let covering = lastCoverage.map { $0.global >= FullscreenGeometryReference.covering } ?? false
-        return FullscreenSignals(
-            spaceChangedWhileFullyCovering: lastTrigger == .space && covering,
-            frontmostAppChangedWhileFullyCovering: lastTrigger == .frontmost && covering,
-            covering: covering)
     }
 }
 
@@ -200,7 +169,7 @@ extension FullscreenDetector {
         enumerateWindowEntries().map { WindowRectSample(pid: $0.pid, raw: $0.raw) }
     }
 
-    /// 枚举用的内部记录。`owner` 只用于给证据行标注进程名，不参与判定。
+    /// 枚举用的内部记录。`owner` 只参与排序，不参与判定。
     struct WindowEntry {
         var pid: Int
         var owner: String
@@ -233,29 +202,5 @@ extension FullscreenDetector {
         }
         out.sort { a, b2 in a.pid != b2.pid ? a.pid < b2.pid : a.owner < b2.owner }
         return out
-    }
-
-    /// 第一扇 layer 0 且 alpha > 0 的窗口的全部字典键名。
-    ///
-    /// 键名里含 `tyle`（忽略大小写）或 `ullScreen` 的行数为 0 ⇒ 公开 API 读不到别的进程的
-    ///  `styleMask`，所以它当不了几何外信号。返回空数组表示一扇候选窗口都没有， 不编一个结论。
-    nonisolated public static func firstOnscreenWindowDictionaryKeys() -> [String] {
-        let raw = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] ?? []
-        for e in raw {
-            let layer = (e[kCGWindowLayer as String] as? NSNumber)?.intValue ?? -1
-            let alpha = (e[kCGWindowAlpha as String] as? NSNumber)?.doubleValue ?? -1
-            if layer == 0 && alpha > 0 {
-                return e.keys.sorted()
-            }
-        }
-        return []
-    }
-
-    /// 从键名表判定「styleMask 可得」的**纯函数**（单测直接喂夹具，不碰窗口服务器）。
-    nonisolated public static func styleMaskKeyPresent(in keys: [String]) -> Bool {
-        keys.contains { k in
-            let l = k.lowercased()
-            return l.contains("tyle") || l.contains("ullscreen")
-        }
     }
 }

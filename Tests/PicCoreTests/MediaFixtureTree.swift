@@ -2,8 +2,7 @@ import Foundation
 
 /// 供 `MediaLibraryTests` 复用的 fixture 树构建器（**非 XCTestCase**）。
 ///
-/// 结构与 `scripts/make-media-fixture-tree.sh` 的产物逐项一致 —— 两处的树若有漂移，
-/// 单测与探针的读数就会对不上。单测走 `FakeAssetProbe`，因此视频文件只需占位内容；
+/// 单测走 `FakeAssetProbe`，因此视频文件只需占位内容；
 /// 本类完全不碰 AVFoundation，干净 clone 上 `swift test` 也绿。
 ///
 /// 每个条目的存在理由（不是靠文件名能看出来的那些）：

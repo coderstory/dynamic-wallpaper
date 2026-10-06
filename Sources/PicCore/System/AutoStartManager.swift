@@ -1,13 +1,13 @@
 // 开机自启的「先 A 后 B」决策内核。
-// A（SMAppService）在未签名 app 上真实行为无可靠公开资料，故 A 抛错或未注册即自动落 B，
-// 并把 A 的失败形态逐字打出来可 grep。绝不出现已废弃的 launchd load/unload 子命令。
+// A（SMAppService）在未签名 app 上真实行为无可靠公开资料，故 A 抛错或未注册即自动落 B。
+// 绝不出现已废弃的 launchd load/unload 子命令。
 
 import Foundation
 import ServiceManagement
 
 /// 路线 A 的注入面。包一层是为了让单测在不碰真实登录项的前提下驱动全部四个分支。
 public protocol LoginItemRegistration: Sendable {
-    /// 注册为登录项。失败形态由调用方逐字记录。
+    /// 注册为登录项。抛错即落路线 B。
     func register() throws
     /// 注销登录项。best-effort：失败也要继续清路线 B。
     func unregister() throws
@@ -71,18 +71,15 @@ public final class AutoStartManager {
     /// 路线 B 写进 plist 的可执行路径。app 移动后由 `routeB()` 的
     /// 「bootout → 重写 → bootstrap」顺序天然修正，无需单独分支。
     private let executablePath: String
-    private let emit: (String) -> Void
 
     public init(registration: LoginItemRegistration = SMAppServiceAdapter(),
                 writer: LaunchAgentWriter = LaunchAgentWriter(),
                 runner: ShellRunner = ProcessShellRunner(),
-                executablePath: String = Bundle.main.executablePath ?? "",
-                emit: @escaping (String) -> Void = { _ in }) {
+                executablePath: String = Bundle.main.executablePath ?? "") {
         self.registration = registration
         self.writer = writer
         self.runner = runner
         self.executablePath = executablePath
-        self.emit = emit
     }
 
     /// 用户拨动开关。启动时也直接调它：偏好为 false 时清两路是幂等的。
@@ -98,22 +95,16 @@ public final class AutoStartManager {
         do {
             try registration.register()
         } catch {
-            emit("SYS01_ROUTE_A_FAILED error=\(error)")
             routeB()
             return
         }
         switch registration.status {
         case .enabled:
-            emit("SMAPP_STATUS=\(Self.statusToken(registration.status))")
-            emit("SYS01_ROUTE=smappservice")
+            break
         case .requiresApproval:
             // 注册已成功，缺的只是用户点一次批准 —— 落 B 会变成两套注册并存。
-            emit("SMAPP_STATUS=\(Self.statusToken(registration.status))")
-            emit("SYS01_REQUIRES_APPROVAL=1")
             registration.openSettings()
-            emit("SYS01_ROUTE=smappservice")
         default:
-            emit("SMAPP_STATUS=\(Self.statusToken(registration.status))")
             routeB()
         }
     }
@@ -130,31 +121,12 @@ public final class AutoStartManager {
         runner.run("/bin/launchctl", ["bootout", domain, path])
         try? writer.write(executablePath: executablePath)
         runner.run("/bin/launchctl", ["bootstrap", domain, path])
-        emit("SYS01_ROUTE=launchagent")
     }
 
     ///  关：两条路线都清。路线 A 的注销失败也必须继续清 B， 否则系统里会留下一条用户已经关掉的登录项。
     private func disableBoth() {
-        do {
-            try registration.unregister()
-        } catch {
-            emit("SYS01_UNREGISTER_FAILED error=\(error)")
-        }
+        try? registration.unregister()
         runner.run("/bin/launchctl", ["bootout", "gui/\(getuid())", writer.plistURL().path])
         writer.remove()
-        emit("SYS01_DISABLED=1")
-    }
-
-    /// 状态行只打状态 token，不打路径、不打文件名（状态一行、路由另一行）。
-    ///
-    ///  必须显式映射：`String(describing:)` 给的是 `SMAppServiceStatus(rawValue: 1)` 而不是 case 名。
-    private static func statusToken(_ status: SMAppService.Status) -> String {
-        switch status {
-        case .notRegistered: return "notRegistered"
-        case .enabled: return "enabled"
-        case .requiresApproval: return "requiresApproval"
-        case .notFound: return "notFound"
-        @unknown default: return "unknown"
-        }
     }
 }

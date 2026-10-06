@@ -23,7 +23,7 @@ public enum LibraryState: String, Equatable, Sendable, CaseIterable {
         }
     }
 
-    /// 机器可 grep 的小写 token，供装配层打 `PIC_LIBRARY_STATE=` 行。固定单词，**不得夹带路径或文件名**。
+    /// 机器可读的小写 token。固定单词，**不得夹带路径或文件名**。
     public var reasonToken: String {
         switch self {
         case .folderUnconfigured: return "folder_unconfigured"

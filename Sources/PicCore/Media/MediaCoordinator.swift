@@ -21,7 +21,7 @@ public final class MediaCoordinator {
 
     public private(set) var lastState: LibraryState
 
-    /// 供装配层打 `PIC_LIBRARY_STATE=` 行（只打 token，不带路径）。
+    /// 状态跃迁的唯一通知口：每次 `apply` 结论与上次不同时回调一次。
     public var onStateChange: ((LibraryState) -> Void)?
 
     private let presenting: any WallpaperPresenting
@@ -38,7 +38,8 @@ public final class MediaCoordinator {
 
     /// 决策交给纯函数 `LibraryAvailability.evaluate`，本方法只做执行：`.playing` → 只 `show()`；三个隐藏态 → `stopPlayback()` + `hide()`。
     ///
-    /// 重复输入必须幂等：探针会反复投同一状态，不挡就会重复执行，窗口可见性读数变得不确定。
+    /// 重复输入必须幂等：重扫在一次会话里会发生很多次，不挡就会反复 show()/hide()，
+    /// 窗口可见性随之变得不确定。
     @discardableResult
     public func apply(scanOutcome: Result<Int, MediaLibrary.MediaLibraryError>,
                       folderConfigured: Bool) -> LibraryState {

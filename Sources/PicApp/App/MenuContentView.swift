@@ -4,7 +4,6 @@ import PicCore
 
 // 菜单栏菜单体。菜单项只由 `MenuItemID.allCases` 遍历产出（手写 Button 会绕过哨兵单测），
 // 暂停/继续一律走仲裁器 `set(.manualPause, active:)` —— 本文件不直连播放器、不出现文件名。
-// 菜单定义一律单行，注释一律行首 —— 行尾注释会绕过 test.sh 的剥注释过滤器。
 struct MenuContentView: View {
     @Environment(SettingsStore.self) private var store
     @Environment(HoldArbiter.self) private var arbiter

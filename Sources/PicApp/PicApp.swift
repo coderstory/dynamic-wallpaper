@@ -30,7 +30,7 @@ struct PicApp: App {
         // defaultSize 只是初始值，真实尺寸由 SettingsView 的 minWidth/idealWidth 撑
         .defaultSize(width: SettingsPresentation.windowWidth, height: 480)
         // 原生标题栏不吃 backgroundColor，标题行自绘；NSWindow.title 仍是「动态壁纸」，
-        // 几何探针按它找窗，拖动靠 isMovableByWindowBackground。
+        // `applyWindowChrome` 按它找窗，拖动靠 isMovableByWindowBackground。
         .windowStyle(.hiddenTitleBar)
 
         MenuBarExtra {
@@ -38,23 +38,19 @@ struct PicApp: App {
                 terminate: { appDelegate.terminateApp() },
                 presentSettings: { appDelegate.presentSettingsWindow() },
                 nextVideo: { appDelegate.nextVideoNow() },
-                rescanFolder: { appDelegate.rescanFolderNow() },
+                rescanFolder: { appDelegate.rescanLibrary() },
                 deleteCurrent: { appDelegate.deleteCurrentWallpaperNow() }
             )
             .environment(appDelegate.store)
             .environment(appDelegate.arbiter)
         } label: {
-            // 通知桥挂这里：菜单内容是打开时才构建的，订阅放那里启动期收不到通知
-            MenuBarLabel(presentSettings: { appDelegate.presentSettingsWindow() })
+            MenuBarLabel()
         }
     }
 }
 
-/// 菜单栏图标的常驻壳（仅承载 `--open-settings` 脚手架的通知订阅）。
+/// 菜单栏图标的常驻壳。
 private struct MenuBarLabel: View {
-    let presentSettings: () -> Void
-    @Environment(\.openWindow) private var openWindow
-
     /// 菜单栏图标。必须显式 NSImage 加载：字符串名 `Image("…")` 在 MenuBarExtra label 里
     /// 解析不到散装 PNG，渲染成全透明空槽。size 固定 22pt，isTemplate 显式置位。
     private var statusIcon: NSImage {
@@ -66,10 +62,6 @@ private struct MenuBarLabel: View {
 
     var body: some View {
         Image(nsImage: statusIcon)
-            .onReceive(NotificationCenter.default.publisher(for: Notification.Name("PicOpenSettings"))) { _ in
-                presentSettings()
-                openWindow(id: "settings")
-            }
     }
 }
 

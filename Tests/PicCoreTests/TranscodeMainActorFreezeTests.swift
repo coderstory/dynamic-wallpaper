@@ -73,7 +73,6 @@ final class TranscodeMainActorFreezeTests: XCTestCase {
         }
         await runTask.value
 
-        print("PIC_TRC_PROGRESS_DURING_RUN=\(progressDuringRun)")
         XCTAssertGreaterThan(progressDuringRun, 0,
                              "run 期间必须已收到进度回调（同步 waitUntilExit 会让它恒为 0）")
         XCTAssertEqual(queue.jobs.first?.state, .succeeded)
