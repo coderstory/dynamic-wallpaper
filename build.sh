@@ -15,11 +15,7 @@ mkdir -p "$OUT" "$DIST"
 
 ASSETS=".planning/design/assets"
 
-# 探针符号计数。必须 `grep -cE` —— 裸 grep 的 '|' 是字面量，恒 0 假绿灯。
-probe_symbols() { nm "$1/Contents/MacOS/$APP_NAME" | grep -cE 'LoopProbe|WindowProbe|FrameDriver'; }
-
-# 组装 .app。交付与探针两条线**共用这一份实现**：两处手写同样的 mkdir/cp/codesign 块必然漂移。
-# $1 = 产物名；裸二进制已在 $OUT/$1 就位。
+# 组装 .app。$1 = 产物名；裸二进制已在 $OUT/$1 就位。
 assemble_app() {
   local app="$OUT/$1.app"
   mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
@@ -35,7 +31,6 @@ assemble_app() {
 }
 
 # iconutil 路（不依赖 actool / .xcassets，与 SwiftPM 路线同构）。
-# iconset 目录刻意留在 build/ 里不清理 —— test.sh 的打包段要数它。
 echo "==> 出 .icns（iconutil，图标真相源 = .planning/design/assets/）"
 rm -rf "$OUT/${APP_NAME}.iconset"
 mkdir -p "$OUT/${APP_NAME}.iconset"
@@ -43,15 +38,14 @@ cp "$ASSETS"/icon_*.png "$OUT/${APP_NAME}.iconset/"
 iconutil -c icns "$OUT/${APP_NAME}.iconset" -o "$OUT/Pic.icns"
 
 echo "==> 编译交付产物（D-01：走 SwiftPM，不走 xcodebuild）"
-# -DPIC_NO_PROBE：剥离三个测量探针（LoopProbe/WindowProbe/FrameDriver）及其接线。
-swift build --package-path . -c release -Xswiftc -DPIC_NO_PROBE
+swift build --package-path . -c release
 cp ".build/release/${APP_NAME}" "$OUT/${APP_NAME}"
 
 echo "==> 组装交付 .app"
 assemble_app "$APP_NAME"
 APP="$OUT/${APP_NAME}.app"
 
-# DMG 的内容物只从 staging 来，绝不指 build/ —— build/ 里还住着 PicProbe.app 与 iconset 等中间产物，指错就把第二产物装进用户要安装的 DMG。
+# DMG 的内容物只从 staging 来，绝不指 build/ —— 那里还住着 iconset 等中间产物。
 echo "==> 准备 staging（只放 Pic.app）"
 STAGE="$DIST/stage"
 mkdir -p "$STAGE"
@@ -70,27 +64,13 @@ fi
 # 收尾清临时文件：create-dmg 失败会留 dist/rw.*.dmg，混进下面的摘要就多出一个假 DMG。
 rm -f "$DIST"/rw.*.dmg
 
-# 第二遍构建：**不传** define，探针全保留 → PicProbe.app。顺序必须「先交付后探针」：每遍都会覆盖 .build/release，组装必须在各自构建之后立刻做。
-# PicProbe.app 是测量取证体，**不进 staging、不进 DMG**。
-echo "==> 编译探针产物（保留 LoopProbe/WindowProbe/FrameDriver）"
-swift build --package-path . -c release
-cp ".build/release/${APP_NAME}" "$OUT/PicProbe"
-
-echo "==> 组装探针 .app"
-assemble_app PicProbe
-
 echo ""
 echo "✅ 完成"
 echo "   .app 交付 : $APP"
-echo "   .app 探针 : $OUT/PicProbe.app（不进 DMG）"
 echo "   .dmg      : $DIST/${APP_NAME}-${VERSION}.dmg"
 ls -lh "$DIST"/*.dmg | awk '{print "   " $5 "  " $9}'
 
 echo ""
-echo "==> 签名与产物摘要（供 evidence/app-bundle.log 采集）"
+echo "==> 签名与产物摘要"
 codesign -dv --verbose=2 "$APP" 2>&1 | grep -E '^(Identifier|Signature|TeamIdentifier)='
 md5 -q "$DIST/${APP_NAME}-${VERSION}.dmg"
-# 一个数一行：交付物与探针产物是两个数，不许合成一个读法。
-# 成对出现才成判据 —— 只有 == 0 一条就是 grep 模式空集的假绿灯。
-echo "PROBE_SYMBOLS_PIC=$(probe_symbols "$APP")"
-echo "PROBE_SYMBOLS_PROBE=$(probe_symbols "$OUT/PicProbe.app")"
