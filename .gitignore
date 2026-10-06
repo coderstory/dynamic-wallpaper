@@ -24,8 +24,10 @@ xcuserdata/
 .DS_Store
 
 # ── 测试夹具 ──
-# 3 个短视频。不进仓库：缺失时相关用例自动 skip（PlayerControllerFreeze/Swap 里各一条）
-fixtures/
+# fixtures/ 的两个短片（各 2 秒，共 52K）**必须入库**：干净 clone 与 CI 上那两条
+# PlayerController 用例要真跑，不许 skip 假绿。重造命令见 STATUS.md。
+# real-*.mp4 是**指向使用者真实片库的软链**（绝对路径，换台机器就是断链），不是夹具，不得入库。
+fixtures/real-*.mp4
 
 # ── 日志与临时文件 ──
 *.log

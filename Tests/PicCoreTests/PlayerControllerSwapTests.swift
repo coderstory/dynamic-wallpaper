@@ -7,13 +7,8 @@ import XCTest
 final class PlayerControllerSwapTests: XCTestCase {
 
     func testLoadLeavesQueueNonEmptyImmediately() async throws {
-        // 干净 clone 上 fixtures/ 不存在（gitignored），本条跳过，不影响其余用例。
         let clipA = URL(fileURLWithPath: "fixtures/clip-a.mp4")
         let clipB = URL(fileURLWithPath: "fixtures/clip-b.mp4")
-        guard FileManager.default.fileExists(atPath: clipA.path),
-              FileManager.default.fileExists(atPath: clipB.path) else {
-            throw XCTSkip("干净 clone 上 fixtures/ 不存在，本条跳过，不影响其余用例")
-        }
 
         let controller = PlayerController()
         controller.load(url: clipA)

@@ -2,41 +2,16 @@ import AVFoundation
 import XCTest
 @testable import PicCore
 
-/// 冻结面的**编译期**判据 + `stop()` 的运行时幂等用例。
+/// `stop()` 的运行时判据：降级后队列必须清空，且重复 stop 不得有副作用。
 ///
-/// 「八个签名没被改」用源码 grep 只能抓到已经发生的破坏；这里用协议 conformance 把它变成编译期约束：
-/// 测试侧逐字复刻八个签名，`extension PlayerController: PlayerControllerSurface {}` 空 conformance 成立
-/// 即签名逐字匹配 —— 任何一处被改（参数标签、类型、名字、增删）都编译不过。
-///
-/// 空 conformance 不是 XCTest 用例，不计入 `Executed N tests`；运行时恰好 1 条：
-/// `testStopEmptiesQueueAndIsIdempotent`。协议整体标 `@MainActor`（Swift 5 语言模式下
-/// 不标会报隔离错误）。
-@MainActor
-protocol PlayerControllerSurface: AnyObject {
-    func attach(to layer: AVPlayerLayer)
-    func load(url: URL)
-    func setRate(_ r: Float)
-    func setVolume(_ v: Float)
-    func setMuted(_ m: Bool)
-    func arbiterCurrentPosition() -> TimeInterval
-    func arbiterSeek(to seconds: TimeInterval)
-    func arbiterApply(_ decision: PlaybackDecision)
-}
-
-/// 空 conformance：成立即八个签名逐字一致（协议与 extension 都在文件作用域 —— 嵌在测试类里会互相不可见）。
-/// 这里编译失败说明产品侧签名被改 —— 改产品代码去迁就协议，不要改协议。
-extension PlayerController: PlayerControllerSurface {}
-
+/// 这里原本还有一份「八签名编译期签名锁」。按设计纪律已删 —— 它锁着的 `attach(to:)`
+/// 生产侧零调用、`playerLayer` 零读取，等于用测试替两个死成员续命；真正的接缝是
+/// `WallpaperWindow.init(player:)` 自己建 AVPlayerLayer。签名演进靠行为断言守护。
 @MainActor
 final class PlayerControllerFreezeTests: XCTestCase {
 
     func testStopEmptiesQueueAndIsIdempotent() async throws {
-        // 干净 clone 上 fixtures/ 不存在（gitignored），本条跳过；测试不依赖任何可能缺席的文件系统状态。
         let fixture = URL(fileURLWithPath: "fixtures/clip-a.mp4")
-        guard FileManager.default.fileExists(atPath: fixture.path) else {
-            throw XCTSkip("干净 clone 上 fixtures/ 不存在，本条跳过，不影响其余用例")
-        }
-
         let controller = PlayerController()
         controller.load(url: fixture)
 
@@ -57,7 +32,7 @@ final class PlayerControllerFreezeTests: XCTestCase {
         controller.stop()
         XCTAssertTrue(
             controller.player.items().isEmpty,
-            "stop() 必须幂等 —— 探针会反复投降级状态，重复 stop 不得出副作用"
+            "stop() 必须幂等 —— 降级可能被反复触发，重复 stop 不得出副作用"
         )
     }
 }

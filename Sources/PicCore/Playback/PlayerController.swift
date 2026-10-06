@@ -15,15 +15,8 @@ public final class PlayerController: NSObject, PlaybackTarget {
     private var looper: AVPlayerLooper?
 
     /// 画面挂载点。由渲染层的窗口控制器建好后注进来。
-    public private(set) var playerLayer: AVPlayerLayer?
-
     public override init() {
         super.init()
-    }
-
-    public func attach(to layer: AVPlayerLayer) {
-        playerLayer = layer
-        layer.player = player
     }
 
     /// **先插后扫**：新 item 先入队，再扫掉全部旧 item。队列全程非空 ——
