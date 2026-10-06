@@ -32,17 +32,18 @@
 
 ## 待执行（按负资产大小排序）
 
-### 第二步：砍注释（约 -700 行）
+### 第二步：砍注释（**暂缓**，待重新评估）
 
-注释/代码比 30-58%（PlayerController 74 行代码配 43 行注释）。只留「反重构警告」229 行，删「复述行为 + 讲坑故事」的 ~900 行。
+原估「只留反重构警告 229 行，删 ~900 行」。但第七轮的结论与此冲突：统计纠正后，
+现存注释几乎全是**整行 doc comment**，且绝大多数是「反重构警告 / 契约」——为降占比砍它们
+违背 CLAUDE.md 的初衷。**未做全量清理**；只顺手修了 3 处已失真的措辞（emit 时代的
+「打点」「grep」「探针」等表述）。要推进得先给出「哪一类注释该删」的可判别标准。
 
-标准：一条注释超 2 行 → 删到只剩「AI 会犯的那条错」。
+### 第三步：删冗余包装（部分完成）
 
-### 第三步：删冗余包装（约 -20 行）
-
-- `RotationController.setMode`（mode 已 public var，17 处调用点改 `mode = x`）
-- `TranscodeQueue.isActive`（5 行 switch → 两个 `==`）
-- 两个队列的磁盘预检重复 → 抽 helper
+- ✅ `RotationController.setMode`：已删，17 处调用点直写 `mode =`
+- ✅ `TranscodeQueue.isActive`：已简化成两个 `==`
+- ⛔ 两个队列的磁盘预检重复 → 抽 helper：**已判定不做**（DRY 陷阱，见下节「明确不动」）
 
 ### 第四步：过度防御降级（约 -150 行）
 
@@ -52,17 +53,62 @@
 
 ## 目标
 
-产品代码 7118 → 约 5000 行（第一步后为 6270），脚本 4009 → 0（**已达成**），测试保留核心回归锁。
+产品代码 7118 → 约 5000 行（第一步后 6270，第二轮审计后 **6163**），
+脚本 4009 → 0（**已达成**），测试保留核心回归锁（322 用例，2 skipped）。
 
-## 顺带发现的下一轮候选（第一步删除后新产生的「孤儿」）
+## 第二轮审计：公开面清零（已完成）
 
-以下是**因为打点消失而失去全部产品调用方**的域类型/方法，目前只剩测试在用。
-它们不是 grep 脚手架，删它们要动测试断言语义，故本轮未动：
+**方法**：用脚本枚举 `Sources/` 的全部 `public` 成员（239 个），逐个统计其在产品代码里的引用数
+（减去声明自身），产品侧为 0 的列为候选，**再逐条人工复核**。复核是必需的——扫描有两类盲区：
 
-- `HoldArbiter.holdStatus` 与整个 `HoldStatus` 类型（`HoldStatusTests` 锁着它）
-- `LibraryAvailability.token(_:)`（`reasonToken` 的冗余别名）与 `LibraryState.reasonToken`
-- `FFmpegAvailability.label(available:)`
-- `RotationController.advances` 历史数组 —— 产品侧原本只用 `.count`，现在**一个产品调用点都没有了**
+- **假阳性**：`public override var canBecomeKey/canBecomeMain` 这种，AppKit 自己回调，源码里当然没人调；
+- **假阴性**：名字太常见（`token` / `label` / `labels` / `parseChunk`）会被同名局部变量、循环变量、
+  别的类型的同名成员盖过去，扫不出来。
+
+**已删（产品侧零调用，测试改动干净，净减约 174 行）**：
+
+| 删除对象 | 行数 | 为什么是负资产 |
+|---|---|---|
+| `HoldStatus` 整类型 + `HoldArbiter.holdStatus` | 46 | `PlaybackDecision` 的纯转发壳，且带**第二套**「6 case → 中文」映射（`HoldReason.uiLabel`），与活的 `SettingsPresentation.holdReasonLabel` 文案不同 |
+| `ConvertedLibrary.playbackItems` | 11 | 与 `PlaybackPool.build` 重复的第二套合并实现，只有测试在喂 |
+| `LaunchAgentWriter.existingExecutablePath` | 13 | 产品零调用；测试改读落盘 plist（断言真实产物，比调产品读回口更强） |
+| `FrameRateTable.needsConvertCount` / `okAt30Count` | 7 | 产品侧队列自己按 `entries` 现算 |
+| `PowerWatcher.currentPowerSourceKeys` | 6 | 注释自述「供探针逐字打印」 |
+| `TranscodeOutputNaming.root` / `FpsTranscodeQueue.root` | 6 | 两个无人读的便捷访问器（`rootProvider` 才是真相源） |
+| `SettingsPresentation.playbackPausedTitle` / `playbackRunningTitle` | 3 | 只被「两个常量互不相等」的同义反复测试喂着 |
+
+**等价简化**（行为不变）：`RotationController.setMode` 冗余包装（17 处调用点直写 `mode =`，
+与 `SettingsApplier` 统一为一条写路径）；`LibraryState.shouldShowWallpaper` 与
+`TranscodeQueue.isActive` 的 4 分支 switch → 单表达式。
+
+**死注入面**：`MenuItem.perform(…, store:)` 的参数从未被函数体读过。连同 `MenuContentView` 的
+`@Environment(SettingsStore.self)` 与 `PicApp` 给菜单注入的 `.environment(store)` 一起去掉 ——
+菜单从此在**结构上**不可能依赖设置值。
+
+**契约迁移**（删壳不能丢判据）：`HoldStatusTests` → `HoldArbiterContractTests`。
+「六个文案两两不同」改测活的 `SettingsPresentation.holdReasonLabel`；
+「原因按 order 排序 + 叠加全列」改测 `PlaybackDecision.activeReasons` 与 `joinedReasons`。
+测试数 327 → 322（-5 个只测已删成员的用例），其余判据一条没少。
+
+### 明确不动（复核后判定为真需求，别再来删）
+
+- `WallpaperWindow.canBecomeKey/canBecomeMain`：AppKit 回调（扫描假阳性）
+- `WallpaperWindowController.reassert()`：**I1 缺陷（主屏变更后壁纸窗口不重建）的预留修复件**
+- `PlayerController.attach(to:)` + `playerLayer`：被 `PlayerControllerFreezeTests` 的签名锁协议
+  逐字锁着，而该文件写着「改产品代码去迁就协议，不要改协议」——要删得先改协议，属独立决策
+- `MediaLibrary.scanCount` / `PlaybackRouter.loadCount` / `DisplayWatcher.isReconfigurationRegistered` /
+  `PowerWatcher.isSourceRegistered`：**类型化观察口**，锁的是「缓存命中 / 未重载 / 注册幂等」
+  这类真行为。删了要拿 mock 替代，代码更多
+- 两个队列抽公共预检：**已于上一轮判定为 DRY 陷阱**（差异点 6-7 处，硬抽要引 6-7 个钩子），
+  别被「两段长得像」骗了
+
+### 扫描盲区里的残留候选（仍待定夺）
+
+`LibraryAvailability.token(_:)`、`LibraryState.reasonToken`、`FFmpegAvailability.label(available:)`、
+`MenuBarModel.labels(isPaused:)`、`ProgressParser.parseChunk(_:)`、
+`RotationController.advances`（产品侧原本只用 `.count`，现在一个产品调用点都没有）。
+这些名字太常见，脚本扫不出来，需人工逐个确认；删它们要动测试断言语义。
+
 
 ## 执行方式
 
