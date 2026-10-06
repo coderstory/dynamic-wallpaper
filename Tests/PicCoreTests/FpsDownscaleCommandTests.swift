@@ -16,7 +16,7 @@ final class FpsDownscaleCommandTests: XCTestCase {
             "-map", "0:a:0?",
             "-c:v", VideoEncoderProfile.encoder.ffmpegName,
             "-q:v", "65",
-            "-vf", "fps=30,scale=-2:1440",
+            "-vf", "fps=30,scale=-2:'min(1440,ih)'",
             "-tag:v", "hvc1",
             "-pix_fmt", "yuv420p",
             "-c:a", "aac",
@@ -83,6 +83,18 @@ final class FpsDownscaleCommandTests: XCTestCase {
     func testCapsAreThirtyFpsAnd1440Height() {
         XCTAssertEqual(FpsDownscaleCommand.maxFrameRate, 30)
         XCTAssertEqual(FpsDownscaleCommand.maxHeight, 1440)
+    }
+
+    /// 场景 G12：1440 是**上限**不是目标高度。裸 `scale=-2:1440` 是无条件拉伸，
+    /// ffmpeg 实测 1920x1080 → 2560x1440（放大，体积和功耗反而在涨）。
+    /// 判据落在滤镜串上：带 `min(…,ih)` 才是「高于才缩」。
+    func testScaleIsAnUpperBoundNotATargetHeight() {
+        let graph = FpsDownscaleCommand.scaleFilter
+        XCTAssertTrue(graph.contains("min("),
+                      "必须是 min(1440,ih) —— 裸 1440 会把 1080p 放大成 1440p")
+        XCTAssertTrue(graph.contains("ih"),
+                      "必须引用输入高度 ih，否则对矮源没有保护")
+        XCTAssertTrue(graph.contains("1440"), "上限值必须来自 maxHeight，不就地写死")
     }
 
     /// NTSC 的 29.97 也走这条路，不算超标。

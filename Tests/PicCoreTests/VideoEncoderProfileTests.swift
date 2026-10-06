@@ -17,7 +17,8 @@ final class VideoEncoderProfileTests: XCTestCase {
 
     func testDownscaleStillCarriesFpsAndScale() {
         let argv = FpsDownscaleCommand.arguments(input: input, output: input)
-        XCTAssertTrue(argv.contains("fps=30,scale=-2:1440"), "降帧的滤镜链不能因为换编码器丢掉")
+        XCTAssertTrue(argv.contains("fps=30,\(FpsDownscaleCommand.scaleFilter)"),
+                      "降帧的滤镜链不能因为换编码器丢掉")
         XCTAssertTrue(argv.contains("hvc1"), "hvc1 tag 是硬解开关，任何编码器下都不能丢")
     }
 

@@ -15,8 +15,13 @@ public enum FpsDownscaleCommand {
         fps > maxFrameRate + 0.5
     }
 
-    /// 高度上限。`scale=-2:1440` 只给高、宽按比例跟随，`-2` 保证偶数宽 —— yuv420p 要求偶数尺寸。
+    /// 高度上限。**是上限不是目标高度** —— 低于它的源必须原样保留。
     public static let maxHeight = 1440
+
+    /// 缩放滤镜。写成 `min(1440,ih)` 而不是裸 `1440`：后者是无条件拉伸，
+    /// 1080p 的源会被放大成 1440p（实测 1920x1080 → 2560x1440），体积和功耗反而在涨。
+    /// `-2` 保证宽度为偶数 —— yuv420p 要求偶数尺寸。
+    public static var scaleFilter: String { "scale=-2:'min(\(maxHeight),ih)'" }
 
     /// 逐 token 返回 ffmpeg argv。编码器与质量档取自 `VideoEncoderProfile`，与转码共用同一份，不要就地复制。
     public static func arguments(input: URL, output: URL) -> [String] {
@@ -31,7 +36,7 @@ public enum FpsDownscaleCommand {
         + VideoEncoderProfile.qualityTokens()
         + [
             // 顺序要紧：`fps` 在 `scale` 之前 —— 先减帧再缩像素，省掉一半重采样。
-            "-vf", "fps=\(Int(maxFrameRate)),scale=-2:\(maxHeight)",
+            "-vf", "fps=\(Int(maxFrameRate)),\(scaleFilter)",
             // HEVC 硬解的唯一开关，漏了会静默落到软解（不报错，只是更慢更烫，肉眼看不出来）。
             "-tag:v", "hvc1",
             "-pix_fmt", "yuv420p",                  // 防 10bit 掉硬解
