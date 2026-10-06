@@ -1,4 +1,3 @@
-    func resume() { queue.resume() }
 import Combine
 import Foundation
 import PicCore
@@ -53,6 +52,14 @@ final class FpsTranscodeViewModel: ObservableObject {
 
     func pause() { queue.pause() }
     func cancel() { queue.cancel() }
+
+    /// 继续。除了清暂停标志，还**必须重新起一轮 drain** —— 暂停的语义是
+    /// 「当前文件跑完就停」，`run()` 因此是**退出**而不是挂起。只清标志的话
+    /// 「继续」点了没反应，队列从此不动。
+    func resume() {
+        queue.resume()
+        start()
+    }
 
     var isPaused: Bool { queue.isPaused }
 

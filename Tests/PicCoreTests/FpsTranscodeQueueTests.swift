@@ -10,10 +10,17 @@ final class FpsTranscodeQueueTests: XCTestCase {
         private(set) var calls: [String] = []
         var exitStatus: Int32 = 0
         var isCancelled = false
+        /// 进入 runner 的那一刻回调 —— 用来模拟「用户在转码途中点了取消」。
+        /// 必须 `@MainActor`：被调的是队列的 MainActor 方法，裸闭包会撞运行时隔离断言。
+        var onRun: (@MainActor () -> Void)?
 
         func run(ffmpegPath: String, arguments: [String], outputTemporaryPath: String,
                  onProgressLine: @escaping @Sendable (String) -> Void) async -> Int32 {
             calls.append(arguments.joined(separator: " "))
+            if let onRun {
+                self.onRun = nil
+                await MainActor.run { onRun() }
+            }
             if isCancelled { return -1 }
             FileManager.default.createFile(
                 atPath: outputTemporaryPath, contents: Data("fake".utf8))

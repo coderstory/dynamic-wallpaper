@@ -11,6 +11,9 @@ public final class FpsTranscodeQueue {
     public enum JobState: Equatable, Sendable {
         case pending, running, done
         case failed(reason: String)
+        /// 用户主动取消。与 `.failed` 分开：取消是用户按的按钮，不是转码器坏了，
+        /// UI 上写「失败 · exit_nonzero」会让人以为工具出问题。
+        case cancelled
     }
 
     public struct Job: Identifiable, Equatable, Sendable {
@@ -106,7 +109,9 @@ public final class FpsTranscodeQueue {
         controlLock.withLock { _pauseRequested || _cancelRequested }
     }
 
-            _pauseRequested = false
+    /// 只消费**取消**，返回「这一停是不是用户按的取消」。
+    /// 刻意不动 `_pauseRequested`：暂停语义是「run() 退出后 UI 仍显示已暂停、可以继续」，
+    /// 顺手清掉的话 UI 会自己跳回 idle，「继续」按钮随之置灰。
     private func consumeCancel() -> Bool {
         controlLock.withLock { () -> Bool in
             let was = _cancelRequested
@@ -288,8 +293,11 @@ public final class FpsTranscodeQueue {
         } else {
             // 半成品绝不能留在 Converted/ —— 它扩展名合法，会被扫进播放池。
             try? FileManager.default.removeItem(at: temporary)
-            jobs[index].state = .failed(reason: "exit_nonzero")
-            writeTableState(.failed, for: source)
+            // 进程被用户终止时退出码也是非零，这时候不是失败。
+            let cancelled = controlLock.withLock { _cancelRequested }
+            jobs[index].state = cancelled ? .cancelled : .failed(reason: "exit_nonzero")
+            // 取消过的文件必须能重来：退回可重试态，别把它记成终态。
+            writeTableState(cancelled ? .needsConvert : .failed, for: source)
         }
         onJobsChanged?()
     }

@@ -147,6 +147,7 @@ struct FpsTranscodeSection: View {
         case .running: return "play.circle.fill"
         case .done: return "checkmark.circle.fill"
         case .failed: return "xmark.octagon.fill"
+        case .cancelled: return "slash.circle"
         }
     }
 
@@ -156,6 +157,7 @@ struct FpsTranscodeSection: View {
         case .pending: return "待降帧"
         case .running: return "降帧中"
         case .done: return "已完成"
+        case .cancelled: return "已取消"
         case .failed(let reason): return "失败 · \(reason)"
         }
     }
