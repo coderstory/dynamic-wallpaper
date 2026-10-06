@@ -7,6 +7,8 @@ import Foundation
 /// `@MainActor` `RotationController` 负责隔离。
 ///
 /// `.common` 模式：菜单拖动期间定时器仍走。
+///
+/// 满足上面那条「body 必须回到主线程」的契约：`RunLoop.main.add` 保证回调在主线程上跑。
 public final class SystemRotationScheduler: RotationScheduling {
 
     private var timer: Timer?

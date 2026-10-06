@@ -142,6 +142,75 @@ final class TranscodeQueueTests: XCTestCase {
                        "换了目录也不该把产物写进新目录 —— 那会让 tmp 与产物分落两处")
     }
 
+    // MARK: - 暂停 / 取消（与降帧队列同一套语义）
+
+    func testPausedBeforeAnyJobDoesNotAnnounceBatch() async throws {
+        let source = makeSource()
+        let runner = FakeRunner()
+        let queue = makeQueue(runner: runner)
+        queue.enqueue(sources: [source])
+        queue.pause()
+        var batchFinishes = 0
+        queue.onBatchFinished = { batchFinishes += 1 }
+
+        await queue.run()
+
+        XCTAssertTrue(runner.calls.isEmpty, "暂停后不该开跑")
+        XCTAssertEqual(batchFinishes, 0, "没干活就通知 = 白扫一次库")
+        XCTAssertTrue(queue.isPaused)
+    }
+
+    func testPauseStopsBeforeAnyJobAndResumeThenRuns() async throws {
+        let source = makeSource()
+        let runner = FakeRunner()
+        let queue = makeQueue(runner: runner)
+        queue.enqueue(sources: [source])
+
+        queue.pause()
+        await queue.run()
+        XCTAssertEqual(queue.jobs.first?.state, .pending, "暂停时一个 job 都不该开跑")
+
+        // 继续 = 清标志 + 重新起一轮（`run()` 是退出而不是挂起，只清标志会点了没反应）。
+        queue.resume()
+        XCTAssertFalse(queue.isPaused)
+        await queue.run()
+        XCTAssertEqual(queue.jobs.first?.state, .succeeded)
+    }
+
+    /// 取消：当前 job 回 `.pending` 可重试，**且取消标志必须被消费掉**。
+    ///
+    /// 后半句是这条用例的重点：标志留着不清，下一轮 `run()` 第一轮就被陈旧标志挡掉，
+    /// 用户看到的是「点了开始/继续没反应」。
+    func testCancelReturnsJobToPendingAndNextRunStillWorks() async throws {
+        let source = makeSource()
+        let runner = FakeRunner()
+        let queue = makeQueue(runner: runner)
+        queue.enqueue(sources: [source])
+
+        queue.cancel()
+        await queue.run()
+        XCTAssertTrue(runner.calls.isEmpty, "取消后不该开跑")
+        XCTAssertEqual(queue.jobs.first?.state, .pending, "取消后必须回到 pending 可重试")
+
+        await queue.run()
+        XCTAssertEqual(queue.jobs.first?.state, .succeeded,
+                       "陈旧取消标志若没被消费，这一轮会被直接挡掉")
+    }
+
+    func testCancelLeavesNoTemporaryArtifacts() async throws {
+        let source = makeSource()
+        let runner = FakeRunner()
+        let queue = makeQueue(runner: runner)
+        queue.enqueue(sources: [source])
+
+        queue.cancel()
+        await queue.run()
+
+        let converted = root.appendingPathComponent(MediaLibrary.excludedDirectoryName)
+        let leftovers = (try? FileManager.default.contentsOfDirectory(atPath: converted.path)) ?? []
+        XCTAssertFalse(leftovers.contains { $0.hasSuffix(".tmp") }, "取消后不得残留 .tmp")
+    }
+
     func testFailedJobCleansTmpAndMarksFailed() async {
         let source = makeSource()
         let runner = FakeRunner()

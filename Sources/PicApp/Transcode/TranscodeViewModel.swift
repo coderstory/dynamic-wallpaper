@@ -72,6 +72,26 @@ final class TranscodeViewModel: ObservableObject {
         if let root = wallpaperRootProvider() {
             queue.armSourceDeletion(for: TranscodeCandidateFilter.candidates(in: root))
         }
+        drain()
+    }
+
+    func pause() { queue.pause() }
+    func cancel() { queue.cancel() }
+
+    /// 继续：清暂停标志后**必须重新起一轮** —— 暂停的语义是「当前文件跑完就停」，
+    /// `run()` 因此是退出而不是挂起。只清标志的话「继续」点了没反应，队列从此不动。
+    /// 这里不走 `startTranscoding()`：继续不是「重新开始」，不该再押一次删源标记。
+    func resume() {
+        queue.resume()
+        drain()
+    }
+
+    var isPaused: Bool { queue.isPaused }
+    var canPause: Bool { isRunning && !isPaused }
+    var canCancel: Bool { isRunning }
+
+    private func drain() {
+        guard !isRunning else { return }
         isRunning = true
         Task { await queue.run(); isRunning = false }
     }

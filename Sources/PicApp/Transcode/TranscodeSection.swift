@@ -155,10 +155,24 @@ struct TranscodeSection: View {
             Button("重新查找待转码文件") { viewModel.loadCandidates() }
                 .buttonStyle(GlowButton())
                 .accessibilityIdentifier("transcode-rescan")
-            Button("开始转码") { viewModel.startTranscoding() }
-                .buttonStyle(GlowButton(primary: true))
-                .disabled(!canStart)
-                .accessibilityIdentifier("transcode-start")
+            if viewModel.isPaused {
+                Button("继续") { viewModel.resume() }
+                    .buttonStyle(GlowButton(primary: true))
+                    .accessibilityIdentifier("transcode-resume")
+            } else {
+                Button("开始转码") { viewModel.startTranscoding() }
+                    .buttonStyle(GlowButton(primary: true))
+                    .disabled(!canStart)
+                    .accessibilityIdentifier("transcode-start")
+            }
+            Button("暂停") { viewModel.pause() }
+                .buttonStyle(GlowButton())
+                .disabled(!viewModel.canPause)
+                .accessibilityIdentifier("transcode-pause")
+            Button("取消") { viewModel.cancel() }
+                .buttonStyle(GlowButton())
+                .disabled(!viewModel.canCancel)
+                .accessibilityIdentifier("transcode-cancel")
             Spacer(minLength: 0)
             if viewModel.isRunning {
                 Text("转码中…")

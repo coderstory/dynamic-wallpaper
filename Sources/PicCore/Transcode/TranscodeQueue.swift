@@ -61,6 +61,12 @@ public struct AVAssetDurationProvider {
 @MainActor
 public final class TranscodeQueue {
 
+    /// 暂停/取消的两个标志。它们由 UI 线程写、runner 回调线程在 `runJob` 末尾读，
+    /// 所以用锁而不是裸属性 —— 降帧队列用的是同一套形状。
+    private let controlLock = NSLock()
+    private var _pauseRequested = false
+    private var _cancelRequested = false
+
     private let runner: any TranscodeRunning
     private let naming: TranscodeOutputNaming
     private let availability: () -> FFmpegToolStatus
@@ -149,13 +155,52 @@ public final class TranscodeQueue {
     ///
     /// 全部 job 都走幂等跳过（产物比源新）或预检失败时**不发** `onBatchFinished`：
     /// 它接的是装配层的全库重扫，没转出任何新东西却通知一次，用户看到的就是一场没有来由的重扫。
+    /// 暂停。语义与降帧侧一致：**当前文件跑完就停** —— `run()` 因此是退出而不是挂起，
+    /// 「继续」必须重新起一轮（见 `TranscodeViewModel.resume()`）。
+    public func pause() {
+        controlLock.withLock { _pauseRequested = true }
+    }
+
+    public func resume() {
+        controlLock.withLock { _pauseRequested = false }
+    }
+
+    /// 取消：置标志并终止当前进程。进程被杀时退出码也是非零 —— 那**不是失败**，
+    /// 当前 job 退回 `.pending` 可重试（退回而不是标终态：`enqueue` 会把已进过队列的源永久排除，
+    /// 标成终态等于「取消一次就再也转不了这个文件」）。
+    public func cancel() {
+        controlLock.withLock { _cancelRequested = true }
+        (runner as? ProcessTranscodeRunner)?.cancel()
+    }
+
+    public var isPaused: Bool { controlLock.withLock { _pauseRequested } }
+
+    private func shouldStop() -> Bool {
+        controlLock.withLock { _pauseRequested || _cancelRequested }
+    }
+
+    /// 只消费**取消**，返回「这一停是不是用户按的取消」。刻意不动 `_pauseRequested`：
+    /// 暂停语义是「run() 退出后 UI 仍显示已暂停、可以继续」，顺手清掉的话 UI 会自己跳回 idle。
+    private func consumeCancel() -> Bool {
+        controlLock.withLock { () -> Bool in
+            let was = _cancelRequested
+            _cancelRequested = false
+            return was
+        }
+    }
+
     public func run() async {
         var didWork = false
         for index in jobs.indices {
             guard case .pending = jobs[index].state else { continue }
+            // 暂停/取消在每个 job **之前**判定。
+            if shouldStop() { break }
             await runJob(at: index)
             didWork = true
         }
+        // 取消标志必须在**所有**退出路径上消费掉：留着它会让下一次 run() 第一轮被陈旧标志挡掉，
+        // 表现是「点了继续没反应」（排空退出走的正是这条，循环体一次都没进）。
+        _ = consumeCancel()
         if didWork { onBatchFinished?() }
     }
 
@@ -226,7 +271,9 @@ public final class TranscodeQueue {
             }
         } else {
             try? FileManager.default.removeItem(at: temporaryURL)
-            jobs[index].state = .failed(reason: "exit_nonzero")
+            // 用户取消（进程被终止）时退出码也是非零 —— 退回可重试态，不记成失败。
+            let cancelled = controlLock.withLock { _cancelRequested }
+            jobs[index].state = cancelled ? .pending : .failed(reason: "exit_nonzero")
         }
         // 来源化删除策略：仅在成功落盘后删源（失败/跳过一律保留）。
         // 走废纸篓而不是 removeItem —— 删错了能从访达找回来。删除失败静默：

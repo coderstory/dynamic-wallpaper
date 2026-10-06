@@ -3,6 +3,10 @@ import Foundation
 
 /// 轮换的调度 seam。**不标 `@MainActor`**：协议整体标会让 Swift 6 的 conformance 报
 /// `#ConformanceIsolation`，由持有它的 `@MainActor` 类负责隔离。
+///
+/// **实现者必须遵守的契约**：`schedule(after:_:)` 必须把 `body` **投递到主线程**执行。
+/// `RotationController` 在 body 里用的是 `MainActor.assumeIsolated` —— 那是**断言**不是切换：
+/// 换个在自建队列上跑的实现，运行时会直接崩，而且崩在「我以为这条契约已经被编译器保证了」上。
 public protocol RotationScheduling: AnyObject {
     func schedule(after interval: TimeInterval, _ body: @escaping () -> Void)
     func cancel()
