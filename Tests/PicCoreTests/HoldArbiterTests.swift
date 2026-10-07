@@ -208,4 +208,18 @@ final class HoldArbiterTests: XCTestCase {
                       "换片后解锁不得 seek —— 否则新片被硬拽到旧片的 12 秒位置")
         XCTAssertTrue(arbiter.decision.shouldPlay, "解锁后仍应恢复播放")
     }
+
+    /// onShouldPlayChange 只在 shouldPlay 翻转（holds ∅↔非∅）时触发：
+    /// 叠加更多让路原因不触发（已是暂停态），解除部分原因也不触发（仍暂停）。
+    func testShouldPlayChangeHookFiresOnlyOnEmptyNonEmptyTransition() {
+        var events: [Bool] = []
+        arbiter.onShouldPlayChange = { events.append($0) }
+
+        arbiter.set(.screenLocked, active: true)   // ∅ → 非∅：触发 false（暂停）
+        arbiter.set(.manualPause, active: true)    // 叠加让路：仍是暂停态，不触发
+        arbiter.set(.screenLocked, active: false)  // 解除一个原因：仍有 manualPause，不触发
+        arbiter.set(.manualPause, active: false)   // 全部解除：触发 true（恢复）
+
+        XCTAssertEqual(events, [false, true])
+    }
 }

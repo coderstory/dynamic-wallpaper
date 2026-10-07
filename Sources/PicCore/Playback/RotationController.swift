@@ -86,6 +86,16 @@ public final class RotationController {
     private let random: any RandomSource
     private var isRunning = false
 
+    /// 手动暂停旗标。只由 `pauseRotation()` / `resumeRotation()` 写；**系统让路（锁屏 /
+    /// 全屏 / 睡眠）不碰它** —— 那些场景轮换照走、解除后续播，只有用户亲手按的「暂停」
+    /// 才连轮换定时器一起停。
+    private var isPaused = false
+
+    /// 暂停那一刻的剩余秒数。恢复时按它重排；暂停期间「立即下一个」切完会把剩余
+    /// 重置为完整间隔（刚切过一片，从头数）。`secondsUntilNextRotation` 暂停期间返回
+    /// 这个冻结值 —— 菜单环静止，不再走秒。
+    public private(set) var remainingAtPause: TimeInterval?
+
     public var current: VideoItem? { items.isEmpty ? nil : items[currentIndex] }
 
 
@@ -153,17 +163,60 @@ public final class RotationController {
         reschedule()
     }
 
+    /// 单循环的续播变体：从上次播放的文件接着来（`start()` 的定点版）。
+    /// 文件已不在清单里（被删 / 换目录）时回退成普通 `start()`。随机模式不走这里
+    /// （装配层只在 loopSingle 下调用；误用时等价于定点命中或回退，无副作用）。
+    public func start(resumingAt url: URL) {
+        guard !items.isEmpty else { return }
+        guard let index = items.firstIndex(where: { $0.url == url }) else {
+            start()
+            return
+        }
+        isRunning = true
+        currentIndex = index
+        onAdvance?(items[currentIndex])
+        reschedule()
+    }
+
     public func stop() {
         isRunning = false
+        isPaused = false
+        remainingAtPause = nil
         nextFireDate = nil
         scheduler.cancel()
         onAdvance = nil
     }
 
+    /// 手动暂停轮换：取消定时器、冻结剩余秒数。倒计时读数静止，到点切换不再发生。
+    /// 幂等：已暂停时再调是空操作。
+    public func pauseRotation() {
+        guard isRunning, !isPaused else { return }
+        isPaused = true
+        remainingAtPause = nextFireDate.map { max(0, $0.timeIntervalSinceNow) }
+        scheduler.cancel()
+        nextFireDate = nil
+    }
+
+    /// 恢复轮换：按冻结的剩余秒数重排（不是重置为完整间隔 —— 暂停了 8 分钟的 10 分钟
+    /// 轮换，继续后 2 分钟就该换）。幂等：未暂停时再调是空操作。
+    public func resumeRotation() {
+        guard isPaused else { return }
+        isPaused = false
+        let remaining = remainingAtPause ?? interval
+        remainingAtPause = nil
+        nextFireDate = Date().addingTimeInterval(remaining)
+        scheduler.schedule(after: remaining) { [weak self] in
+            self?.rotationElapsed()
+        }
+    }
+
     /// 距下次轮换的剩余秒数。没有「下一个」时给 nil —— 单循环 / 只有一条时，
     /// 倒计时读出来的是个不会发生的切换，比不显示更坏。
+    /// 暂停期间返回冻结的 `remainingAtPause`：读数静止，且与真实时钟无关。
     public func secondsUntilNextRotation(now: Date = Date()) -> TimeInterval? {
-        guard isRunning, mode != .loopSingle, items.count > 1, let nextFireDate else { return nil }
+        guard isRunning, mode != .loopSingle, items.count > 1 else { return nil }
+        if isPaused { return remainingAtPause }
+        guard let nextFireDate else { return nil }
         return max(0, nextFireDate.timeIntervalSince(now))
     }
 
@@ -215,7 +268,14 @@ public final class RotationController {
 
     /// 重排下一程 —— `setInterval` / `start` / `advance` 三处共用的唯一排程点。切完立刻
     /// 重排（到点就切，不等播完；`schedule` 内部先 `cancel()` 旧定时器，不累积）。
+    /// **暂停期间不排程**：暂停中「立即下一个」切完不启动定时器，剩余按完整间隔重置
+    /// —— 刚切过一片，恢复后从头数。
     private func reschedule() {
+        guard !isPaused else {
+            remainingAtPause = interval
+            nextFireDate = nil
+            return
+        }
         nextFireDate = Date().addingTimeInterval(interval)
         scheduler.schedule(after: interval) { [weak self] in
             self?.rotationElapsed()

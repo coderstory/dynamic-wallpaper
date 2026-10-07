@@ -83,8 +83,10 @@ final class PlayModeTests: XCTestCase {
             SettingsStore.Key.rotationInterval,
             SettingsStore.Key.pauseOnBattery,
             SettingsStore.Key.launchAtLogin,
+            SettingsStore.Key.lastPlayedPath,
+            SettingsStore.Key.lastPlayedPosition,
         ]
         XCTAssertEqual(written, expected,
-                       "persist() 写出的键必须恰好是已知的 8 个（D-03）—— 多一个少一个都算破契约")
+                       "persist() 写出的键必须恰好是已知的 10 个（D-03，单循环续播 +2）—— 多一个少一个都算破契约")
     }
 }

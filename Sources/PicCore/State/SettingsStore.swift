@@ -51,6 +51,8 @@ public final class SettingsStore {
         public static let rotationInterval = "rotationInterval"
         public static let pauseOnBattery = "pauseOnBattery"
         public static let launchAtLogin = "launchAtLogin"
+        public static let lastPlayedPath = "lastPlayedPath"
+        public static let lastPlayedPosition = "lastPlayedPosition"
     }
 
     /// 开发期覆盖入口：`swift run` 起的进程没有 bundle id，UserDefaults 域取不到 `com.local.pic`，故留一条环境变量路径。
@@ -66,6 +68,11 @@ public final class SettingsStore {
     public var pauseOnBattery: Bool
     /// 「开机自启」。**没有环境变量这一级** —— 它是真持久化偏好，系统侧状态由 `AutoStartManager` 对齐。
     public var launchAtLogin: Bool
+    /// 上次播放的文件路径 —— 单循环续播的读点。**运行时状态不是用户偏好**，但持久化
+    /// 机制共用 UserDefaults 这一个落点，不另起第二个存储。
+    public var lastPlayedPath: String
+    /// 上次播放的视频内进度（秒）。每次装载归零，让路 / 退出时写真值。
+    public var lastPlayedPosition: TimeInterval
 
     private let defaults: UserDefaults
 
@@ -91,6 +98,8 @@ public final class SettingsStore {
             ?? seed.rotationInterval
         self.pauseOnBattery = defaults.object(forKey: Key.pauseOnBattery) as? Bool ?? seed.pauseOnBattery
         self.launchAtLogin = defaults.object(forKey: Key.launchAtLogin) as? Bool ?? seed.launchAtLogin
+        self.lastPlayedPath = defaults.string(forKey: Key.lastPlayedPath) ?? ""
+        self.lastPlayedPosition = defaults.object(forKey: Key.lastPlayedPosition) as? Double ?? 0
     }
 
     /// 解析后的壁纸目录 URL。只走文件系统路径这一个形态：存在性检查必须喂 `url.path` 那种裸路径，喂 URL 的字符串形式会让含中文/空格的路径恒为假。
@@ -113,5 +122,7 @@ public final class SettingsStore {
         defaults.set(rotationInterval, forKey: Key.rotationInterval)
         defaults.set(pauseOnBattery, forKey: Key.pauseOnBattery)
         defaults.set(launchAtLogin, forKey: Key.launchAtLogin)
+        defaults.set(lastPlayedPath, forKey: Key.lastPlayedPath)
+        defaults.set(lastPlayedPosition, forKey: Key.lastPlayedPosition)
     }
 }

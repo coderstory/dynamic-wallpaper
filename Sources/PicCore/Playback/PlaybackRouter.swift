@@ -30,10 +30,15 @@ public final class PlaybackRouter {
 
     /// 装载分派：换列表并起转。**顺序写死** —— 先绑 `onAdvance`、`setItems`、再 `start()`
     ///（这一步立刻回调一次首条）。绑在 `start()` 之前是硬要求：反序会漏掉首条。
-    public func start(with items: [VideoItem]) {
+    /// `resumingAt` 非空时走定点启动（单循环续播：从上次播放的文件接着来）。
+    public func start(with items: [VideoItem], resumingAt url: URL? = nil) {
         bind()
         rotation.setItems(items)
-        rotation.start()
+        if let url {
+            rotation.start(resumingAt: url)
+        } else {
+            rotation.start()
+        }
     }
 
     /// 重扫后的清单更新 —— **唯一的「不打断当前播放」入口**。

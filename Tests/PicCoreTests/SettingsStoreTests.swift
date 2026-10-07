@@ -170,4 +170,23 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertEqual(store.playMode, .loopSingle)
         XCTAssertEqual(store.rotationInterval, 42)
     }
+
+    /// 上次播放的路径与进度：写盘 → 新实例读回（单循环续播的持久化契约）。
+    func testLastPlayedRoundTripsAcrossInstances() {
+        let store = makeStore()
+        store.lastPlayedPath = "/tmp/pic-0402-fixture/v1.mp4"
+        store.lastPlayedPosition = 37.5
+        store.persist()
+
+        let reopened = makeStore()
+        XCTAssertEqual(reopened.lastPlayedPath, "/tmp/pic-0402-fixture/v1.mp4")
+        XCTAssertEqual(reopened.lastPlayedPosition, 37.5, accuracy: 0.001)
+    }
+
+    /// 首次启动（无持久化值）：路径为空串、进度为 0 —— 续播逻辑据此判定「没有上次」。
+    func testLastPlayedDefaultsToEmptyOnFreshInstall() {
+        let store = makeStore()
+        XCTAssertEqual(store.lastPlayedPath, "")
+        XCTAssertEqual(store.lastPlayedPosition, 0)
+    }
 }

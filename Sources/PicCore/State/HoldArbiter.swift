@@ -34,6 +34,12 @@ public final class HoldArbiter {
     /// 「当前是否手动暂停」—— **只读派生量，不是独立真相源**。UI 侧若另立一个可变的 `isPaused`，就会出现「菜单说在播、仲裁说在停」的第二个真相源。
     public var isManuallyPaused: Bool { decision.holds.contains(.manualPause) }
 
+    /// 「应当播放」跃迁时回调（holds ∅↔非∅，即 shouldPlay 翻转的那一刻）。
+    /// 装配层在这里接「暂停连轮换一起停」的线 —— 壁纸看不见时换片没有意义，
+    /// **无论让路原因是什么**（手动暂停 / 锁屏 / 全屏 / 睡眠 / 电池），倒计时都应冻结。
+    /// 仲裁器自己不认识轮换器；幂等的 set（holds 没变）不触发。
+    public var onShouldPlayChange: ((Bool) -> Void)?
+
     public func set(_ reason: HoldReason, active: Bool) {
         let before = decision.holds
         let after = active ? before.union([reason]) : before.subtracting([reason])
@@ -47,6 +53,11 @@ public final class HoldArbiter {
         guard before != after else { return }
 
         decision = PlaybackDecision(holds: after)
+
+        // 「应当播放」翻转：通知装配层暂停/恢复轮换定时器（唯一接线点）。
+        if before.isEmpty != after.isEmpty {
+            onShouldPlayChange?(after.isEmpty)
+        }
 
         // 集合清空 = 解除暂停 → 回锚定位置续播，然后清空锚点。
         if after.isEmpty, let anchor = resumeAnchor {

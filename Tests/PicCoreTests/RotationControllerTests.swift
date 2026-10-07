@@ -326,4 +326,141 @@ final class RotationControllerTests: XCTestCase {
         single.start()
         XCTAssertNil(single.secondsUntilNextRotation(), "只有一条时切换不会发生")
     }
+
+    // ── 手动暂停轮换（菜单「暂停」= 连定时器一起停）──
+
+    /// 暂停后：定时器取消、倒计时冻结（读数与真实时钟无关）。
+    func testPauseCancelsTimerAndFreezesCountdown() {
+        let (controller, scheduler) = makeController(random: SeededRandomSource(seed: 42))
+        controller.setItems(Self.threeItems)
+        controller.mode = .loopList
+        controller.start()
+
+        controller.pauseRotation()
+
+        XCTAssertNil(scheduler.pending, "暂停后不得有挂在 runloop 上的定时器")
+        let frozen = controller.secondsUntilNextRotation()
+        XCTAssertNotNil(frozen, "暂停期间倒计时应冻结而不是消失")
+        // 冻结读数与真实时钟无关：把 now 推到一分钟后，读数不变。
+        XCTAssertEqual(controller.secondsUntilNextRotation(now: Date().addingTimeInterval(60)),
+                       frozen)
+        XCTAssertEqual(frozen ?? 0, controller.interval, accuracy: 5,
+                       "刚 start 就暂停，剩余应接近完整间隔")
+    }
+
+    /// 暂停幂等：重复 pause 只 cancel 一次，冻结读数不被覆盖。
+    func testPauseIsIdempotent() {
+        let (controller, scheduler) = makeController(random: SeededRandomSource(seed: 42))
+        controller.setItems(Self.threeItems)
+        controller.mode = .loopList
+        controller.start()
+
+        controller.pauseRotation()
+        let frozen = controller.secondsUntilNextRotation()
+        controller.pauseRotation()
+
+        XCTAssertEqual(scheduler.cancelCount, 1)
+        XCTAssertEqual(controller.secondsUntilNextRotation(), frozen)
+    }
+
+    /// 恢复按冻结的剩余时间重排，而不是重置为完整间隔。
+    func testResumeReschedulesWithFrozenRemaining() {
+        let (controller, scheduler) = makeController(random: SeededRandomSource(seed: 42))
+        controller.setItems(Self.threeItems)
+        controller.mode = .loopList
+        controller.start()
+
+        controller.pauseRotation()
+        let frozen = controller.secondsUntilNextRotation()!
+        controller.resumeRotation()
+
+        XCTAssertEqual(scheduler.scheduleCount, 2, "start 一次 + 恢复一次")
+        // 恢复后的读数从冻结值继续走真实时钟：此刻应仍接近冻结值（测试瞬时执行）。
+        let after = controller.secondsUntilNextRotation()!
+        XCTAssertLessThanOrEqual(after, frozen + 1)
+        XCTAssertGreaterThan(after, frozen - 5)
+    }
+
+    /// 暂停期间「立即下一个」：切换照常发生（用户意图优先），但**不**启动定时器，
+    /// 剩余重置为完整间隔 —— 刚切过一片，恢复后从头数。
+    func testAdvanceNowWhilePausedSwitchesWithoutArmingTimer() {
+        let (controller, scheduler) = makeController(random: SeededRandomSource(seed: 42))
+        controller.setItems(Self.threeItems)
+        controller.mode = .loopList
+        controller.start()
+        let startedIndex = controller.currentIndex
+
+        controller.pauseRotation()
+        controller.advanceNow()
+
+        XCTAssertEqual(controller.currentIndex, (startedIndex + 1) % Self.threeItems.count,
+                       "暂停期间用户要下一条，切换照常")
+        XCTAssertNil(scheduler.pending)
+        XCTAssertEqual(controller.remainingAtPause, controller.interval)
+        XCTAssertEqual(controller.secondsUntilNextRotation(), controller.interval)
+    }
+
+    /// 未 start / 已 stop 时暂停是空操作；恢复在未暂停时也是空操作。
+    func testPauseResumeGuards() {
+        let (controller, scheduler) = makeController(random: SeededRandomSource(seed: 42))
+        controller.setItems(Self.threeItems)
+        controller.mode = .loopList
+
+        controller.pauseRotation()
+        XCTAssertEqual(scheduler.cancelCount, 0, "未运行时暂停不碰调度器")
+
+        controller.start()
+        controller.resumeRotation()
+        XCTAssertEqual(scheduler.scheduleCount, 1, "未暂停时恢复是空操作")
+
+        controller.pauseRotation()
+        controller.stop()
+        controller.resumeRotation()
+        XCTAssertNil(controller.secondsUntilNextRotation(), "stop 之后恢复不得复活定时器")
+    }
+
+    // ── 单循环续播：start(resumingAt:) ──
+
+    /// 定点启动：从上次播放的文件接着来，而不是清单第一条。
+    func testStartResumingAtLoadsThatItem() {
+        let (controller, scheduler) = makeController(random: SeededRandomSource(seed: 42))
+        controller.setItems(Self.threeItems)
+        controller.mode = .loopSingle
+
+        var loaded: [URL] = []
+        controller.onAdvance = { loaded.append($0.url) }
+        controller.start(resumingAt: Self.threeItems[2].url)
+
+        XCTAssertEqual(controller.currentIndex, 2)
+        XCTAssertEqual(loaded, [Self.threeItems[2].url], "首条装载必须是定点的那条")
+        XCTAssertNotNil(scheduler.pending, "定点启动同样要排下一程")
+    }
+
+    /// 定点文件已不在清单里（被删 / 换目录）→ 回退成普通 start（第一条）。
+    func testStartResumingAtMissingFileFallsBackToFirst() {
+        let (controller, scheduler) = makeController(random: SeededRandomSource(seed: 42))
+        controller.setItems(Self.threeItems)
+        controller.mode = .loopSingle
+
+        var loaded: [URL] = []
+        controller.onAdvance = { loaded.append($0.url) }
+        controller.start(resumingAt: URL(fileURLWithPath: "/tmp/pic-0402-fixture/gone.mp4"))
+
+        XCTAssertEqual(controller.currentIndex, 0)
+        XCTAssertEqual(loaded, [Self.threeItems[0].url], "回退 = 普通 start 的首条")
+        XCTAssertNotNil(scheduler.pending)
+    }
+
+    /// 空清单：定点启动是空操作（与 start() 的降级路径一致）。
+    func testStartResumingAtWithEmptyItemsDoesNothing() {
+        let (controller, scheduler) = makeController(random: SeededRandomSource(seed: 42))
+        controller.mode = .loopSingle
+
+        var fired = false
+        controller.onAdvance = { _ in fired = true }
+        controller.start(resumingAt: Self.threeItems[0].url)
+
+        XCTAssertFalse(fired)
+        XCTAssertNil(scheduler.pending)
+    }
 }
