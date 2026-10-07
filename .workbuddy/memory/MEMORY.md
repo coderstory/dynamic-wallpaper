@@ -23,7 +23,8 @@
   —— 它断言 `readPowerState()` 不得返回 `.failed`，前提是宿主真有电源源；runner 是 VM，
   `IOPSCopyPowerSourcesList` 返回空列表，源码**如实**返回 `.failed`（源码行为正确）。
   用户明确选择「不改代码与用例，只在 CI 侧隔离」。副作用：该用例若改名/删除，`--skip` 会静默
-  退化成空匹配（正常态 323 tests，退化成 324）——摘要行是唯一线索。
+  退化成空匹配（本机正常态 **344** tests，CI 隔离后 **343**）——摘要行是唯一线索。
+  ⚠️ `ci.yml` 里那句注释仍写着「正常态 323 变 324」（写于测试数更少时），已过时，待改。
 - 缓存：`actions/cache@v6`，path `.build`，key `swiftpm-<OS>-<ARCH>-<sha>` + 前缀回溯。
   冷启 ~60 MB。任务失败时 post 步被 skip，红的运行攒不下缓存。
 
