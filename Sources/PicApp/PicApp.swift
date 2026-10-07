@@ -25,8 +25,8 @@ struct PicApp: App {
                 // 关窗只隐藏，策略回 .accessory
                 .onDisappear { appDelegate.hideSettingsAndRestorePolicy() }
         }
-        // defaultSize 只是初始值，真实尺寸由 SettingsView 的 minWidth/idealWidth 撑
-        .defaultSize(width: SettingsPresentation.windowWidth, height: 480)
+        // defaultSize 只是初始值：内容已进 ScrollView，高度给 640 让播放页首屏看到让路规则。
+        .defaultSize(width: SettingsPresentation.windowWidth, height: 640)
         // 原生标题栏不吃 backgroundColor，标题行自绘；NSWindow.title 仍是「动态壁纸」，
         // `applyWindowChrome` 按它找窗，拖动靠 isMovableByWindowBackground。
         .windowStyle(.hiddenTitleBar)

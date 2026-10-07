@@ -43,10 +43,14 @@ struct SettingsView: View {
     var body: some View {
         VStack(spacing: 0) {
             titleRow
-            VStack(spacing: Metrics.blockGap) {
-                TabBar(items: Self.tabTitles, index: $tab)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityIdentifier("main-tabs")
+            // TabBar 钉在顶部不跟滚：三页内容高度差很多，滚动时页签必须原地可点。
+            TabBar(items: Self.tabTitles, index: $tab)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityIdentifier("main-tabs")
+                .padding(.horizontal, Metrics.winPadding)
+            // 播放页内容（hero + 两组控制 + 让路规则）约 700pt，远超窗口默认高。
+            // 不套 ScrollView 就是整段被裁掉 —— 「布局不对」的真因。
+            ScrollView {
                 Group {
                     switch tab {
                     case 1: libraryTab
@@ -56,9 +60,10 @@ struct SettingsView: View {
                     }
                 }
                 .frame(maxWidth: .infinity)
+                // 上下也用 blockGap：磁贴投影（y6 r10）需要这个余量，贴边会被 ScrollView 裁掉。
+                .padding(.horizontal, Metrics.winPadding)
+                .padding(.vertical, Metrics.blockGap)
             }
-            .padding(.horizontal, Metrics.winPadding)
-            .padding(.bottom, Metrics.winPadding)
         }
         .frame(minWidth: SettingsPresentation.windowMinWidth,
                idealWidth: Metrics.windowWidth,
