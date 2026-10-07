@@ -1,46 +1,22 @@
-// 全屏检测（事件通知驱动，不是逐帧轮询）。三个 `NSWorkspace` 通知都只当触发器，收到后一律重读
-// 当前几何，不靠边沿记忆。
-// 判定是 `nonGeometricActive && covering` 的合取，几何**不得单独生效** —— 纯几何阈值会把
-// 「铺满 visibleFrame 但够不到刘海」的应用误判成全屏，且 coverage 已封顶 1.0 调不动阈值。
+// 全屏 / 满覆盖检测（事件 + 轮询双驱动）。
+// 语义（用户拍板）：**屏幕被应用窗口铺满就该让路** —— 原生全屏和「最大化」 alike。
+// 因此判定 = 覆盖率 ≥ 1.0，不再要求几何之外的事件信号：最大化 / 还原这个动作本身
+// 不产生 Space 或前台切换事件，合取式设计会让「盖住了却还在播」的状态悬到下一次
+// 事件才纠正。覆盖变化的捕捉靠三件事：Space 变更、前台应用变更、2 秒轮询。
+//
+// 坐标系注意：coverage 以 `visibleFrame` 为参照（分母不含菜单栏 / Dock），最大化窗口
+// 内缩补偿后恰好 1.000 —— 这正是想要的：最大化 = 让路。
+// 本进程自己的窗口（壁纸层 / 设置窗 / 弹层）按 pid 排除，不会自己挡自己。
 
 import Foundation
 import AppKit
 import CoreGraphics
 
 
-/// 全屏判定的输入。全部由外部注入 —— 四种组合都能单测覆盖，
-/// 不需要真的切一次 Space 或激活一次应用。
-public struct FullscreenSignals: Equatable, Sendable {
-    /// 本次重算由 Space 变更通知触发，且此刻几何满覆盖。
-    public var spaceChangedWhileFullyCovering: Bool
-    /// 本次重算由前台应用激活/失活通知触发，且此刻几何满覆盖。
-    public var frontmostAppChangedWhileFullyCovering: Bool
-    /// 几何足够（coverage 达到几何参考值）。**单独成立时不构成判定**，它只是合取的第二项。
-    public var covering: Bool
-
-    public init(spaceChangedWhileFullyCovering: Bool,
-                frontmostAppChangedWhileFullyCovering: Bool,
-                covering: Bool) {
-        self.spaceChangedWhileFullyCovering = spaceChangedWhileFullyCovering
-        self.frontmostAppChangedWhileFullyCovering = frontmostAppChangedWhileFullyCovering
-        self.covering = covering
-    }
-
-    /// 是否出现「几何之外」的可判别信号。
-    ///
-    /// 语义降级：两个字段名里都编进了 `WhileFullyCovering`，所以本值恒蕴含「此刻几何满覆盖」，
-    /// 交付的是合取判定，「几何外信号独立触发暂停」不可达。
-    public var nonGeometricActive: Bool {
-        spaceChangedWhileFullyCovering || frontmostAppChangedWhileFullyCovering
-    }
-}
-
 public enum FullscreenVerdict {
-    /// 几何**不得单独**作为判定依据，形状写死：`nonGeometricActive && covering`。
-    /// 改成几何单侧，那条假阳性就复活 —— 纯几何层测不出来，只有注入式反向验证抓得住。
-    public static func verdict(_ s: FullscreenSignals) -> Bool {
-        s.nonGeometricActive && s.covering
-    }
+    /// 判定就是几何本身：满覆盖即让路。**没有阈值旋钮** —— 唯一的常量在
+    /// `FullscreenGeometryReference.covering`（1.0，封顶后的满分）。
+    public static func verdict(covering: Bool) -> Bool { covering }
 }
 
 
@@ -75,25 +51,22 @@ public enum FullscreenGeometryReference {
     public static let covering = 1.0
 }
 
-/// 全屏 → `Bool`。只回答「此刻是否全屏」，不决定播放（veto 集合由 `HoldArbiter` 独占）。
+/// 全屏 / 满覆盖检测。只回答「此刻屏幕是否被铺满」，不决定播放（veto 集合由 `HoldArbiter` 独占）。
 @MainActor
 public final class FullscreenDetector {
     public private(set) var isRunning = false
 
-    /// 本次重算由哪个信号触发。信号位由它派生 —— 不另存一份「边沿」。
-    private enum Trigger: String {
-        case start
-        case space
-        case frontmost
-    }
+    /// 轮询周期。最大化 / 还原不产生 Space 或前台事件，靠它捕捉覆盖变化。
+    private static let pollInterval: Duration = .seconds(2)
 
     private let center: NSWorkspace
     private let geometryReader: () -> ScreenGeometry?
     private let sampleReader: () -> [WindowRectSample]
     private let inset: DesktopWindowInset
 
-    /// `start()` 只注册 3 个观察者，token 存数组；`re-evaluate`() 只读值不注册新观察者。
+    /// `start()` 注册 3 个观察者 + 1 个轮询 Task，token 存数组；重算只读值不注册新观察者。
     private var tokens: [NSObjectProtocol] = []
+    private var pollTask: Task<Void, Never>?
 
     public init(workspace: NSWorkspace = .shared,
                 geometryReader: @escaping () -> ScreenGeometry? = { ScreenGeometry.current() },
@@ -105,38 +78,47 @@ public final class FullscreenDetector {
         self.inset = inset
     }
 
-    /// 注册三个观察者，然后**同步**跑一次重算 —— 与 `LockWatcher` 同一形状：
-    /// 三个通知都只在跃迁时投递，等不到。重复调用是幂等的。
+    /// 注册观察者 + 启动轮询，然后**同步**跑一次重算 —— 与 `LockWatcher` 同一形状。
+    /// 重复调用是幂等的。
     public func start(onChange: @escaping @Sendable (Bool) -> Void) {
         guard !isRunning else { return }
 
-        // 三个通知都是触发器，收到后一律重读几何，不靠边沿记忆。space 与 activate/deactivate 汇入不同 trigger。
-        let observers: [(Notification.Name, Trigger)] = [
-            (NSWorkspace.activeSpaceDidChangeNotification, .space),
-            (NSWorkspace.didActivateApplicationNotification, .frontmost),
-            (NSWorkspace.didDeactivateApplicationNotification, .frontmost),
+        // 事件负责「即时响应」；轮询负责「无事件的状态变化」（最大化 / 还原 / 拖动窗口）。
+        let names = [
+            NSWorkspace.activeSpaceDidChangeNotification,
+            NSWorkspace.didActivateApplicationNotification,
+            NSWorkspace.didDeactivateApplicationNotification,
         ]
-        tokens = observers.map { name, trigger in
+        tokens = names.map { name in
             center.notificationCenter.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.`re-evaluate`(trigger: trigger, onChange: onChange) }
+                MainActor.assumeIsolated { self?.reevaluate(onChange: onChange) }
             }
         }
         isRunning = true
 
-        `re-evaluate`(trigger: .start, onChange: onChange)
+        reevaluate(onChange: onChange)
+        pollTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: Self.pollInterval)
+                guard !Task.isCancelled else { return }
+                self?.reevaluate(onChange: onChange)
+            }
+        }
     }
 
-    /// 按 token 逐个注销后清空数组 —— 少这一步就是 observer 泄漏。
+    /// 按 token 逐个注销、轮询取消后清空 —— 少任何一步都是泄漏或幽灵定时器。
     public func stop() {
         for token in tokens {
             center.notificationCenter.removeObserver(token)
         }
         tokens.removeAll()
+        pollTask?.cancel()
+        pollTask = nil
         isRunning = false
     }
 
     /// 唤醒路径与暂停路径走同一条：每次都重读当前值，不记边沿。
-    private func `re-evaluate`(trigger: Trigger, onChange: (Bool) -> Void) {
+    private func reevaluate(onChange: (Bool) -> Void) {
         let covering: Bool
         if let g = geometryReader() {
             let coverage = FullscreenGeometry.aggregate(samples: sampleReader(),
@@ -150,12 +132,7 @@ public final class FullscreenDetector {
             covering = false
         }
 
-        let signals = FullscreenSignals(
-            spaceChangedWhileFullyCovering: trigger == .space && covering,
-            frontmostAppChangedWhileFullyCovering: trigger == .frontmost && covering,
-            covering: covering)
-
-        onChange(FullscreenVerdict.verdict(signals))
+        onChange(FullscreenVerdict.verdict(covering: covering))
     }
 }
 

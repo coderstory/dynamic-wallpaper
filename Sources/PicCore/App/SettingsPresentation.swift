@@ -119,7 +119,7 @@ public enum SettingsPresentation {
     public static func holdReasonLabel(_ reason: HoldReason) -> String {
         switch reason {
         case .manualPause: return "手动暂停"
-        case .fullscreen: return "检测到全屏应用"
+        case .fullscreen: return "检测到全屏/最大化窗口"
         case .screenLocked: return "屏幕已锁定"
         case .displayAsleep: return "显示器已熄屏"
         case .systemSleeping: return "系统正在睡眠"
