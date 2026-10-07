@@ -120,8 +120,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     private var menuPopover: NSPopover?
     /// 面板打开期间的 ⌘, / ⌘Q 监听。popoverDidClose 必拆 —— 留着会全局截键。
     private var menuKeyMonitor: Any?
-    /// 面板兜底关闭的观察者（失焦 / Space 切换）。popoverDidClose 必拆。
-    private var popoverDismissObservers: [NSObjectProtocol] = []
+    /// 面板兜底关闭的观察者。popoverDidClose 必拆。
+    /// 每条自带投递中心：`NSWorkspace` 的通知只走它自己的中心，
+    /// 拿 `default` 去 removeObserver 是拆不掉的（也收不到）。
+    private var popoverDismissObservers: [(center: NotificationCenter, token: NSObjectProtocol)] = []
     /// 设置窗由本类 AppKit 直管。SwiftUI Window 场景的 `openWindow` 依赖场景上下文，
     /// NSPopover 的内容视图拿不到 —— 这是拆掉 MenuBarExtra 的连带迁移。
     private var settingsWindow: NSWindow?
@@ -289,22 +291,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     }
 
     /// 面板兜底关闭：`.transient` 只覆盖「点击面板外」这一种失去方式，Cmd-Tab 切走、
-    /// 点别的 app、进全屏 / 切 Space 都不产生点击 —— 面板就悬在那。订阅失焦与 Space
-    /// 变更，面板开着时一律收起。close 已在 popoverDidClose 清理键监听与激活态，复用它。
+    /// 点别的 app、进全屏 / 切 Space 都不产生点击 —— 面板就悬在那。三种失去方式各订一条：
+    ///
+    /// - `didResignActive`：本 app 借过激活时的那条路（见 `toggleMenuPanel`）。
+    /// - `activeSpaceDidChange` / `didActivateApplication`：都订在 **NSWorkspace 自己的中心**上，
+    ///   不是 `NotificationCenter.default`（订错地方的表现是守卫静默失效，面板悬空）。
+    ///   设置窗开着时 `toggleMenuPanel` 不借激活，`didResignActive` 永远不会来，
+    ///   只剩 `didActivateApplication` 这条能把面板收掉。
+    ///   自己激活不算失去（面板点进来时系统会激活本 app），按 pid 滤掉。
     private func installPopoverDismissGuards() {
         let center = NotificationCenter.default
+        let workspace = NSWorkspace.shared.notificationCenter
         popoverDismissObservers = [
-            center.addObserver(forName: NSApplication.didResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
+            (center, center.addObserver(forName: NSApplication.didResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.closeMenuPanelIfShown() }
+            }),
+            (workspace, workspace.addObserver(forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.closeMenuPanelIfShown() }
+            }),
+            (workspace, workspace.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] note in
+                let activated = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
                 MainActor.assumeIsolated {
-                    if self?.menuPopover?.isShown == true { self?.menuPopover?.close() }
+                    guard activated?.processIdentifier != ProcessInfo.processInfo.processIdentifier else { return }
+                    self?.closeMenuPanelIfShown()
                 }
-            },
-            center.addObserver(forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated {
-                    if self?.menuPopover?.isShown == true { self?.menuPopover?.close() }
-                }
-            },
+            }),
         ]
+    }
+
+    private func closeMenuPanelIfShown() {
+        if menuPopover?.isShown == true { menuPopover?.close() }
     }
 
     @objc private func toggleMenuPanel(_ sender: NSStatusBarButton) {
@@ -319,9 +335,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         popover.contentViewController = NSHostingController(rootView: makeMenuPanel())
         menuPopover = popover
         popover.show(relativeTo: sender.bounds, of: sender, preferredEdge: .minY)
-        // 激活是给 ⌘, / ⌘Q 与 hover 借的（本地键监听只在 app active 时递送）；
-        // .accessory 不提策略，激活不会冒 Dock 图标。归还发生在 popoverDidClose。
-        NSApp.activate(ignoringOtherApps: true)
+        // 借激活只为面板本身（⌘, / ⌘Q 的本地键监听、hover）。但 AppKit 的激活语义是
+        // 「把本 app 的 main/key 窗口一并抬到最前」—— 设置窗开着时用户只是看面板，
+        // 背后那个窗不该跳到最前。所以**只有屏幕上没有本 app 的窗口时才借激活**；
+        // 代价是那一档里 ⌘, / ⌘Q 要等用户点进面板（系统激活）之后才递送。
+        if settingsWindow?.isVisible != true {
+            NSApp.activate(ignoringOtherApps: true)
+        }
         installMenuKeyMonitor()
     }
 
@@ -479,9 +499,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
 
     private func presentSettingsOnExternalActivate() {
         // 面板与设置窗的激活都带着可见 UI，靠这两个条件挡掉；重入另由 isPresentingSettings 挡。
+        // 判面板用 `menuPopover == nil` 而不是 `isShown`：前者同步成立（`show()` 之前就已赋值），
+        // `isShown` 要等面板真正上屏 —— 点托盘那一下的激活若卡在中间，会把设置窗叫出来。
         guard !isPresentingSettings,
               settingsWindow?.isVisible != true,
-              menuPopover?.isShown != true else { return }
+              menuPopover == nil else { return }
         isPresentingSettings = true
         defer { isPresentingSettings = false }
         // 面板点「去片库转码」时可能带着落地页请求，别把它覆盖成播放页。
@@ -507,7 +529,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         powerWatcher.stop()
         folderWatch.stop()
         for observer in popoverDismissObservers {
-            NotificationCenter.default.removeObserver(observer)
+            observer.center.removeObserver(observer.token)
         }
         popoverDismissObservers = []
         if let screenObserver {
