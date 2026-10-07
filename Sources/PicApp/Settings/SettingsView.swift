@@ -27,6 +27,8 @@ struct SettingsView: View {
     let refreshFFmpeg: () -> Void
     /// 轮换内核。只读它的 `secondsUntilNextRotation()` / `interval` 画倒计时，不调任何行为方法。
     let rotation: RotationController
+    /// 内容高度变了（切页）请窗口重新贴合 —— 由 AppDelegate 在布局周期外异步读 fittingSize。
+    let requestWindowFit: () -> Void
 
     /// ffmpeg 不可用时的安装途径弹层（置灰之外还得给出途径）。
     @State private var showingPathways = false
@@ -80,6 +82,8 @@ struct SettingsView: View {
             tab = requested
             session.requestedTab = nil
         }
+        // 三页内容高度差很多：切页后窗口重贴内容，不留底部空白也不出滚动条。
+        .onChange(of: tab) { _, _ in requestWindowFit() }
         .sheet(isPresented: $showingPathways) {
             InstallPathwaysView(onRecheck: { refreshFFmpeg() })
         }

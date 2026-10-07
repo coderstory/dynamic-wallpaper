@@ -249,9 +249,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
             // 与 MenuBarExtra 时代同一加载纪律：显式 NSImage + isTemplate ——
             // 字符串名 Image("…") 解析不到散装 PNG，会渲染成全透明空槽。
             let img = Bundle.main.image(forResource: "menubar-v1Template") ?? NSImage()
-            // 散装 PNG 的点尺寸不可靠（rep 选中哪档就按哪档像素当点用，@3x 会画成 60pt 撑爆
-            // 24pt 槽位被裁）。强制 18pt：槽位 24pt，系统菜单栏图标的视觉惯例是 16-18pt。
-            img.size = NSSize(width: 18, height: 18)
+            // 散装 PNG 的点尺寸不可靠（rep 选中哪档就按哪档像素当点用），显式定 20pt：
+            // 以邻居图标实测标定（菜单栏字形中位 ~16pt 高），字形在画布 78% 高 × 20pt ≈ 15.6pt。
+            img.size = NSSize(width: 20, height: 20)
             img.isTemplate = true
             button.image = img
             button.action = #selector(toggleMenuPanel(_:))
@@ -340,6 +340,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
             settingsWindow = makeSettingsWindow()
         }
         settingsWindow?.makeKeyAndOrderFront(nil)
+        fitSettingsWindow()
+    }
+
+    /// 把窗口尺寸贴合到内容理想尺寸（三页高度各不相同，切换页签时也会重贴）。
+    /// 刻意手写而不用 NSHostingController.sizingOptions = .preferredContentSize ——
+    /// 那个机制在倒计时环每秒刷新时会在 sizeThatFits 里重入约束更新，AppKit 直接抛异常
+    /// （实测崩溃 Pic-2026-10-07-102958.ips）。这里改在布局周期外异步读 fittingSize，没有重入。
+    private func fitSettingsWindow() {
+        DispatchQueue.main.async { [weak self] in
+            guard let win = self?.settingsWindow, let view = win.contentView else { return }
+            let fit = view.fittingSize
+            // 布局未完成时 fittingSize 是假小值，不采纳。
+            guard fit.height > 100 else { return }
+            let maxH = (NSScreen.main?.visibleFrame.height ?? 900) - 60
+            win.setContentSize(NSSize(
+                width: max(SettingsPresentation.windowMinWidth, min(fit.width, 900)),
+                height: max(320, min(fit.height, maxH))))
+        }
     }
 
     private func makeSettingsWindow() -> NSWindow {
@@ -351,7 +369,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
             transcodeViewModel: transcodeViewModel,
             fpsViewModel: fpsTranscodeViewModel,
             refreshFFmpeg: { [weak self] in self?.refreshFFmpegAvailability() },
-            rotation: rotation)
+            rotation: rotation,
+            requestWindowFit: { [weak self] in self?.fitSettingsWindow() })
             .environment(store)
             .environment(arbiter)
             .environment(settingsApplier)
@@ -365,11 +384,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         win.titlebarAppearsTransparent = true
         // 替代 SettingsView.applyWindowChrome 的 0.5s 延时 hack：窗在自家手里，创建时直接设。
         win.isMovableByWindowBackground = true
-        // 高度给足最高的一页（播放页 ~700pt），正常状态不出滚动条；
-        // 不用 preferredContentSize 自贴合 —— 倒计时环每秒刷新会在 sizeThatFits 里
-        // 重入约束更新，AppKit 直接抛异常崩掉（实测 Pic-2026-10-07-102958.ips）。
-        win.setContentSize(NSSize(width: SettingsPresentation.windowWidth, height: 760))
-        win.contentMinSize = NSSize(width: SettingsPresentation.windowMinWidth, height: 480)
+        // 初始高度只是占位：showSettings 紧接着会 fitSettingsWindow 贴到内容真实高度。
+        win.setContentSize(NSSize(width: SettingsPresentation.windowWidth, height: 700))
+        win.contentMinSize = NSSize(width: SettingsPresentation.windowMinWidth, height: 320)
         win.delegate = self
         win.center()
         return win
