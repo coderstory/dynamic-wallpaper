@@ -7,8 +7,6 @@ import SwiftUI
 // SettingsTile 与设置窗里那个「正在播放」hero 磁贴都用它 —— hero 是磁贴，不是另一种东西，
 // 两处各写一份圆角/投影会在改设计时漏掉一处。
 struct TileSurface: ViewModifier {
-    var wide = false
-
     func body(content: Content) -> some View {
         content
             .frame(maxWidth: .infinity)
@@ -20,19 +18,17 @@ struct TileSurface: ViewModifier {
             // 不描边：分层只靠下面两层投影，补描边会毁掉柔和观感。
             .shadow(color: .black.opacity(0.05), radius: 1, y: 1)
             .shadow(color: .black.opacity(0.10), radius: 10, y: 6)
-            .gridCellColumns(wide ? 2 : 1)
     }
 }
 
 extension View {
-    func tileSurface(wide: Bool = false) -> some View { modifier(TileSurface(wide: wide)) }
+    func tileSurface() -> some View { modifier(TileSurface()) }
 }
 
 // ── 磁贴容器 ──
 struct SettingsTile<Content: View, Tail: View>: View {
     var icon: String? = nil
     let title: String
-    var wide = false
     @ViewBuilder var tail: () -> Tail
     @ViewBuilder var content: () -> Content
 
@@ -52,19 +48,22 @@ struct SettingsTile<Content: View, Tail: View>: View {
             }
             content()
         }
-        .tileSurface(wide: wide)
+        .tileSurface()
     }
 }
 
 // tail 排在 content 前 —— 少了这个重载，无尾部的磁贴写 `{ content }` 会被绑到 tail 上并报错。
 extension SettingsTile where Tail == EmptyView {
-    init(icon: String? = nil, title: String, wide: Bool = false,
+    init(icon: String? = nil, title: String,
          @ViewBuilder content: @escaping () -> Content) {
-        self.init(icon: icon, title: title, wide: wide, tail: { EmptyView() }, content: content)
+        self.init(icon: icon, title: title, tail: { EmptyView() }, content: content)
     }
 }
 
-// ── 2 列磁贴网格。跨列由 SettingsTile.wide 自己声明，网格不认内容 ──
+// ── 2 列磁贴网格。只放真正的半宽磁贴对（播放控制、队列任务卡）──
+// 全宽磁贴不进网格、直接做 VStack 子节点：曾用 gridCellColumns(2) 声明跨列，
+// 它穿过自定义 ViewModifier / 条件内容后会被 LazyVGrid 静默丢掉 ——
+// 症状是全宽 hero 塌成左半列、右侧留一大片空。不赌这个行为，结构上就分开。
 struct TileGrid<Content: View>: View {
     @ViewBuilder var content: () -> Content
 

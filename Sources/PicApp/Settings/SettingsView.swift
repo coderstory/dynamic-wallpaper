@@ -120,10 +120,12 @@ struct SettingsView: View {
     // ── 播放 ──
     private var playTab: some View {
         VStack(spacing: Metrics.blockGap) {
-            TileGrid { heroTile }
+            // 全宽磁贴是 VStack 直接子节点，不进 TileGrid（跨列声明会被静默丢掉，见 TileGrid 注释）。
+            heroTile
 
             if !isEmpty {
                 Eyebrow(text: "播放控制")
+                // 半宽磁贴对，照抄原型：播放模式/轮换间隔、速度/声音都是 .tile 非 wide。
                 TileGrid {
                     modeTile
                     rotationTile
@@ -135,7 +137,7 @@ struct SettingsView: View {
             }
 
             Eyebrow(text: "让路规则", badge: "什么时候不播")
-            TileGrid { rulesTile }
+            rulesTile
         }
     }
 
@@ -172,7 +174,7 @@ struct SettingsView: View {
             Spacer(minLength: 0)
             rotationRing
         }
-        .tileSurface(wide: true)
+        .tileSurface()
     }
 
     private var isHeld: Bool { !arbiter.decision.activeReasons.isEmpty }
@@ -300,7 +302,7 @@ struct SettingsView: View {
             }
             Spacer(minLength: 0)
         }
-        .tileSurface(wide: true)
+        .tileSurface()
     }
 
     private var emptyMark: String {
@@ -328,7 +330,7 @@ struct SettingsView: View {
 
     // ── 播放模式 ──
     private var modeTile: some View {
-        SettingsTile(title: "播放模式", wide: true) {
+        SettingsTile(title: "播放模式") {
             GlowSegmented(items: PlayMode.allCases.map(SettingsPresentation.playModeLabel),
                           index: modeIndex)
                 .accessibilityIdentifier("mode-segmented")
@@ -337,7 +339,7 @@ struct SettingsView: View {
 
     // ── 轮换间隔 ──
     private var rotationTile: some View {
-        SettingsTile(title: "轮换间隔", wide: true) {
+        SettingsTile(title: "轮换间隔") {
             TickSelector(items: SettingsPresentation.rotationChoicesMinutes
                             .map(SettingsPresentation.rotationLabel(minutes:)),
                          index: rotationIndex)
@@ -400,7 +402,7 @@ struct SettingsView: View {
 
     // ── 让路规则：四条不可关 + 一条可关 ──
     private var rulesTile: some View {
-        SettingsTile(icon: "hand.raised", title: "这些情况会让路", wide: true, tail: {
+        SettingsTile(icon: "hand.raised", title: "这些情况会让路", tail: {
             Text("前四项不可关闭").font(.system(size: 10.5)).foregroundStyle(Color.pInk3)
         }) {
             VStack(alignment: .leading, spacing: Metrics.tileGap) {
@@ -429,20 +431,17 @@ struct SettingsView: View {
     // ── 片库 ──
     private var libraryTab: some View {
         VStack(spacing: Metrics.blockGap) {
-            TileGrid {
-                sourceTile
-                if !session.ffmpegAvailable {
-                    WarningStrip(text: "ffmpeg 未安装 · 转码与降帧用不了，其余壁纸功能不受影响。") {
-                        Button("安装途径…") { showingPathways = true }
-                            .buttonStyle(GlowSmallButton())
-                            .accessibilityIdentifier("transcode-pathways")
-                    }
-                    .gridCellColumns(2)
+            sourceTile
+            if !session.ffmpegAvailable {
+                WarningStrip(text: "ffmpeg 未安装 · 转码与降帧用不了，其余壁纸功能不受影响。") {
+                    Button("安装途径…") { showingPathways = true }
+                        .buttonStyle(GlowSmallButton())
+                        .accessibilityIdentifier("transcode-pathways")
                 }
             }
 
             Eyebrow(text: "处理队列", badge: queueBadge)
-            TileGrid { queueBody }
+            queueBody
 
             // 0 尺寸锚点：`status-ffmpeg` 这个 identifier 被 UITest 依赖，删元素会让断言查无此物。
             Color.clear
@@ -454,7 +453,7 @@ struct SettingsView: View {
     }
 
     private var sourceTile: some View {
-        SettingsTile(icon: "folder", title: "壁纸文件夹", wide: true, tail: {
+        SettingsTile(icon: "folder", title: "壁纸文件夹", tail: {
             HStack(spacing: 7) {
                 Button("选择…") { requestFolder() }
                     .buttonStyle(GlowSmallButton())
@@ -483,11 +482,11 @@ struct SettingsView: View {
         }
     }
 
-    // ── 统一队列 ──
+    // ── 统一队列。全宽件（头/命令/尾）直接排，只有任务卡进 2 列网格 ──
     @ViewBuilder
     private var queueBody: some View {
         if rows.isEmpty {
-            SettingsTile(icon: "checkmark.circle", title: "没有需要处理的文件", wide: true) {
+            SettingsTile(icon: "checkmark.circle", title: "没有需要处理的文件") {
                 Text("壁纸目录里的 MKV / AVI / WEBM 会自动出现在这里；高于 \(Int(FpsDownscaleCommand.maxFrameRate))fps 的文件会归到降帧。")
                     .font(.system(size: 11.5))
                     .foregroundStyle(Color.pInk3)
@@ -495,8 +494,10 @@ struct SettingsView: View {
             }
         } else {
             queueHeaderTile
-            ForEach(filteredRows) { row in
-                queueJobTile(row)
+            TileGrid {
+                ForEach(filteredRows) { row in
+                    queueJobTile(row)
+                }
             }
             if let command = previewCommand {
                 commandTile(command)
@@ -506,7 +507,7 @@ struct SettingsView: View {
     }
 
     private var queueHeaderTile: some View {
-        SettingsTile(title: "队列", wide: true) {
+        SettingsTile(title: "队列") {
             HStack(spacing: 10) {
                 QueueFilterBar(index: $queueFilter, counts: (transcodeCount, fpsCount, rows.count))
                 Spacer(minLength: 0)
@@ -564,7 +565,7 @@ struct SettingsView: View {
     }
 
     private func commandTile(_ command: String) -> some View {
-        SettingsTile(title: "将要执行的命令", wide: true) {
+        SettingsTile(title: "将要执行的命令") {
             Text(command)
                 .font(mono(10.5))
                 .foregroundStyle(Color.pInk)
@@ -582,7 +583,7 @@ struct SettingsView: View {
     }
 
     private var queueFooterTile: some View {
-        SettingsTile(title: "操作", wide: true) {
+        SettingsTile(title: "操作") {
             HStack(spacing: 9) {
                 if anyPaused {
                     Button("继续") { resumeQueues() }
@@ -622,36 +623,32 @@ struct SettingsView: View {
     private var generalTab: some View {
         VStack(spacing: Metrics.blockGap) {
             Eyebrow(text: "启动")
-            TileGrid {
-                SettingsTile(title: "开机自启", wide: true) {
-                    TileRow(title: "登录后在菜单栏待命，不弹窗口", divider: false) {
-                        Toggle("", isOn: launchAtLogin).toggleStyle(GlowToggle()).labelsHidden()
-                            .accessibilityIdentifier("autostart-toggle")
-                    }
+            SettingsTile(title: "开机自启") {
+                TileRow(title: "登录后在菜单栏待命，不弹窗口", divider: false) {
+                    Toggle("", isOn: launchAtLogin).toggleStyle(GlowToggle()).labelsHidden()
+                        .accessibilityIdentifier("autostart-toggle")
                 }
             }
 
             Eyebrow(text: "关于")
-            TileGrid {
-                SettingsTile(title: "关于 Pic", wide: true) {
-                    HStack(spacing: 17) {
-                        AboutIcon()
-                        VStack(alignment: .leading, spacing: 0) {
-                            Text("Pic")
-                                .font(display(17))
-                                .foregroundStyle(Color.pInk)
-                            Text("版本 \(appVersion) · arm64 · GPL v2")
-                                .font(mono(11))
-                                .foregroundStyle(Color.pInk3)
-                                .padding(.top, 4)
-                            Text("用视频当动态壁纸。菜单栏常驻，全屏 / 锁屏 / 熄屏 / 睡眠时自动让路。")
-                                .font(.system(size: 12))
-                                .foregroundStyle(Color.pInk2)
-                                .fixedSize(horizontal: false, vertical: true)
-                                .padding(.top, 8)
-                        }
-                        Spacer(minLength: 0)
+            SettingsTile(title: "关于 Pic") {
+                HStack(spacing: 17) {
+                    AboutIcon()
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("Pic")
+                            .font(display(17))
+                            .foregroundStyle(Color.pInk)
+                        Text("版本 \(appVersion) · arm64 · GPL v2")
+                            .font(mono(11))
+                            .foregroundStyle(Color.pInk3)
+                            .padding(.top, 4)
+                        Text("用视频当动态壁纸。菜单栏常驻，全屏 / 锁屏 / 熄屏 / 睡眠时自动让路。")
+                            .font(.system(size: 12))
+                            .foregroundStyle(Color.pInk2)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.top, 8)
                     }
+                    Spacer(minLength: 0)
                 }
             }
         }
