@@ -24,7 +24,7 @@
 | | |
 |---|---|
 | 系统 | macOS 27 |
-| 工具链 | Swift 6（Xcode 27） |
+| 工具链 | Swift 6.4（Xcode 27） |
 | 依赖 | 无。`swift build` 不触网 |
 | 转码（可选） | 需要 `ffmpeg` 在 PATH 里。不需要转码可不装 |
 
@@ -89,18 +89,11 @@ swift test    # 单元测试
 - 设置窗不做视频预览。app 里不展示任何视频
 - 状态用**圆点 + 文字**双编码，不靠颜色单独传递信息
 
-## 已知限制
-
-- 壁纸只在主屏生效（代码里取 `NSScreen.main`，多屏未处理）
-- 全局快捷键只有 ⌘,
-- app 图标与菜单栏图标不同源，是刻意的：图标要在壁纸上跳出来，界面要压得住
-- 只在 Apple Silicon（arm64）上开发验证
-
 ## 许可
 
 GPL v2 —— 见 [LICENSE](LICENSE)。
 
-Copyright (C) 2026 Yunfei Qian
+Copyright (C) 2026 CoderStory
 
 ## 免责声明
 
