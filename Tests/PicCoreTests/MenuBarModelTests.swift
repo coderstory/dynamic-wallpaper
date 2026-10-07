@@ -165,8 +165,9 @@ final class MenuBarModelTests: XCTestCase {
 
     func testMenuItemIDsAreExactlyTheSixFixedItems() {
         XCTAssertEqual(MenuItemID.allCases,
-                       [.pauseResume, .nextVideo, .deleteCurrent, .rescanFolder, .openSettings, .quit],
-                       "六项菜单，顺序冻结：新增项插在 openSettings 之前、quit 保持最后（分隔线规则依赖它）")
+                       [.pauseResume, .nextVideo, .rescanFolder, .deleteCurrent, .openSettings, .quit],
+                       "六项菜单，顺序冻结 = 原型 D 面板行序：无副作用操作 → 维护 → 不可逆 → 系统；"
+                       + "新增项插在 openSettings 之前、quit 保持最后（面板分隔线位置依赖它）")
     }
 
     func testDeleteCurrentGoesOnlyThroughInjectedClosure() {

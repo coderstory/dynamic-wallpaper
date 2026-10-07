@@ -1,13 +1,13 @@
 import Foundation
 
-/// 菜单栏固定菜单项。**新增项一律追加到 `openSettings` 之前、`quit` 保持最后** ——
-/// `quit` 排最后是「退出项之前插分隔线」渲染规则的依赖，重排会挪动分隔线位置。
+/// 菜单栏固定菜单项。**case 顺序 = 面板行序**（原型 D 的分组：无副作用操作 → 维护 → 不可逆 → 系统），
+/// 新增项一律追加到 `openSettings` 之前、`quit` 保持最后 —— 行序与分隔线位置都依赖这个声明顺序。
 public enum MenuItemID: String, CaseIterable {
     case pauseResume
     case nextVideo
+    case rescanFolder
     // 删除当前正在播放的壁纸文件（移到废纸篓）。
     case deleteCurrent
-    case rescanFolder
     case openSettings
     case quit
 }

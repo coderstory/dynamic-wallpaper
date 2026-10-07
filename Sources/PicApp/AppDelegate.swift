@@ -1,10 +1,11 @@
 import AppKit
 import AVFoundation
+import SwiftUI
 import PicCore
 
 /// 唯一装配点：全仓唯一把系统信号变成 `HoldReason` 的地方（单向流 `Watcher → HoldArbiter → PlayerController`）。
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSWindowDelegate {
     let store = SettingsStore(
         defaults: .standard,
         seed: SettingsStore.Seed()
@@ -110,9 +111,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 开机自启的唯一写入口。
     private lazy var autostart = AutoStartManager()
 
+    // ── 菜单栏自绘面板（原型 D）──
+    // NSStatusItem + NSPopover，替代 SwiftUI MenuBarExtra：原生 .menu 样式没有自绘空间
+    // （图标行 / 危险色 / 倒计时环全画不了），设计稿的面板只能 AppKit 这条路走。
+    private var statusItem: NSStatusItem?
+    private var menuPopover: NSPopover?
+    /// 面板打开期间的 ⌘, / ⌘Q 监听。popoverDidClose 必拆 —— 留着会全局截键。
+    private var menuKeyMonitor: Any?
+    /// 设置窗由本类 AppKit 直管。SwiftUI Window 场景的 `openWindow` 依赖场景上下文，
+    /// NSPopover 的内容视图拿不到 —— 这是拆掉 MenuBarExtra 的连带迁移。
+    private var settingsWindow: NSWindow?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         // 刻意不调前台激活接口：那会抢焦点，破坏 .accessory 的语义
         NSApp.setActivationPolicy(.accessory)
+        setupMenuBar()
         // 每次启动对齐一次偏好与系统登录项：false 时是幂等清理，true 时重新注册
         autostart.setEnabled(store.launchAtLogin)
         wiring()
@@ -221,11 +234,146 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task { await rescanAndApply() }
     }
 
-    /// 打开设置窗的前置动作：`.accessory` 的 app 不会被激活，`openWindow` 出来的窗口拿不到焦点。
+    /// 打开设置窗的前置动作：`.accessory` 的 app 不会被激活，弹出的窗口拿不到焦点。
     /// 策略切换**只在本文件发生**。
     @objc func presentSettingsWindow() {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    // ── 菜单栏面板的生命周期 ──
+
+    private func setupMenuBar() {
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        if let button = item.button {
+            // 与 MenuBarExtra 时代同一加载纪律：显式 NSImage + isTemplate ——
+            // 字符串名 Image("…") 解析不到散装 PNG，会渲染成全透明空槽。
+            let img = Bundle.main.image(forResource: "menubar-v1Template") ?? NSImage()
+            img.isTemplate = true
+            button.image = img
+            button.action = #selector(toggleMenuPanel(_:))
+            button.target = self
+            // 左右键弹同一面板：右击菜单栏图标是用户肌肉记忆，不能没反应。
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        }
+        statusItem = item
+    }
+
+    @objc private func toggleMenuPanel(_ sender: NSStatusBarButton) {
+        if let menuPopover, menuPopover.isShown {
+            menuPopover.close()
+            return
+        }
+        let popover = NSPopover()
+        // .transient = 点外部自动关，与原生菜单同语义。
+        popover.behavior = .transient
+        popover.delegate = self
+        popover.contentViewController = NSHostingController(rootView: makeMenuPanel())
+        menuPopover = popover
+        popover.show(relativeTo: sender.bounds, of: sender, preferredEdge: .minY)
+        // 激活是给 ⌘, / ⌘Q 与 hover 借的（本地键监听只在 app active 时递送）；
+        // .accessory 不提策略，激活不会冒 Dock 图标。归还发生在 popoverDidClose。
+        NSApp.activate(ignoringOtherApps: true)
+        installMenuKeyMonitor()
+    }
+
+    private func makeMenuPanel() -> some View {
+        MenuPanelView(
+            rotation: rotation,
+            dismiss: { [weak self] in self?.menuPopover?.close() },
+            terminate: { [weak self] in self?.terminateApp() },
+            openSettings: { [weak self] tab in self?.showSettings(tab: tab) },
+            nextVideo: { [weak self] in self?.nextVideoNow() },
+            rescanFolder: { [weak self] in self?.rescanLibrary() },
+            deleteCurrent: { [weak self] in self?.deleteCurrentWallpaperNow() },
+            requestFolder: { [weak self] in self?.requestFolderNow() }
+        )
+        .environment(store)
+        .environment(arbiter)
+        .environment(sessionState)
+    }
+
+    /// 面板上展示的快捷键必须是真的：⌘, 开设置、⌘Q 退出。监听只在面板打开期间活着。
+    private func installMenuKeyMonitor() {
+        menuKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self,
+                  event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
+                  let key = event.charactersIgnoringModifiers else { return event }
+            switch key {
+            case ",":
+                self.menuPopover?.close()
+                self.showSettings(tab: 0)
+                return nil
+            case "q":
+                self.terminateApp()
+                return nil
+            default:
+                return event
+            }
+        }
+    }
+
+    func popoverDidClose(_ notification: Notification) {
+        if let menuKeyMonitor {
+            NSEvent.removeMonitor(menuKeyMonitor)
+            self.menuKeyMonitor = nil
+        }
+        menuPopover = nil
+        // 归还为面板借的激活。close() 动画完成才回调 —— 此刻设置窗可能已被行动作打开，
+        // 它在台前时不能 deactivate（会把用户刚叫出来的窗又压下去）。
+        if settingsWindow?.isVisible != true {
+            NSApp.deactivate()
+        }
+    }
+
+    // ── 设置窗（AppKit 直管）──
+
+    /// 打开设置窗并落地到指定页（0 播放 / 1 片库 / 2 通用）。
+    /// 落地页走 sessionState.requestedTab 一次性通道：窗未开由 onAppear 消费，窗已开由 onChange 消费。
+    func showSettings(tab: Int) {
+        sessionState.requestedTab = tab
+        presentSettingsWindow()
+        if settingsWindow == nil {
+            settingsWindow = makeSettingsWindow()
+        }
+        settingsWindow?.makeKeyAndOrderFront(nil)
+    }
+
+    private func makeSettingsWindow() -> NSWindow {
+        let root = SettingsView(
+            requestFolder: { [weak self] in self?.requestFolderNow() },
+            rescanLibrary: { [weak self] in self?.rescanLibrary() },
+            reapplyBatteryHold: { [weak self] in self?.reapplyBatteryHold() },
+            setLaunchAtLogin: { [weak self] in self?.setLaunchAtLogin($0) },
+            transcodeViewModel: transcodeViewModel,
+            fpsViewModel: fpsTranscodeViewModel,
+            refreshFFmpeg: { [weak self] in self?.refreshFFmpegAvailability() },
+            rotation: rotation)
+            .environment(store)
+            .environment(arbiter)
+            .environment(settingsApplier)
+            .environment(sessionState)
+        let win = NSWindow(contentViewController: NSHostingController(rootView: root))
+        win.title = "动态壁纸"
+        // hiddenTitleBar 的 AppKit 写法：标题栏透明 + contentView 占满，红绿灯仍在原位 ——
+        // SettingsView.titleRow 的 76pt 左内边距就是给它们留的。
+        win.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
+        win.titleVisibility = .hidden
+        win.titlebarAppearsTransparent = true
+        // 替代 SettingsView.applyWindowChrome 的 0.5s 延时 hack：窗在自家手里，创建时直接设。
+        win.isMovableByWindowBackground = true
+        win.setContentSize(NSSize(width: SettingsPresentation.windowWidth, height: 640))
+        win.contentMinSize = NSSize(width: SettingsPresentation.windowMinWidth, height: 400)
+        win.delegate = self
+        win.center()
+        return win
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        guard (notification.object as? NSWindow) === settingsWindow else { return }
+        settingsWindow = nil
+        // 与旧 onDisappear 同一个落点：关窗即回 .accessory，不留 Dock 图标。
+        hideSettingsAndRestorePolicy()
     }
 
     /// 设置窗关闭时把策略改回 `.accessory` —— 少了这一句，Dock 图标会永久留下。

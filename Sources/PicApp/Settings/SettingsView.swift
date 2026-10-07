@@ -72,6 +72,12 @@ struct SettingsView: View {
         .background(Color.pGround.ignoresSafeArea())
         .preferredColorScheme(.light)
         .onAppear(perform: seedAndObserve)
+        // 窗已开时面板再发落地页请求（典型：设置开着，菜单里点「去片库转码」）。
+        .onChange(of: session.requestedTab) { _, requested in
+            guard let requested else { return }
+            tab = requested
+            session.requestedTab = nil
+        }
         .sheet(isPresented: $showingPathways) {
             InstallPathwaysView(onRecheck: { refreshFFmpeg() })
         }
@@ -812,23 +818,17 @@ struct SettingsView: View {
     }
 
     private func seedAndObserve() {
+        // 菜单面板指定了落地页（打开设置 / 去片库转码）时先消费掉，再铺默认状态。
+        if let requested = session.requestedTab {
+            tab = requested
+            session.requestedTab = nil
+        }
         rateDrag = Double(store.rate)
         // 开窗即重查 ffmpeg：用户中途装上的不必重启，回填 session 卡片当场刷新。
         refreshFFmpeg()
         transcodeViewModel.refresh()
         fpsViewModel.refresh()
         transcodeViewModel.loadCandidates()
-        applyWindowChrome()
-    }
-
-    /// hiddenTitleBar 窗口默认不可拖，开 isMovableByWindowBackground 让自绘标题行可拖窗。
-    /// 必须延后 0.5 秒：SwiftUI 此时才把 Window 装进 NSApp.windows；
-    /// 该属性不在场景配置里，不会被改回。
-    private func applyWindowChrome() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            guard let win = NSApp.windows.first(where: { $0.title == "动态壁纸" }) else { return }
-            win.isMovableByWindowBackground = true
-        }
     }
 }
 
