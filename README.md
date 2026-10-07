@@ -4,7 +4,7 @@
 
 原生 Swift + SwiftUI，零第三方依赖。
 
-![设置窗口](docs/screenshot-settings.png)
+<img src="docs/screenshot-settings.png" width="640" alt="设置窗口">
 
 菜单栏常驻，关窗不退出。全屏 / 最大化窗口 / 锁屏 / 熄屏 / 电池供电时自动让路。
 
