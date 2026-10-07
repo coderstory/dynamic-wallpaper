@@ -77,6 +77,43 @@ public enum SettingsPresentation {
         return !state.shouldShowWallpaper
     }
 
+    /// 空态的标题 / 原因说明 / 主行动。
+    public struct EmptyStateCopy: Equatable, Sendable {
+        public let title: String
+        public let reason: String
+        public let primaryAction: String
+
+        public init(title: String, reason: String, primaryAction: String) {
+            self.title = title
+            self.reason = reason
+            self.primaryAction = primaryAction
+        }
+    }
+
+    /// LibraryState → 空态文案。`.playing` 返回 nil（那时不该显示空态）。
+    /// 与 isEmptyState(_:) 平行而非替代：那个回答「该不该显示壁纸」，这个回答「怎么告诉用户」。
+    public static func emptyStateCopy(_ state: LibraryState) -> EmptyStateCopy? {
+        switch state {
+        case .folderUnconfigured:
+            return EmptyStateCopy(
+                title: "还没选壁纸文件夹",
+                reason: "Pic 还不知道该去哪里找视频。选一个文件夹，里面所有能播的视频都会进轮换池。",
+                primaryAction: "选择文件夹…")
+        case .folderMissing:
+            return EmptyStateCopy(
+                title: "壁纸文件夹不见了",
+                reason: "上次选的位置现在不存在或读不了。可能被改名、被移动，或在没挂载的磁盘上。",
+                primaryAction: "重新选择文件夹…")
+        case .noPlayableVideos:
+            return EmptyStateCopy(
+                title: "没有能直接播的文件",
+                reason: "文件夹能正常读取，但里面 0 个能直接播的文件。MKV / AVI / WEBM 需要先转成 MP4 才能当壁纸。",
+                primaryAction: "去片库转码")
+        case .playing:
+            return nil
+        }
+    }
+
     /// 暂停原因 → 副标签。刻意**不写 `default:`**：`HoldReason` 加 case 时编译不过，
     /// 比漏一分支静默显示错文案安全。
     public static func holdReasonLabel(_ reason: HoldReason) -> String {

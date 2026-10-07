@@ -3,7 +3,9 @@ import PicCore
 
 /// 转码/降帧任务状态在 UI 上的统一展示。两个 Section 的 stateSymbol/stateLabel/isFailure
 /// 三件套收敛到这里 —— 状态枚举各自实现，展示逻辑只有一份。
-protocol JobStatePresenting {
+/// `Sendable` 是 `QueueRow` 要求的：它以 `any JobStatePresenting` 持有状态，要跨 MainActor 边界传。
+/// 两份状态枚举都是带 String 负载的值类型，加这个约束零成本。
+protocol JobStatePresenting: Sendable {
     var symbol: String { get }
     var label: String { get }
     var isFailure: Bool { get }

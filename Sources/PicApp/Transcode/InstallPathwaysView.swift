@@ -13,17 +13,17 @@ struct InstallPathwaysView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
                 Text("安装 ffmpeg")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Color.pTitle)
+                    .font(display(13.5))
+                    .foregroundStyle(Color.pInk)
                 Spacer()
                 Button {
                     dismiss()
                 } label: {
                     Image(systemName: "xmark")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Color.pMuted)
+                        .foregroundStyle(Color.pInk2)
                         .frame(width: 22, height: 22)
-                        .background(Circle().fill(Color.pChipBg))
+                        .background(Circle().fill(Color.pSurface2))
                 }
                 .buttonStyle(.plain)
                 .accessibilityElement()
@@ -32,7 +32,7 @@ struct InstallPathwaysView: View {
             }
             Text("动态壁纸不内置、也不联网下载 ffmpeg —— 安装是你自己的动作，装好后回到本窗口点重新检测即可。")
                 .font(.system(size: 11.5))
-                .foregroundStyle(Color.pMuted)
+                .foregroundStyle(Color.pInk2)
                 .fixedSize(horizontal: false, vertical: true)
 
             pathway(
@@ -70,37 +70,41 @@ struct InstallPathwaysView: View {
         }
         .padding(14)
         .frame(width: 560, alignment: .leading)
-        .background(Color.pBg)
+        .background(Color.pGround)
     }
 
     private func pathway(id: String, title: String, detail: String,
                          command: String, caveat: String) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             Text(title)
-                .font(.system(size: 11.5, weight: .semibold))
-                .foregroundStyle(Color.pAccent)
+                .font(display(11.5))
+                .foregroundStyle(Color.pBrand)
             Text(detail)
                 .font(.system(size: 11))
-                .foregroundStyle(Color.pMuted)
+                .foregroundStyle(Color.pInk2)
             // 命令块保留等宽：用户要照抄，字形对齐才读得准。
             Text(command)
                 .font(mono(10.5))
-                .foregroundStyle(Color.pFg)
+                .foregroundStyle(Color.pInk)
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 8).padding(.vertical, 5)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: 6).fill(Color.pChipBg))
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.pEdge, lineWidth: 1))
+                .background(
+                    RoundedRectangle(cornerRadius: Metrics.ctlRadius, style: .continuous)
+                        .fill(Color.pSurface2)
+                )
             Text(caveat)
                 .font(.system(size: 10.5))
-                .foregroundStyle(Color.pWarnFg)
+                .foregroundStyle(Color.pHold)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(11)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 10).fill(Color.pCard))
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.pSep, lineWidth: 1))
+        .background(
+            RoundedRectangle(cornerRadius: Metrics.tileRadius, style: .continuous)
+                .fill(Color.pSurface)
+        )
         .accessibilityIdentifier(id)
     }
 }

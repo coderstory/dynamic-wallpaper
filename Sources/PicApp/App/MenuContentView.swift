@@ -6,7 +6,11 @@ import PicCore
 // 暂停/继续一律走仲裁器 `set(.manualPause, active:)` —— 本文件不直连播放器、不出现文件名。
 struct MenuContentView: View {
     @Environment(HoldArbiter.self) private var arbiter
+    @Environment(SettingsStore.self) private var store
     @Environment(\.openWindow) private var openWindow
+
+    /// 轮换内核，只读倒计时。
+    private let rotation: RotationController
 
     /// 「退出」的动作，由 `PicApp` 注入 `AppDelegate.terminateApp`。
     /// 本文件不出现结束进程的全局调用字面量（全仓只在 AppDelegate 一处）。
@@ -24,10 +28,12 @@ struct MenuContentView: View {
     /// 「删除当前壁纸」的动作。先切下一个再把刚才在播的移进废纸篓，顺序由 AppDelegate 保证。
     private let deleteCurrent: () -> Void
 
-    init(terminate: @escaping () -> Void, presentSettings: @escaping () -> Void,
+    init(rotation: RotationController,
+         terminate: @escaping () -> Void, presentSettings: @escaping () -> Void,
          nextVideo: @escaping () -> Void = {},
          rescanFolder: @escaping () -> Void = {},
          deleteCurrent: @escaping () -> Void = {}) {
+        self.rotation = rotation
         self.terminate = terminate
         self.presentSettings = presentSettings
         self.nextVideo = nextVideo
@@ -38,11 +44,30 @@ struct MenuContentView: View {
     var body: some View {
         // 「当前是否暂停」直接读仲裁器的派生量；本文件不另立一个可变的暂停标志。
         let isPaused = arbiter.isManuallyPaused
+        // 状态头。菜单栏面板是 .menu 样式（原生菜单，没有自绘空间），所以状态做成一个
+        // 不可点的首项 —— 语义与设置窗的 StatusPill 一致：文字承担确定含义，它才是可读的那一半。
+        Text(statusHeadline)
+        Divider()
         ForEach(MenuItemID.allCases, id: \.self) { id in
-            if id == .quit { Divider() }
+            // 删除项自成一组：它不可逆，不该与「立即下一个」这类无副作用项挨着。
+            if id == .deleteCurrent || id == .rescanFolder || id == .quit { Divider() }
             Button(MenuBarModel.label(for: id, isPaused: isPaused)) { activate(id, isPaused: isPaused) }
                 .settingsShortcut(for: id)
         }
+    }
+
+    /// 首行状态。让路原因**必须全列** —— 只列一个会让用户误判成 bug。
+    private var statusHeadline: String {
+        let reasons = arbiter.decision.activeReasons
+        guard reasons.isEmpty else {
+            return "已暂停 · \(SettingsPresentation.joinedReasons(reasons))"
+        }
+        let mode = SettingsPresentation.playModeLabel(store.playMode)
+        guard let remaining = rotation.secondsUntilNextRotation() else {
+            return "正在播放 · \(mode)"
+        }
+        let total = Int(remaining.rounded())
+        return "正在播放 · \(mode) · 还有 \(total / 60):\(String(format: "%02d", total % 60))"
     }
 
     private func activate(_ id: MenuItemID, isPaused: Bool) {

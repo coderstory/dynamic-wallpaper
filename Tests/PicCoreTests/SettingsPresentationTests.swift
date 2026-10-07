@@ -115,6 +115,16 @@ final class SettingsPresentationTests: XCTestCase {
         XCTAssertEqual(hidden, 3)
     }
 
+    /// 三种空态必须给出两两不同的标题与主行动 —— 压成同一份就退回了「三态一张皮」，用户仍不知道下一步。
+    func testEmptyStateCopyDistinguishesThreeVariants() {
+        let variants: [LibraryState] = [.folderUnconfigured, .folderMissing, .noPlayableVideos]
+        let copies = variants.compactMap(SettingsPresentation.emptyStateCopy)
+        XCTAssertEqual(copies.count, 3, "三种空态都必须给出文案")
+        XCTAssertEqual(Set(copies.map(\.title)).count, 3, "三种空态标题两两不同")
+        XCTAssertEqual(Set(copies.map(\.primaryAction)).count, 3, "三种空态主行动两两不同")
+        XCTAssertNil(SettingsPresentation.emptyStateCopy(.playing), "播放中不该显示空态")
+    }
+
     func testHoldReasonLabelsCoverAllSixCasesVerbatim() {
         let expected: [HoldReason: String] = [
             .manualPause: "手动暂停",

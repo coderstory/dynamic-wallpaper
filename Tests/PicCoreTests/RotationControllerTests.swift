@@ -298,4 +298,32 @@ final class RotationControllerTests: XCTestCase {
         XCTAssertEqual(scheduler.scheduleCount, 4,
                        "start 排 1 次 + 每次切完重排 3 次")
     }
+
+    func testSecondsUntilNextRotationGatedByRunningModeAndItemCount() {
+        let (controller, _) = makeController(random: SeededRandomSource(seed: 42))
+        controller.setItems(Self.threeItems)
+        controller.mode = .loopList
+        controller.setInterval(300)
+
+        XCTAssertNil(controller.secondsUntilNextRotation(), "未 start 时没有下一程")
+
+        controller.start()
+        let running = controller.secondsUntilNextRotation()
+        XCTAssertNotNil(running, "跑起来后必须读得到倒计时")
+        XCTAssertGreaterThan(running ?? 0, 0)
+        XCTAssertLessThanOrEqual(running ?? .infinity, 300, "读数不得超过 interval")
+
+        controller.mode = .loopSingle
+        XCTAssertNil(controller.secondsUntilNextRotation(), "单循环下到点不换片，倒计时指向一个不会发生的切换")
+
+        controller.mode = .loopList
+        controller.stop()
+        XCTAssertNil(controller.secondsUntilNextRotation(), "stop 后必须清成 nil")
+
+        let (single, _) = makeController(random: SeededRandomSource(seed: 42))
+        single.setItems([Self.threeItems[0]])
+        single.mode = .loopList
+        single.start()
+        XCTAssertNil(single.secondsUntilNextRotation(), "只有一条时切换不会发生")
+    }
 }

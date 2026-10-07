@@ -20,7 +20,7 @@ public struct MenuBarModel {
         case .nextVideo: return "立即下一个"
         // 菜单里不出现当前播放的文件名：文件名多为无语义的 0B0E397E-… 这类串，
         // 删的是「当前正在播的那个」，语义由动作本身说清。
-        case .deleteCurrent: return "删除当前壁纸"
+        case .deleteCurrent: return "把当前壁纸移到废纸篓…"
         case .rescanFolder: return "重新扫描文件夹"
         case .openSettings: return "打开设置"
         case .quit: return "退出"

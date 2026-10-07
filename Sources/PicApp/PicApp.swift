@@ -16,7 +16,8 @@ struct PicApp: App {
                          setLaunchAtLogin: { appDelegate.setLaunchAtLogin($0) },
                          transcodeViewModel: appDelegate.transcodeViewModel,
                          fpsViewModel: appDelegate.fpsTranscodeViewModel,
-                         refreshFFmpeg: { appDelegate.refreshFFmpegAvailability() })
+                         refreshFFmpeg: { appDelegate.refreshFFmpegAvailability() },
+                         rotation: appDelegate.rotation)
                 .environment(appDelegate.store)
                 .environment(appDelegate.arbiter)
                 .environment(appDelegate.settingsApplier)
@@ -32,6 +33,7 @@ struct PicApp: App {
 
         MenuBarExtra {
             MenuContentView(
+                rotation: appDelegate.rotation,
                 terminate: { appDelegate.terminateApp() },
                 presentSettings: { appDelegate.presentSettingsWindow() },
                 nextVideo: { appDelegate.nextVideoNow() },
@@ -39,6 +41,7 @@ struct PicApp: App {
                 deleteCurrent: { appDelegate.deleteCurrentWallpaperNow() }
             )
             .environment(appDelegate.arbiter)
+            .environment(appDelegate.store)
         } label: {
             MenuBarLabel()
         }

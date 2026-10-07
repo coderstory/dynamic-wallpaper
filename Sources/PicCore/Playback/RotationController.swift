@@ -69,6 +69,9 @@ public final class RotationController {
     public private(set) var advances: [RotationAdvance] = []
     public private(set) var interval: TimeInterval = 300
 
+    /// 下一程的计划触发时刻。由 `reschedule()` 唯一写入 —— 别在别处赋值，否则读数与实际定时器会分叉。
+    public private(set) var nextFireDate: Date?
+
     /// 播放模式。**可读写且直接生效**，不存第二份 —— 下一次 `advance` 就按新值走。
     public var mode: PlayMode
 
@@ -152,8 +155,16 @@ public final class RotationController {
 
     public func stop() {
         isRunning = false
+        nextFireDate = nil
         scheduler.cancel()
         onAdvance = nil
+    }
+
+    /// 距下次轮换的剩余秒数。没有「下一个」时给 nil —— 单循环 / 只有一条时，
+    /// 倒计时读出来的是个不会发生的切换，比不显示更坏。
+    public func secondsUntilNextRotation(now: Date = Date()) -> TimeInterval? {
+        guard isRunning, mode != .loopSingle, items.count > 1, let nextFireDate else { return nil }
+        return max(0, nextFireDate.timeIntervalSince(now))
     }
 
 
@@ -205,6 +216,7 @@ public final class RotationController {
     /// 重排下一程 —— `setInterval` / `start` / `advance` 三处共用的唯一排程点。切完立刻
     /// 重排（到点就切，不等播完；`schedule` 内部先 `cancel()` 旧定时器，不累积）。
     private func reschedule() {
+        nextFireDate = Date().addingTimeInterval(interval)
         scheduler.schedule(after: interval) { [weak self] in
             self?.rotationElapsed()
         }
