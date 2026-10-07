@@ -132,6 +132,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         // 必须走 Task + await：模态面板要在主 run loop 上跑，同步 runModal() 会卡住启动。
         // 插在 wiring() 之后：四个 Watcher 已同步置位，弹框期间系统信号不丢。
         Task { await bootstrapAfterWiring() }
+        // 冷启动窗口：这一小段时间内的激活属于「启动本身」，之后每次激活都按「用户点图标」处理。
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
+            self?.isColdLaunchActivation = false
+        }
     }
 
     /// 装配点（单向流）。每根线只接一次。
@@ -403,6 +407,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     /// 异常路径也走这一个入口，不留半开状态。
     @objc func hideSettingsAndRestorePolicy() {
         NSApp.setActivationPolicy(.accessory)
+    }
+
+    // ── 从启动台 / Dock 点图标 ──
+    //
+    // Pic 是 LSUIElement 菜单栏 app：自己没有任何窗口。用户在启动台点图标只会「激活」这个进程，
+    // 没人接住这个动作 —— 表现就是「点了没反应」。这里补两条入口把它翻译成「把设置窗叫出来」。
+
+    /// 冷启动后的首次激活要放过：那是双击 App 启动本身，不是「点图标叫窗口」。
+    /// 1.2s 后无条件作废：万一冷启动那次激活压根没回调，也不会把用户的第一次点击吞掉。
+    private var isColdLaunchActivation = true
+    /// `showSettings` 会 `NSApp.activate`，激活回调是异步回来的 —— 不加这道闸会在
+    /// 「窗口还没 order-front」时重入一次 present。
+    private var isPresentingSettings = false
+
+    /// Dock 点已运行的 app 走这条。启动台点图标是否也走这里在 LSUIElement 下不确定，
+    /// 所以另有 `applicationDidBecomeActive` 兜底，两条都指向同一个动作。
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        presentSettingsOnExternalActivate()
+        return false
+    }
+
+    func applicationDidBecomeActive(_ notification: Notification) {
+        if isColdLaunchActivation {
+            isColdLaunchActivation = false
+            return
+        }
+        presentSettingsOnExternalActivate()
+    }
+
+    private func presentSettingsOnExternalActivate() {
+        // 面板与设置窗的激活都带着可见 UI，靠这两个条件挡掉；重入另由 isPresentingSettings 挡。
+        guard !isPresentingSettings,
+              settingsWindow?.isVisible != true,
+              menuPopover?.isShown != true else { return }
+        isPresentingSettings = true
+        defer { isPresentingSettings = false }
+        // 面板点「去片库转码」时可能带着落地页请求，别把它覆盖成播放页。
+        showSettings(tab: sessionState.requestedTab ?? 0)
     }
 
     /// 全仓唯一的「结束进程」落点。菜单 quit 调本方法，不写第二遍字面量。
