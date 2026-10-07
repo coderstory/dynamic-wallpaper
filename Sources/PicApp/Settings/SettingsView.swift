@@ -105,8 +105,9 @@ struct SettingsView: View {
                 .accessibilityIdentifier("status-paused")
         }
         .padding(.horizontal, Metrics.winPadding)
-        // 红绿灯占顶部约 24pt，标题行从它们下面开始。
-        .padding(.top, 34)
+        // 实测（h1.png 几何）：内容区起点本就在红绿灯下方 ~35pt，顶部只留 10pt 呼吸，
+        // 再给 34 就是一大段空气（用户两次反馈边距过大的根因）。
+        .padding(.top, 10)
         .padding(.bottom, 10)
         .contentShape(Rectangle())
     }
