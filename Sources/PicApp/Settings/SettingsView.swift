@@ -48,8 +48,8 @@ struct SettingsView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityIdentifier("main-tabs")
                 .padding(.horizontal, Metrics.winPadding)
-            // 播放页内容（hero + 两组控制 + 让路规则）约 700pt，远超窗口默认高。
-            // 不套 ScrollView 就是整段被裁掉 —— 「布局不对」的真因。
+            // 窗口固定 760 高（AppDelegate 按最高的播放页给足），正常状态不出滚动条；
+            // ScrollView 只是溢出的兜底：片库队列超长、或用户把窗拉小时才滚动。
             ScrollView {
                 Group {
                     switch tab {
@@ -64,6 +64,8 @@ struct SettingsView: View {
                 .padding(.horizontal, Metrics.winPadding)
                 .padding(.vertical, Metrics.blockGap)
             }
+            // 极端小屏的保护：窗口被拉到比内容短时由滚动接住，不裁磁贴投影。
+            .frame(maxHeight: max(480, (NSScreen.main?.visibleFrame.height ?? 900) - 120))
         }
         .frame(minWidth: SettingsPresentation.windowMinWidth,
                idealWidth: Metrics.windowWidth,
