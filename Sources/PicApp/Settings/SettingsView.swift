@@ -92,10 +92,11 @@ struct SettingsView: View {
     // ── 标题行 ──
     /// `windowStyle(.hiddenTitleBar)` 下唯一的「标题栏」。
     /// 状态胶囊放这里而不是播放页首行：状态是全局的，任何页都该看得见。
-    /// 左内边距留给系统红绿灯，不能省 —— 省了「Pic」会压在关闭按钮上。
+    /// 标题落在红绿灯**下方**、与页签/内容同一左距（winPadding）—— 与红绿灯同行就得让出
+    /// 76pt，四个字的中文名被顶得右倾，视觉重心歪（系统设置 App 同款两层式标题区）。
     private var titleRow: some View {
         HStack(spacing: 10) {
-            Text("Pic")
+            Text("动态壁纸")
                 .font(display(13.5, .semibold))
                 .foregroundStyle(Color.pInk)
             Spacer(minLength: 0)
@@ -103,9 +104,9 @@ struct SettingsView: View {
                 .lineLimit(1)
                 .accessibilityIdentifier("status-paused")
         }
-        .padding(.leading, 76)
-        .padding(.trailing, Metrics.winPadding)
-        .padding(.top, 14)
+        .padding(.horizontal, Metrics.winPadding)
+        // 红绿灯占顶部约 24pt，标题行从它们下面开始。
+        .padding(.top, 34)
         .padding(.bottom, 10)
         .contentShape(Rectangle())
     }
@@ -446,6 +447,11 @@ struct SettingsView: View {
                 }
             }
 
+            if !rotation.items.isEmpty {
+                Eyebrow(text: "壁纸清单", badge: "\(rotation.items.count) 个")
+                rosterTile
+            }
+
             Eyebrow(text: "处理队列", badge: queueBadge)
             queueBody
 
@@ -456,6 +462,136 @@ struct SettingsView: View {
                 .accessibilityLabel(Text("ffmpeg \(session.ffmpegAvailable ? "已就绪" : "未安装")"))
                 .accessibilityIdentifier("status-ffmpeg")
         }
+    }
+
+    // ── 壁纸清单：片库页的主角。每行一个可播条目，元数据（大小/时长）异步补齐 ──
+    private var rosterTile: some View {
+        SettingsTile(icon: "play.rectangle.on.rectangle", title: "本机壁纸", tail: {
+            if let current = rotation.current {
+                Text("正在播：\(current.url.deletingPathExtension().lastPathComponent)")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(Color.pBrand)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .frame(maxWidth: 260, alignment: .trailing)
+            }
+        }) {
+            VStack(spacing: 0) {
+                ForEach(Array(rotation.items.enumerated()), id: \.element.url.path) { index, item in
+                    rosterRow(item, isLast: index == rotation.items.count - 1)
+                }
+            }
+            // items 变（重扫/换目录）就重补元数据；离开页签自动取消。
+            .task(id: rotation.items) { await loadRosterMeta() }
+        }
+        .accessibilityIdentifier("roster-list")
+    }
+
+    private func rosterRow(_ item: VideoItem, isLast: Bool) -> some View {
+        let isCurrent = rotation.current?.url == item.url
+        let meta = rosterMeta[item.url.path]
+        return VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                Image(systemName: isCurrent ? "play.circle.fill" : "film")
+                    .font(.system(size: 13))
+                    .foregroundStyle(isCurrent ? Color.pBrand : Color.pInk3)
+                    .frame(width: 18)
+                Text(item.url.deletingPathExtension().lastPathComponent)
+                    .font(display(12, .medium))
+                    .foregroundStyle(Color.pInk)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                if isCurrent {
+                    Text("正在播放")
+                        .font(mono(9, .semibold))
+                        .foregroundStyle(Color.pBrand)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2.5)
+                        .background(
+                            RoundedRectangle(cornerRadius: Metrics.ctlRadius - 4, style: .continuous)
+                                .fill(Color.pBrandSoft)
+                        )
+                }
+                Spacer(minLength: 8)
+                Text(item.url.pathExtension.uppercased())
+                    .font(mono(9, .semibold))
+                    .foregroundStyle(Color.pInk2)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2.5)
+                    .background(
+                        RoundedRectangle(cornerRadius: Metrics.ctlRadius - 4, style: .continuous)
+                            .fill(Color.pSurface2)
+                    )
+                Text(meta?.durationText ?? "—")
+                    .font(mono(10.5))
+                    .monospacedDigit()
+                    .foregroundStyle(Color.pInk3)
+                    .frame(width: 48, alignment: .trailing)
+                Text(meta?.sizeText ?? "—")
+                    .font(mono(10.5))
+                    .monospacedDigit()
+                    .foregroundStyle(Color.pInk3)
+                    .frame(width: 62, alignment: .trailing)
+            }
+            .padding(.vertical, 7)
+            if !isLast {
+                Rectangle()
+                    .fill(Color.pDivider)
+                    .frame(height: 1)
+                    .padding(.leading, 28)
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    // ── 清单元数据：文件大小同步读，时长走 PicCore 探针异步补 ──
+    @State private var rosterMeta: [String: RosterMeta] = [:]
+
+    private struct RosterMeta {
+        let sizeText: String
+        let durationText: String
+    }
+
+    private func loadRosterMeta() async {
+        let targets = rotation.items.map(\.url).filter { rosterMeta[$0.path] == nil }
+        guard !targets.isEmpty else { return }
+        let probe = AVFoundationAssetProbe()
+        var collected: [String: RosterMeta] = [:]
+        var next = 0
+        // 并发上限 4，与 MediaLibrary 扫描同一纪律：探测受磁盘 IO 限制，放开只会打满 IO。
+        await withTaskGroup(of: (String, RosterMeta).self) { group in
+            while next < targets.count, next < 4 {
+                let url = targets[next]
+                next += 1
+                group.addTask { (url.path, await Self.fetchRosterMeta(url, probe: probe)) }
+            }
+            while let (path, meta) = await group.next() {
+                collected[path] = meta
+                if next < targets.count {
+                    let url = targets[next]
+                    next += 1
+                    group.addTask { (url.path, await Self.fetchRosterMeta(url, probe: probe)) }
+                }
+            }
+        }
+        guard !Task.isCancelled else { return }
+        rosterMeta.merge(collected) { _, new in new }
+    }
+
+    private static func fetchRosterMeta(_ url: URL, probe: AVFoundationAssetProbe) async -> RosterMeta {
+        let size = try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64
+        let meta = await probe.metadata(url)
+        return RosterMeta(
+            sizeText: size.map { ByteCountFormatter.string(fromByteCount: $0, countStyle: .file) } ?? "—",
+            durationText: meta.durationSeconds.map(durationLabel) ?? "—")
+    }
+
+    private static func durationLabel(_ seconds: Double) -> String {
+        let total = Int(seconds.rounded())
+        let h = total / 3600, m = (total % 3600) / 60, s = total % 60
+        return h > 0
+            ? String(format: "%d:%02d:%02d", h, m, s)
+            : String(format: "%d:%02d", m, s)
     }
 
     private var sourceTile: some View {
@@ -637,11 +773,11 @@ struct SettingsView: View {
             }
 
             Eyebrow(text: "关于")
-            SettingsTile(title: "关于 Pic") {
+            SettingsTile(title: "关于") {
                 HStack(spacing: 17) {
                     AboutIcon()
                     VStack(alignment: .leading, spacing: 0) {
-                        Text("Pic")
+                        Text("动态壁纸")
                             .font(display(17))
                             .foregroundStyle(Color.pInk)
                         Text("版本 \(appVersion) · arm64 · GPL v2")
