@@ -128,7 +128,7 @@ final class SettingsPresentationTests: XCTestCase {
     func testHoldReasonLabelsCoverAllSixCasesVerbatim() {
         let expected: [HoldReason: String] = [
             .manualPause: "手动暂停",
-            .fullscreen: "检测到全屏应用",
+            .fullscreen: "检测到全屏/最大化窗口",
             .screenLocked: "屏幕已锁定",
             .displayAsleep: "显示器已熄屏",
             .systemSleeping: "系统正在睡眠",
@@ -145,7 +145,7 @@ final class SettingsPresentationTests: XCTestCase {
         XCTAssertEqual(SettingsPresentation.joinedReasons([.screenLocked, .manualPause]),
                        "手动暂停、屏幕已锁定")
         XCTAssertEqual(SettingsPresentation.joinedReasons([.battery, .systemSleeping, .fullscreen]),
-                       "检测到全屏应用、系统正在睡眠、电池供电中")
+                       "检测到全屏/最大化窗口、系统正在睡眠、电池供电中")
     }
 
     func testJoinedReasonsEmptyReturnsEmptyString() {
