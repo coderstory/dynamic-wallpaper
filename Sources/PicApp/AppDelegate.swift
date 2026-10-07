@@ -124,6 +124,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     /// 每条自带投递中心：`NSWorkspace` 的通知只走它自己的中心，
     /// 拿 `default` 去 removeObserver 是拆不掉的（也收不到）。
     private var popoverDismissObservers: [(center: NotificationCenter, token: NSObjectProtocol)] = []
+    /// 面板打开期间的「点外面就收」监听：**别的 app / 桌面走全局，本 app 自己的窗口走本地**。
+    /// 全局监听收不到「发给本 app 的事件」（NSEvent.h 原文），所以少了本地那条，
+    /// 点自己那扇没激活的设置窗时面板不关。popoverDidClose 必拆。
+    private var menuDismissMonitors: [Any] = []
     /// 设置窗由本类 AppKit 直管。SwiftUI Window 场景的 `openWindow` 依赖场景上下文，
     /// NSPopover 的内容视图拿不到 —— 这是拆掉 MenuBarExtra 的连带迁移。
     private var settingsWindow: NSWindow?
@@ -323,6 +327,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         if menuPopover?.isShown == true { menuPopover?.close() }
     }
 
+    /// 面板打开期间装两条鼠标监听（成对拆在 `popoverDidClose`）。
+    /// 存在的理由：设置窗开着时 `toggleMenuPanel` 不借激活，`.transient` 那套就失效了
+    /// —— AppKit 只在 app 活跃时才把「点了面板外」递进来，面板会一直悬着（用户实测）。
+    /// 全局监听只收别的 app 的事件，所以本 app 自己的窗口必须再补一条本地监听。
+    private func installMenuDismissMonitors() {
+        let panelWindow = { [weak self] in self?.menuPopover?.contentViewController?.view.window }
+        let global = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
+            MainActor.assumeIsolated { self?.closeMenuPanelIfShown() }
+        }
+        let local = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
+            MainActor.assumeIsolated {
+                let window = event.window
+                // 点面板内放过：SwiftUI 要收这一下。
+                // 点托盘图标也放过：交给 `toggleMenuPanel` 自己判 —— 这里先关掉的话，
+                // 随后那一下 mouseUp 会判成「没有面板」，把面板重开。
+                if window !== panelWindow() && window !== self?.statusItem?.button?.window {
+                    self?.closeMenuPanelIfShown()
+                }
+            }
+            return event
+        }
+        menuDismissMonitors = [global, local].compactMap { $0 }
+    }
+
     @objc private func toggleMenuPanel(_ sender: NSStatusBarButton) {
         if let menuPopover, menuPopover.isShown {
             menuPopover.close()
@@ -343,6 +371,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
             NSApp.activate(ignoringOtherApps: true)
         }
         installMenuKeyMonitor()
+        installMenuDismissMonitors()
     }
 
     private func makeMenuPanel() -> some View {
@@ -386,6 +415,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
             NSEvent.removeMonitor(menuKeyMonitor)
             self.menuKeyMonitor = nil
         }
+        for monitor in menuDismissMonitors {
+            NSEvent.removeMonitor(monitor)
+        }
+        menuDismissMonitors = []
         menuPopover = nil
         // 归还为面板借的激活。close() 动画完成才回调 —— 此刻设置窗可能已被行动作打开，
         // 它在台前时不能 deactivate（会把用户刚叫出来的窗又压下去）。
