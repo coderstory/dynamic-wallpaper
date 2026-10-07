@@ -63,10 +63,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         return queue
     }()
     /// 轮换 → 装载的路由器。强持有，它持 rotation.onAdvance 闭包。
-    private lazy var router = PlaybackRouter(
-        rotation: rotation,
-        loader: PlayerLoadingAdapter(player: player, arbiter: arbiter)
-    )
+    /// 装载适配器单列出来是为了注 `onLoaded` 出参（单循环续播的持久化写点）。
+    private lazy var router: PlaybackRouter = {
+        let adapter = PlayerLoadingAdapter(player: player, arbiter: arbiter)
+        adapter.onLoaded = { [weak self] url in self?.recordNowPlaying(url) }
+        return PlaybackRouter(rotation: rotation, loader: adapter)
+    }()
 
     /// 转码视图模型。生命周期必须跟着 AppDelegate —— `@StateObject` 只能挂 View。
     lazy var transcodeViewModel = TranscodeViewModel(
@@ -118,6 +120,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     private var menuPopover: NSPopover?
     /// 面板打开期间的 ⌘, / ⌘Q 监听。popoverDidClose 必拆 —— 留着会全局截键。
     private var menuKeyMonitor: Any?
+    /// 面板兜底关闭的观察者（失焦 / Space 切换）。popoverDidClose 必拆。
+    private var popoverDismissObservers: [NSObjectProtocol] = []
     /// 设置窗由本类 AppKit 直管。SwiftUI Window 场景的 `openWindow` 依赖场景上下文，
     /// NSPopover 的内容视图拿不到 —— 这是拆掉 MenuBarExtra 的连带迁移。
     private var settingsWindow: NSWindow?
@@ -126,6 +130,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         // 刻意不调前台激活接口：那会抢焦点，破坏 .accessory 的语义
         NSApp.setActivationPolicy(.accessory)
         setupMenuBar()
+        installPopoverDismissGuards()
         // 每次启动对齐一次偏好与系统登录项：false 时是幂等清理，true 时重新注册
         autostart.setEnabled(store.launchAtLogin)
         wiring()
@@ -144,6 +149,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         arbiter.attach(player)
         // 轮换接进「当场生效」的唯一落点（模式/间隔的改写从这里出去）。
         settingsApplier.attach(rotation: rotation)
+
+        // 任何让路（手动暂停 / 锁屏 / 全屏 / 睡眠 / 电池）都冻结轮换定时器：壁纸看不见时
+        // 换片没有意义，倒计时也应静止。恢复按冻结的剩余时间续跑。
+        // 进入让路的同时把当前视频与进度写进持久化 —— 单循环重启续播的写点之一。
+        arbiter.onShouldPlayChange = { [weak self, rotation] playing in
+            guard let self else { return }
+            if playing {
+                rotation.resumeRotation()
+            } else {
+                if let url = rotation.current?.url {
+                    self.store.lastPlayedPath = url.path
+                    self.store.lastPlayedPosition = self.player.arbiterCurrentPosition()
+                    self.store.persist()
+                }
+                rotation.pauseRotation()
+            }
+        }
 
         fullscreenDetector.start { [arbiter] isFullscreen in
             MainActor.assumeIsolated { arbiter.set(.fullscreen, active: isFullscreen) }
@@ -253,9 +275,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
             // 与 MenuBarExtra 时代同一加载纪律：显式 NSImage + isTemplate ——
             // 字符串名 Image("…") 解析不到散装 PNG，会渲染成全透明空槽。
             let img = Bundle.main.image(forResource: "menubar-v1Template") ?? NSImage()
-            // 散装 PNG 的点尺寸不可靠（rep 选中哪档就按哪档像素当点用），显式定 20pt：
-            // 以邻居图标实测标定（菜单栏字形中位 ~16pt 高），字形在画布 78% 高 × 20pt ≈ 15.6pt。
-            img.size = NSSize(width: 20, height: 20)
+            // 散装 PNG 的点尺寸不可靠（rep 选中哪档就按哪档像素当点用），显式定 22pt：
+            // 画布字形放大 1.15 后占画布 ~65% 高，22pt 渲染 ≈ 14pt 字形高，与邻居看齐。
+            img.size = NSSize(width: 22, height: 22)
             img.isTemplate = true
             button.image = img
             button.action = #selector(toggleMenuPanel(_:))
@@ -264,6 +286,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
         statusItem = item
+    }
+
+    /// 面板兜底关闭：`.transient` 只覆盖「点击面板外」这一种失去方式，Cmd-Tab 切走、
+    /// 点别的 app、进全屏 / 切 Space 都不产生点击 —— 面板就悬在那。订阅失焦与 Space
+    /// 变更，面板开着时一律收起。close 已在 popoverDidClose 清理键监听与激活态，复用它。
+    private func installPopoverDismissGuards() {
+        let center = NotificationCenter.default
+        popoverDismissObservers = [
+            center.addObserver(forName: NSApplication.didResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    if self?.menuPopover?.isShown == true { self?.menuPopover?.close() }
+                }
+            },
+            center.addObserver(forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    if self?.menuPopover?.isShown == true { self?.menuPopover?.close() }
+                }
+            },
+        ]
     }
 
     @objc private func toggleMenuPanel(_ sender: NSStatusBarButton) {
@@ -453,12 +494,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        // 单循环续播：退出前把当前视频与进度落盘（正常退出是最后一个写点）。
+        if let url = rotation.current?.url {
+            store.lastPlayedPath = url.path
+            store.lastPlayedPosition = player.arbiterCurrentPosition()
+            store.persist()
+        }
         // 与 wiring() 里的四个 start() 加一条订阅严格配对
         lockWatcher.stop()
         fullscreenDetector.stop()
         displayWatcher.stop()
         powerWatcher.stop()
         folderWatch.stop()
+        for observer in popoverDismissObservers {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        popoverDismissObservers = []
         if let screenObserver {
             NotificationCenter.default.removeObserver(screenObserver)
             self.screenObserver = nil
@@ -484,6 +535,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         // 起播决策**只**从仲裁器出。四个 Watcher 已在 wiring() 里同步置位，
         // 此刻 decision 已含本会话的全部系统信号。
         arbiter.applyCurrentDecision()
+        // **重启于暂停态**（重启那一刻正锁屏 / 全屏 / 电池让路）：watcher 置位发生在
+        // router.start 之前，onShouldPlayChange 的跃迁已经错过、冻结钩子接不住 ——
+        // 这里补一刀：让路状态起动的轮换直接冻结，菜单环静止，与运行中进入让路同语义。
+        if !arbiter.decision.shouldPlay {
+            rotation.pauseRotation()
+        }
         // 设置必须挂在 player 上（不是 item）、且在起播决策**之后**落位。
         // setRate 必须门在「应当播放」之后：非零 rate 会让已 hold 的播放器重新拉起。
         // 但**两个分支都要记住速度** —— 启动即处于 hold 时也必须记下，否则解锁后
@@ -621,10 +678,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     private func dispatchPlayback(for state: LibraryState, report: MediaLibraryReport?) async {
         switch state {
         case .playing:
-            router.refresh(with: await mergedPlaybackItems(report))
+            let items = await mergedPlaybackItems(report)
+            // 单循环续播：**首次**起转时从上次播放的视频与进度接着来
+            // （文件已不在清单里 / 非单循环模式 → 走普通 start）。
+            // 之后的重扫走 refresh，不打断当前播放。
+            if !router.isStarted, let resume = loopSingleResumeTarget(in: items) {
+                router.start(with: items, resumingAt: resume.url)
+                if resume.position > 0 {
+                    player.arbiterSeek(to: resume.position)
+                }
+            } else {
+                router.refresh(with: items)
+            }
         case .folderUnconfigured, .folderMissing, .noPlayableVideos:
             router.stop()
         }
+    }
+
+    /// 单循环续播目标：上次播放的文件仍在清单里 → (url, position)；不在（被删/换目录）→ nil。
+    private func loopSingleResumeTarget(in items: [VideoItem]) -> (url: URL, position: TimeInterval)? {
+        guard store.playMode == .loopSingle, !store.lastPlayedPath.isEmpty else { return nil }
+        guard let url = items.first(where: { $0.url.path == store.lastPlayedPath })?.url else { return nil }
+        return (url, max(0, store.lastPlayedPosition))
+    }
+
+    /// 记录「正在播哪个」—— 单循环续播的持久化写点。每次装载都走这（轮换换片也是装载），
+    /// 进度归零：真进度在让路 / 退出时写（见 onShouldPlayChange 与 applicationWillTerminate）。
+    private func recordNowPlaying(_ url: URL) {
+        store.lastPlayedPath = url.path
+        store.lastPlayedPosition = 0
+        store.persist()
     }
 
     /// 「立即下一个」的行为侧：只叫轮换器，不碰 player、不碰 arbiter —— 换片由
@@ -675,7 +758,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         let alert = NSAlert()
         alert.alertStyle = .warning
         alert.messageText = "删除当前壁纸？"
-        alert.informativeText = "「\(url.lastPathComponent)」将移入废纸篓，播放会切到下一个。"
+        // 不显示文件名：与菜单同一隐私纪律 —— 片库文件名多为无语义串，显示出来只有噪音。
+        alert.informativeText = "当前壁纸将移入废纸篓，播放会切到下一个。可在废纸篓中找回。"
         alert.addButton(withTitle: "移到废纸篓")
         alert.addButton(withTitle: "取消")
         return alert.runModal() == .alertFirstButtonReturn
@@ -721,6 +805,8 @@ private final class PlaybackStopper: PlaybackStopping {
 private final class PlayerLoadingAdapter: VideoLoading {
     private let player: PlayerController
     private let arbiter: HoldArbiter
+    /// 装载完成出参（装配层注入，单循环续播的持久化写点）。
+    var onLoaded: ((URL) -> Void)?
 
     init(player: PlayerController, arbiter: HoldArbiter) {
         self.player = player
@@ -733,5 +819,6 @@ private final class PlayerLoadingAdapter: VideoLoading {
         // 指向旧片位置，解锁 seek 会把新片硬拽到错误时间点。装载后先解绑锚点再重放决策。
         arbiter.invalidateResumeAnchor()
         arbiter.applyCurrentDecision()
+        onLoaded?(url)
     }
 }

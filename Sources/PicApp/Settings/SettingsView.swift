@@ -190,6 +190,9 @@ struct SettingsView: View {
     private var isHeld: Bool { !arbiter.decision.activeReasons.isEmpty }
     private var heroTint: Color { isHeld ? .pHold : .pOk }
 
+    /// 倒计时环的颜色与状态点解耦（用户拍板）：播放中走品牌橙，让路仍用 hold 褐。
+    private var heroRingTint: Color { isHeld ? Color.pHold : Color.pBrand }
+
     private var heroHeadline: String {
         if isHeld {
             return "已暂停 · \(SettingsPresentation.joinedReasons(arbiter.decision.activeReasons))"
@@ -203,37 +206,29 @@ struct SettingsView: View {
         }
         let every = SettingsPresentation.rotationLabel(
             minutes: SettingsPresentation.rotationMinutes(seconds: store.rotationInterval))
-        return "\(session.playableCount) 个视频轮着放，每 \(every)换一个。关掉窗口也不会停。"
+        // 文案跟模式走：单循环根本没有「换一个」这件事，interval 对它是死数字。
+        switch store.playMode {
+        case .loopSingle:
+            return "当前视频循环播放，关掉窗口也不会停。"
+        case .loopList:
+            return "\(session.playableCount) 个视频按顺序轮着放，每 \(every)换一个。关掉窗口也不会停。"
+        case .shuffle:
+            return "\(session.playableCount) 个视频随机轮着放，每 \(every)换一个。关掉窗口也不会停。"
+        }
     }
 
     private var heroTags: some View {
+        // 只在让路时显示原因标签；播放中不放数值行（用户拍板删除）。
         HStack(spacing: 7) {
             if isHeld {
                 ForEach(arbiter.decision.activeReasons.sorted(), id: \.self) { reason in
                     TagChip(text: SettingsPresentation.holdReasonLabel(reason))
                 }
-            } else {
-                // 精修提案 v2.1：胶囊标签 → 一行等宽数字 meta，数字直接可读。
-                heroMeta(value: SettingsPresentation.rateLabel(store.rate), label: "速度")
-                heroMeta(value: "\(SettingsPresentation.volumePercent(store.volume))%", label: "音量")
-                heroMeta(value: "\(session.playableCount)", label: "个视频")
             }
         }
     }
 
     /// hero 的单个读数：等宽数字在上、灰标签在下。
-    private func heroMeta(value: String, label: String) -> some View {
-        VStack(alignment: .leading, spacing: 1) {
-            Text(value)
-                .font(mono(16, .semibold))
-                .monospacedDigit()
-                .foregroundStyle(Color.pInk)
-            Text(label)
-                .font(.system(size: 11))
-                .foregroundStyle(Color.pInk3)
-        }
-    }
-
     // 倒计时环。TimelineView 每秒重算，不存 @State —— 读数是轮换器的纯派生量，
     // 存一份就会在 setInterval / advance 之后与真值对不上。
     private var rotationRing: some View {
@@ -243,7 +238,7 @@ struct SettingsView: View {
                 Circle().stroke(Color.pSurface3, lineWidth: 6)
                 Circle()
                     .trim(from: 0, to: ringFraction(remaining))
-                    .stroke(heroTint, style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                    .stroke(heroRingTint, style: StrokeStyle(lineWidth: 6, lineCap: .round))
                     .rotationEffect(.degrees(-90))
                 VStack(spacing: 1) {
                     Text(remaining.map { mmss($0) } ?? "—")
@@ -374,7 +369,7 @@ struct SettingsView: View {
     }
 
     private var speedTile: some View {
-        SettingsTile(title: "速度", tail: {
+        SettingsTile(title: "播放速度", tail: {
             Text("音高不变").font(.system(size: 11)).foregroundStyle(Color.pInk3)
         }) {
             HStack(spacing: 11) {
@@ -398,37 +393,33 @@ struct SettingsView: View {
     }
 
     private var volumeTile: some View {
-        SettingsTile(title: "声音") {
-            // 精修提案 v2.1：开关升为独立行、滑杆独占满宽 —— 原来一行三件太挤，
-            // 静音时三层置灰叠着看，语义含混（开关到底管谁）。
-            VStack(alignment: .leading, spacing: Metrics.tileGap) {
-                TileRow(title: "有声", sub: "静音时下面的滑杆不可用", divider: false) {
-                    Toggle("", isOn: soundOn).toggleStyle(GlowToggle()).labelsHidden()
-                        .accessibilityIdentifier("sound-toggle")
-                }
-                HStack(spacing: 11) {
-                    GlowSlider(value: volumePercent, range: 0...100,
-                               label: "音量",
-                               valueText: "\(SettingsPresentation.volumePercent(store.volume))%",
-                               onChanged: {
-                        store.volume = SettingsPresentation.volumeFromPercent(
-                            SettingsPresentation.volumePercent(store.volume))
-                        applier.applyVolume()
-                    }, onEnded: {
-                        store.persist()
-                    })
-                    .disabled(!SettingsPresentation.volumeControlsEnabled(isMuted: store.isMuted))
-                    .accessibilityIdentifier("volume-slider")
-                    Text("\(SettingsPresentation.volumePercent(store.volume))%")
-                        .font(mono(12))
-                        .monospacedDigit()
-                        .foregroundStyle(Color.pInk)
-                        .frame(width: Metrics.valueWidth, alignment: .trailing)
-                        .accessibilityIdentifier("volume-value")
-                }
-                // 静音时整行（滑杆 + 读数）一起变淡：开关管的就是这一行。
+        SettingsTile(title: "音频") {
+            // 与「播放速度」同构：滑杆满宽 + 右侧读数 + 开关，单行等高。
+            HStack(spacing: 11) {
+                GlowSlider(value: volumePercent, range: 0...100,
+                           label: "音量",
+                           valueText: "\(SettingsPresentation.volumePercent(store.volume))%",
+                           onChanged: {
+                    store.volume = SettingsPresentation.volumeFromPercent(
+                        SettingsPresentation.volumePercent(store.volume))
+                    applier.applyVolume()
+                }, onEnded: {
+                    store.persist()
+                })
+                .disabled(!SettingsPresentation.volumeControlsEnabled(isMuted: store.isMuted))
                 .opacity(SettingsPresentation.volumeControlsEnabled(isMuted: store.isMuted) ? 1 : 0.34)
+                .accessibilityIdentifier("volume-slider")
+                Text("\(SettingsPresentation.volumePercent(store.volume))%")
+                    .font(mono(12))
+                    .monospacedDigit()
+                    .foregroundStyle(Color.pInk)
+                    .frame(width: Metrics.valueWidth, alignment: .trailing)
+                    .opacity(SettingsPresentation.volumeControlsEnabled(isMuted: store.isMuted) ? 1 : 0.34)
+                    .accessibilityIdentifier("volume-value")
+                Toggle("", isOn: soundOn).toggleStyle(GlowToggle()).labelsHidden()
+                    .accessibilityIdentifier("sound-toggle")
             }
+            .animation(.easeOut(duration: 0.15), value: store.isMuted)
         }
     }
 
@@ -443,9 +434,26 @@ struct SettingsView: View {
                         TagChip(text: SettingsPresentation.holdReasonLabel(reason))
                     }
                 }
-                TileRow(title: "电池供电", sub: "关掉它，用电池时也继续放（更费电）") {
+                // 「电池供电」行：不用 TileRow（它的文本在 34pt 行内垂直居中，与顶部分隔线的
+                // 距离是固定的）—— 这里展开手写，给文本单独的上边距（用户反馈贴得太近）。
+                HStack(spacing: Metrics.rowGap) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("电池供电")
+                            .font(display(13, .medium))
+                            .foregroundStyle(Color.pInk)
+                        Text("关掉它，用电池时也继续放（更费电）")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Color.pInk3)
+                    }
+                    Spacer(minLength: 0)
                     Toggle("", isOn: playOnBattery).toggleStyle(GlowToggle()).labelsHidden()
                         .accessibilityIdentifier("battery-toggle")
+                }
+                .padding(.top, 10)
+                .overlay(alignment: .top) {
+                    Rectangle()
+                        .fill(Color.pDivider)
+                        .frame(height: 1)
                 }
                 Text("任何一项解除后自动续播，播放位置从暂停处继续——不会重头开始。")
                     .font(.system(size: 11))
@@ -498,20 +506,99 @@ struct SettingsView: View {
             }
         }) {
             VStack(alignment: .leading, spacing: Metrics.tileGap) {
-                Text(store.sourceFolder.isEmpty ? "未设置" : store.sourceFolder)
-                    .font(mono(11))
-                    .foregroundStyle(Color.pInk2)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                HStack(alignment: .top, spacing: 26) {
-                    LibStat(value: "\(session.playableCount)", label: "可用视频",
-                            alert: isEmpty, identifier: "count-value")
-                    LibStat(value: "\(pendingCount)", label: "待处理")
-                    LibStat(value: "\(transcodeCount)", label: "需转码")
-                    LibStat(value: "\(fpsCount)", label: "需降帧")
+                pathRow
+                if session.isScanning {
+                    scanningRow
+                } else {
+                    statStrip
                 }
             }
         }
+    }
+
+    // ── 路径行 ──
+    /// 一行完整路径，mono 12，不拆段不加粗 —— 路径就是路径。
+    /// 缺失态行尾追加琥珀「· 目录不见了」，未设置给引导文案。
+    private var pathRow: some View {
+        pathText
+            .lineLimit(1)
+            .truncationMode(.middle)
+            .padding(.vertical, 2)
+    }
+
+    private var isFolderMissing: Bool { session.lastLibraryState == .folderMissing }
+
+    private var pathText: Text {
+        if store.sourceFolder.isEmpty {
+            return Text("未设置 —— 选一个装视频的文件夹")
+                .font(.system(size: 12))
+                .foregroundStyle(Color.pInk3)
+        }
+        var text = Text(store.sourceFolder).font(mono(12)).foregroundStyle(Color.pInk2)
+        if isFolderMissing {
+            text = text + Text("  · 目录不见了").font(.system(size: 12)).foregroundStyle(Color.pHold)
+        }
+        return text
+    }
+
+    // ── 统计带 ──
+    /// 四格均分 + 发丝线分隔，格内数字与标签基线对齐。
+    /// 颜色按「语义」说话：可用视频是全页的关键值，**恒走品牌深琥珀**（用户拍板）；
+    /// 待处理 / 需转码 / 需降帧是「有事要做」，非零同色、零保持安静灰。
+    private var statStrip: some View {
+        HStack(spacing: 0) {
+            stripStat(value: "\(session.playableCount)", label: "可用视频",
+                      tint: Color.pBrandText, identifier: "count-value")
+            stripDivider
+            stripStat(value: "\(pendingCount)", label: "待处理",
+                      tint: pendingCount > 0 ? Color.pBrandText : Color.pInk3)
+            stripDivider
+            stripStat(value: "\(transcodeCount)", label: "需转码",
+                      tint: transcodeCount > 0 ? Color.pBrandText : Color.pInk3)
+            stripDivider
+            stripStat(value: "\(fpsCount)", label: "需降帧",
+                      tint: fpsCount > 0 ? Color.pBrandText : Color.pInk3)
+        }
+    }
+
+    private var stripDivider: some View {
+        Rectangle()
+            .fill(Color.pDivider)
+            .frame(width: 1, height: 30)
+    }
+
+    private func stripStat(value: String, label: String, tint: Color,
+                           identifier: String? = nil) -> some View {
+        let core = HStack(alignment: .firstTextBaseline, spacing: 7) {
+            Text(value)
+                .font(mono(21, .semibold))
+                .monospacedDigit()
+                .foregroundStyle(tint)
+            Text(label)
+                .font(.system(size: 11))
+                .foregroundStyle(Color.pInk3)
+        }
+        return Group {
+            if let identifier {
+                core.accessibilityElement().accessibilityIdentifier(identifier)
+            } else {
+                core
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    /// 扫描中的就地反馈：转圈 + 文案，代替原来「按钮变灰但不知道在干嘛」。
+    private var scanningRow: some View {
+        HStack(spacing: 8) {
+            ProgressView()
+                .controlSize(.small)
+            Text("正在扫描…")
+                .font(.system(size: 11))
+                .foregroundStyle(Color.pInk3)
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 5)
     }
 
     // ── 统一队列。全宽件（头/命令/尾）直接排，只有任务卡进 2 列网格 ──
@@ -884,33 +971,7 @@ private struct TagChip: View {
     }
 }
 
-/// 统计读数。`alert` 为真时数字换成让路色 —— 空态下「0 个可用视频」要跳出来。
-private struct LibStat: View {
-    let value: String
-    let label: String
-    var alert = false
-    var identifier: String? = nil
-
-    var body: some View {
-        if let identifier {
-            core.accessibilityElement().accessibilityIdentifier(identifier)
-        } else {
-            core
-        }
-    }
-
-    private var core: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(value)
-                .font(mono(21, .semibold))
-                .monospacedDigit()
-                .foregroundStyle(alert ? Color.pHold : Color.pInk)
-            Text(label)
-                .font(.system(size: 11))
-                .foregroundStyle(Color.pInk3)
-        }
-    }
-}
+/// 统计读数（旧 LibStat 已被 sourceTile 的 statStrip 取代——格内基线对齐、0 走安静色）。
 
 /// 队列筛选条。视觉语言统一为滑块分段（SlideSegmented），本结构只负责把
 /// QueueFilter 枚举适配成 Int 下标、拼带计数的标签。

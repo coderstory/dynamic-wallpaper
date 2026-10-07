@@ -104,6 +104,10 @@ struct MenuPanelView: View {
 
     private var headerTint: Color { isEmpty ? .pBad : (isHeld ? .pHold : .pOk) }
 
+    /// 倒计时环的颜色与状态点解耦：播放中走品牌橙（用户拍板），让路仍用 hold 褐
+    /// —— 环是「进行中」的仪表，点才是状态语义。
+    private var ringTint: Color { isHeld ? Color.pHold : Color.pBrand }
+
     private var headerSubline: String {
         if let copy = emptyCopy {
             return "壁纸已隐藏 · \(copy.title)"
@@ -124,7 +128,7 @@ struct MenuPanelView: View {
                     Circle().stroke(Color.pSurface3, lineWidth: 3.6)
                     Circle()
                         .trim(from: 0, to: ringFraction(remaining))
-                        .stroke(headerTint, style: StrokeStyle(lineWidth: 3.6, lineCap: .round))
+                        .stroke(ringTint, style: StrokeStyle(lineWidth: 3.6, lineCap: .round))
                         .rotationEffect(.degrees(-90))
                     Text(mmss(remaining))
                         .font(mono(11))
