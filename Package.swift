@@ -1,14 +1,12 @@
-// swift-tools-version:6.0
+// swift-tools-version:6.4
 import PackageDescription
 
 // D-01：SwiftPM 包定义（Phase 5 才引入 .xcodeproj 以承载 XCUITest）。
 // 本 Phase 零第三方依赖（下方包级依赖列表为空），swift build 不触网。
 let package = Package(
     name: "Pic",
-    // 只支持 macOS 27。PackageDescription 6.0 的 .macOS(.v27) 是 unavailable
-    // （最高只到 .v15），字符串重载能过且 dump 出 "27.0"。
-    // 这行是交付产物的真实下限 —— build.sh 走 swift build，不走 xcodebuild。
-    platforms: [.macOS("27.0")],
+    // 只支持 macOS 27。这行是交付产物的真实下限 —— build.sh 走 swift build，不走 xcodebuild。
+    platforms: [.macOS(.v27)],
     products: [
         .executable(name: "Pic", targets: ["PicApp"]),
         .library(name: "PicCore", targets: ["PicCore"]),
