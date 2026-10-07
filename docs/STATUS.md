@@ -5,8 +5,8 @@
 
 ## 现状快照
 
-- 产品代码 **6395 行**（`PicCore` 纯逻辑 + `PicApp` 装配与 UI），零第三方依赖，仅 macOS 27
-- 测试 **5807 行 / 331 用例，0 skipped**，`swift test` 全绿
+- 产品代码 **7365 行**（`PicCore` 纯逻辑 + `PicApp` 装配与 UI），零第三方依赖，仅 macOS 27
+- 测试 **6051 行 / 344 用例，0 skipped**，`swift test` 全绿（现查：2026-10-07）
 - 验收只有 XCTest 一条路（原 `scripts/` + `test.sh` + `UITests/` 那套「emit 打点 + shell grep」已整体删除）
 - 构建：`swift build` 编译交付；`./build.sh` 出 .app + DMG（不签名）
 
@@ -35,8 +35,23 @@
    比等价断言更脆弱，且会渗进交付二进制。
 5. **探测并发度锁在 4、目录重生走轮询**。前者：探测受磁盘 IO 限制、本机只有一块盘，
    放开并发只会把 IO/CPU 打满而不更快（`MediaLibrary.probeConcurrency`）。后者：拔盘重生用
-   3 秒轮询而非 FSEvents —— FSEvents 要盯「不存在的路径」的父目录、还得在卷重挂后重臂 fd，
+   3 秒轮询而非 FSEvents ——    FSEvents 要盯「不存在的路径」的父目录、还得在卷重挂后重臂 fd，
    复杂度远高于收益；而轮询只在**目录缺失期间**活着，目录正常时一次都不跑。
+6. **设置窗开着时，`toggleMenuPanel` 刻意不借 `NSApp.activate`**。AppKit 的激活语义是
+   「把本 app 的 main/key 窗口一并抬到最前」（`NSRunningApplication.h` 原文），借了就等于把用户
+   背后开着的设置窗顶到最前。代价只有一个：那一档里 ⌘, / ⌘Q 要等用户点进面板（系统随之激活）
+   才开始递送。**改回无条件 activate = 复现「点托盘图标把主窗置顶」。**
+   对应的兜底关闭也因此多了一条 `didActivateApplication`（见下条）。
+7. **面板的三条兜底关闭必须各订各的中心**：`didResignActive` 在 `NotificationCenter.default`，
+   两条 `NSWorkspace` 的在 `NSWorkspace.shared.notificationCenter`。`NSWorkspace` 的通知**不会**
+   投到 default 上 —— 订错地方不报错，只是守卫静默失效、面板悬空。
+   三条都要：设置窗开着时本 app 从不激活，`didResignActive` 永远不来。
+8. **面板还挂着两条鼠标监听（全局 + 本地），是第 6 条的承重补偿，不是过度防御**。
+   `.transient` 只在 app 活跃时才收到「点了面板外」；第 6 条让 app 不再激活，那套就失效，
+   面板会一直悬着（用户实测）。全局监听**收不到发给本 app 的事件**（`NSEvent.h` 原文），
+   所以点自己那扇没激活的设置窗要靠本地监听 —— 两条缺一，各自漏一半。
+   本地监听里「面板内」与「状态栏图标」两种点击必须放过：前者归 SwiftUI，后者若要关掉，
+   随后的 mouseUp 会把面板判成「没有面板」再重开一次。
 
 ## 目录清单（哪些在 git 里、哪些不在）
 

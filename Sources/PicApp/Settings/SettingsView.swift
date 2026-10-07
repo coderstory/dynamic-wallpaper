@@ -534,11 +534,11 @@ struct SettingsView: View {
                 .font(.system(size: 12))
                 .foregroundStyle(Color.pInk3)
         }
-        var text = Text(store.sourceFolder).font(mono(12)).foregroundStyle(Color.pInk2)
-        if isFolderMissing {
-            text = text + Text("  · 目录不见了").font(.system(size: 12)).foregroundStyle(Color.pHold)
-        }
-        return text
+        let folder = Text(store.sourceFolder).font(mono(12)).foregroundStyle(Color.pInk2)
+        guard isFolderMissing else { return folder }
+        // 必须走 Text 插值，不能用 `folder + Text(...)`：Text 的 `+` 在 macOS 26 已废弃。
+        // 返回单个 Text 而非 HStack —— pathRow 的 lineLimit(1) + 中段截断要作用在整行上。
+        return Text("\(folder)\(Text("  · 目录不见了").font(.system(size: 12)).foregroundStyle(Color.pHold))")
     }
 
     // ── 统计带 ──
