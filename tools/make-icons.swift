@@ -67,10 +67,12 @@ func drawAppIcon(ctx cg: CGContext, px: CGFloat, menuBar: Bool = false) {
     cg.restoreGState()
 
     // ── 播放三角（R3 最圆：描边 78 → 圆角半径 39）──
+    // 光学校正：实心/描边三角的面积质心天然偏左（≈ 左缘 + 宽/3），等边距下看着偏左。
+    // 右移 宽/6 ≈ 21，让质心落到前窗中心 512。
     let tri = CGMutablePath()
-    tri.move(to: CGPoint(x: X(448), y: X(469)))
-    tri.addLine(to: CGPoint(x: X(576), y: X(533)))
-    tri.addLine(to: CGPoint(x: X(448), y: X(597)))
+    tri.move(to: CGPoint(x: X(448 + 21), y: X(469)))
+    tri.addLine(to: CGPoint(x: X(576 + 21), y: X(533)))
+    tri.addLine(to: CGPoint(x: X(448 + 21), y: X(597)))
     tri.closeSubpath()
     cg.setLineJoin(.round); cg.setLineCap(.round)
     cg.setFillColor(menuBar ? CGColor(red:0,green:0,blue:0,alpha:1) : CGColor(red:1,green:1,blue:1,alpha:1))
@@ -122,17 +124,24 @@ func drawMenuBar(_ cg: CGContext, _ px: CGFloat, twoLayer: Bool) {
     cg.setFillColor(CGColor(red:0,green:0,blue:0,alpha:1))
     cg.setLineJoin(.round); cg.setLineCap(.round)
 
+    // 整体放大 1.15（绕画布中心）：旧字形只占画布 54.7% 高，20pt 渲染下仅 ~11pt，
+    // 在菜单栏里比邻居矮一截。缩放不破坏窗-三角的比例与光学校正（nudge 按比例跟着走）。
+    let zoom: CGFloat = 1.15
+    cg.translateBy(x: X(512), y: X(512))
+    cg.scaleBy(x: zoom, y: zoom)
+    cg.translateBy(x: X(-512), y: X(-512))
+
     if twoLayer {
-        cg.setLineWidth(X(58))
+        cg.setLineWidth(X(63))
         cg.addPath(CGPath(roundedRect: CGRect(x:X(212), y:X(178), width:X(600), height:X(268)),
                           cornerWidth:X(70), cornerHeight:X(70), transform:nil))
         cg.strokePath()
-        cg.setLineWidth(X(62))
+        cg.setLineWidth(X(67))
         cg.addPath(CGPath(roundedRect: CGRect(x:X(180), y:X(398), width:X(664), height:X(456)),
                           cornerWidth:X(78), cornerHeight:X(78), transform:nil))
         cg.strokePath()
     } else {
-        cg.setLineWidth(X(70))
+        cg.setLineWidth(X(76))
         cg.addPath(CGPath(roundedRect: CGRect(x:X(160), y:X(232), width:X(704), height:X(560)),
                           cornerWidth:X(96), cornerHeight:X(96), transform:nil))
         cg.strokePath()
@@ -140,9 +149,11 @@ func drawMenuBar(_ cg: CGContext, _ px: CGFloat, twoLayer: Bool) {
 
     let cx: CGFloat = 512
     let cy: CGFloat = twoLayer ? 638 : 512
-    let w: CGFloat  = twoLayer ? 196 : 168
-    let h: CGFloat  = twoLayer ? 216 : 196
-    let nudge: CGFloat = twoLayer ? 22 : 16
+    let w: CGFloat  = twoLayer ? 232 : 200
+    let h: CGFloat  = twoLayer ? 254 : 232
+    // 光学校正：nudge = 三角宽 / 6，把面积质心挪到窗心（v1 33 / v2 39）。
+    // 三角占窗高比例如上调大（v1 232/560 ≈ 41%），窗内空间校验过放得下。
+    let nudge: CGFloat = twoLayer ? 39 : 33
     let tri = CGMutablePath()
     tri.move(to:    CGPoint(x: X(cx - w/2 + nudge), y: X(cy - h/2)))
     tri.addLine(to: CGPoint(x: X(cx + w/2 + nudge), y: X(cy)))
