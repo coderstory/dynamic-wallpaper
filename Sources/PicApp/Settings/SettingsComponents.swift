@@ -22,12 +22,18 @@ extension Color {
     // 文字
     static let pInk  = Color(red: 0x14/255, green: 0x18/255, blue: 0x21/255)
     static let pInk2 = Color(red: 0x5B/255, green: 0x64/255, blue: 0x74/255)
-    static let pInk3 = Color(red: 0x62/255, green: 0x6C/255, blue: 0x7C/255)
+    // 三级文字降一档权重：让正文真正突出（精修提案 v2.1）。
+    static let pInk3 = Color(red: 0x8A/255, green: 0x92/255, blue: 0xA3/255)
 
-    // 行动色：只用于主按钮 / 选中 / 焦点，不做装饰
-    static let pBrand     = Color(red: 0xC0/255, green: 0x32/255, blue: 0x55/255)
-    static let pBrandInk  = Color.white
-    static let pBrandSoft = Color(red: 0xFC/255, green: 0xE7/255, blue: 0xEC/255)
+    // 行动色：暖橙（与 App 图标渐变同族，精修提案 v2.1 拍板：UI 迁就图标）。
+    // 双色规则：brand 只作填充底，上面放 brandInk（近黑，6.7:1）；
+    // brand 作文字时用 brandText（白底 5.45:1）。白字在亮橙底只有 2.67:1，禁用。
+    // 四值全换后 contrast-audit.py 的旧结论作废，必须重跑。
+    static let pBrand     = Color(red: 0xE8/255, green: 0x86/255, blue: 0x2B/255)
+    static let pBrandInk  = Color(red: 0x23/255, green: 0x15/255, blue: 0x07/255)
+    /// brand 出现在文字位（徽标、状态字）时的替身。
+    static let pBrandText = Color(red: 0xA8/255, green: 0x51/255, blue: 0x0C/255)
+    static let pBrandSoft = Color(red: 0xFB/255, green: 0xE9/255, blue: 0xD4/255)
 
     // 状态色：三态语义，不复用行动色
     static let pOk       = Color(red: 0x0A/255, green: 0x7C/255, blue: 0x5E/255)
@@ -40,6 +46,11 @@ extension Color {
     static let pBadInk   = Color.white
     static let pBadSoft  = Color(red: 0xF7/255, green: 0xE4/255, blue: 0xE8/255)
 }
+
+/// 字阶（精修提案 v2.1，全 UI 层唯一允许的档位）：
+/// 正文/行 13 · 辅助 11 · 小徽标/chip 10 · 标题 15（display 圆体）· 统计数字 21（mono）。
+/// 数值一律 mono：行内读数 12、hero meta 16、统计 21。
+/// 例外：26 只用于 AboutIcon 占位图标的字形高，不是文字。
 
 /// 等宽字体：数值 / 副标签 / 版本号 / 命令。字体切换的唯一入口。
 func mono(_ size: CGFloat, _ w: Font.Weight = .regular) -> Font {
@@ -63,8 +74,9 @@ enum Metrics {
     static let gridGap: CGFloat = 12
     static let tilePadding: CGFloat = 14
     static let tileGap: CGFloat = 12
-    static let tileRadius: CGFloat = 14
-    static let ctlRadius: CGFloat = 12
+    // 圆角三档：控件/行 10 · 磁贴 16（精修提案 v2.1；小徽标沿用 −4 派生 ≈7）。
+    static let tileRadius: CGFloat = 16
+    static let ctlRadius: CGFloat = 10
 
     // 磁贴内的一行
     static let rowMinHeight: CGFloat = 34
@@ -129,7 +141,7 @@ struct AboutIcon: View {
                     .overlay(
                         Image(systemName: "play.rectangle.fill")
                             .font(.system(size: 26))
-                            .foregroundStyle(Color.pBrand)
+                            .foregroundStyle(Color.pBrandText)
                     )
             }
         }
@@ -244,7 +256,7 @@ struct GlowSegmented: View {
                 let fg: Color = on ? Color.pBrandInk : Color.pInk2
                 Button { index = i } label: {
                     Text(items[i])
-                        .font(.system(size: 11.5, weight: on ? .semibold : .regular))
+                        .font(.system(size: 11, weight: on ? .semibold : .regular))
                         .foregroundStyle(fg)
                         .frame(maxWidth: .infinity)
                         .frame(height: Metrics.segMinHeight - 6)
@@ -264,29 +276,48 @@ struct GlowSegmented: View {
     }
 }
 
-// ── 顶部 TAB：选中态是淡色底片，不是实心块 ──
-struct TabBar: View {
+// ── 滑块分段：页签与片库筛选共用（精修提案 v2.1 第二批）──
+/// 替换掉原来的两套胶囊语言（TabBar 胶囊高亮 / QueueFilterBar 白块高亮），统一为
+/// iOS 式「灰轨道 + 白滑块」，滑块 0.2s 弹簧滑移。brand 实心只留给「播放模式」这类
+/// 值选择（GlowSegmented），页签这类导航保持中性 —— 一屏内橙色块才不会失控。
+/// 控件铺满调用方给定的宽度、段宽均分；外层用 .frame(width:height:) 控制总宽。
+struct SlideSegmented: View {
     let items: [String]
     @Binding var index: Int
 
     var body: some View {
-        HStack(spacing: 4) {
-            ForEach(items.indices, id: \.self) { i in
-                let on = index == i
-                Button { index = i } label: {
-                    Text(items[i])
-                        .font(.system(size: 12.5, weight: on ? .semibold : .regular))
-                        .foregroundStyle(on ? Color.pBrand : Color.pInk2)
-                        .padding(.horizontal, 15)
-                        .padding(.vertical, 6)
-                        .background(Capsule().fill(on ? Color.pBrandSoft : .clear))
-                        // 同上：没 contentShape 时只有文字可点
-                        .contentShape(Rectangle())
+        GeometryReader { geo in
+            let segmentWidth = geo.size.width / CGFloat(items.count)
+            ZStack(alignment: .leading) {
+                // 白滑块：位置随 index 弹簧滑移，不逐段淡入淡出。
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(Color.pSurface)
+                    .shadow(color: .black.opacity(0.10), radius: 2, y: 1)
+                    .frame(width: segmentWidth - 4, height: geo.size.height - 4)
+                    .offset(x: CGFloat(index) * segmentWidth + 2)
+                HStack(spacing: 0) {
+                    ForEach(items.indices, id: \.self) { i in
+                        Button { index = i } label: {
+                            Text(items[i])
+                                .font(.system(size: 11, weight: index == i ? .semibold : .regular))
+                                .foregroundStyle(index == i ? Color.pInk : Color.pInk2)
+                                .frame(maxWidth: .infinity)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        // 自绘分段没有内建 AX 语义：逐段合成，选中段标 isSelected。
+                        .accessibilityElement()
+                        .accessibilityAddTraits(index == i ? [.isSelected, .isButton] : .isButton)
+                    }
                 }
-                .buttonStyle(.plain)
-                .accessibilityElement()
             }
         }
+        .padding(2)
+        .background(
+            RoundedRectangle(cornerRadius: Metrics.ctlRadius - 3, style: .continuous)
+                .fill(Color.pSurface2)
+        )
+        .animation(.spring(response: 0.22, dampingFraction: 0.85), value: index)
     }
 }
 
@@ -299,14 +330,16 @@ struct GlowButton: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 12, weight: primary || destructive ? .semibold : .regular))
+            .font(.system(size: 13, weight: primary || destructive ? .semibold : .regular))
             .foregroundStyle(fg)
             .padding(.horizontal, 14)
             .padding(.vertical, 7)
             .background(
                 RoundedRectangle(cornerRadius: Metrics.ctlRadius, style: .continuous).fill(bg)
             )
-            .opacity(configuration.isPressed ? 0.78 : 1)
+            // 统一按压语言：缩放代替透明度（精修提案 v2.1）。
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 
     private var bg: Color {
@@ -326,7 +359,7 @@ struct GlowButton: ButtonStyle {
 struct GlowSmallButton: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 11.5))
+            .font(.system(size: 11))
             .foregroundStyle(Color.pInk)
             .padding(.horizontal, 11)
             .padding(.vertical, 5)
@@ -334,6 +367,7 @@ struct GlowSmallButton: ButtonStyle {
                 RoundedRectangle(cornerRadius: Metrics.ctlRadius, style: .continuous)
                     .fill(Color.pSurface2)
             )
-            .opacity(configuration.isPressed ? 0.78 : 1)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }

@@ -13,7 +13,7 @@ struct InstallPathwaysView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
                 Text("安装 ffmpeg")
-                    .font(display(13.5))
+                    .font(display(15))
                     .foregroundStyle(Color.pInk)
                 Spacer()
                 Button {
@@ -31,7 +31,7 @@ struct InstallPathwaysView: View {
                 .accessibilityIdentifier("pathways-close")
             }
             Text("动态壁纸不内置、也不联网下载 ffmpeg —— 安装是你自己的动作，装好后回到本窗口点重新检测即可。")
-                .font(.system(size: 11.5))
+                .font(.system(size: 11))
                 .foregroundStyle(Color.pInk2)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -77,14 +77,14 @@ struct InstallPathwaysView: View {
                          command: String, caveat: String) -> some View {
         VStack(alignment: .leading, spacing: 5) {
             Text(title)
-                .font(display(11.5))
-                .foregroundStyle(Color.pBrand)
+                .font(display(11))
+                .foregroundStyle(Color.pBrandText)
             Text(detail)
                 .font(.system(size: 11))
                 .foregroundStyle(Color.pInk2)
             // 命令块保留等宽：用户要照抄，字形对齐才读得准。
             Text(command)
-                .font(mono(10.5))
+                .font(mono(11))
                 .foregroundStyle(Color.pInk)
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
@@ -95,7 +95,7 @@ struct InstallPathwaysView: View {
                         .fill(Color.pSurface2)
                 )
             Text(caveat)
-                .font(.system(size: 10.5))
+                .font(.system(size: 11))
                 .foregroundStyle(Color.pHold)
                 .fixedSize(horizontal: false, vertical: true)
         }

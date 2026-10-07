@@ -44,7 +44,6 @@ struct MenuPanelView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             header
-            divider
             // 空态的主行动（.mrow.primary）：三种原因三个出口，文案的唯一来源是 emptyStateCopy。
             if let copy = emptyCopy {
                 MenuRow(glyph: emptyPrimaryGlyph, label: copy.primaryAction, style: .primary) {
@@ -59,28 +58,25 @@ struct MenuPanelView: View {
             }
             ForEach(MenuItemID.allCases, id: \.self) { id in
                 if isVisible(id) {
-                    // 分组线位置照抄原型：维护 / 不可逆 / 系统各起一组。
-                    if id == .rescanFolder || id == .deleteCurrent || id == .openSettings { divider }
+                    // 分组靠留白，唯一保留的线在危险区（不可逆操作）前 —— 精修提案 v2.1。
+                    if id == .deleteCurrent { divider }
                     MenuRow(glyph: glyph(for: id), label: MenuBarModel.label(for: id, isPaused: isPaused),
                             shortcut: shortcutHint(for: id), style: rowStyle(for: id)) {
                         activate(id)
                     }
+                    .padding(.top, startsGroup(id) ? 6 : 0)
                     .accessibilityIdentifier("menu-row-\(id.rawValue)")
                 }
-            }
-            if showsFooter {
-                Text("菜单里始终不显示文件名——片库里的文件名多为无语义串。")
-                    .font(.system(size: 10))
-                    .foregroundStyle(Color.pInk3)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 11)
-                    .padding(.top, 5)
-                    .padding(.bottom, 6)
             }
         }
         .padding(9)
         .frame(width: 300)
         .background(Color.pSurface)
+    }
+
+    /// 组的起点（维护 / 系统）上方给 6pt 呼吸，代替原来的三条分隔线。
+    private func startsGroup(_ id: MenuItemID) -> Bool {
+        id == .rescanFolder || id == .openSettings
     }
 
     // ── 头部：状态点 + 标题 + 副行 + 倒计时环（.mhead） ──
@@ -94,7 +90,7 @@ struct MenuPanelView: View {
                         .foregroundStyle(Color.pInk)
                 }
                 Text(headerSubline)
-                    .font(.system(size: 10.5))
+                    .font(.system(size: 11))
                     .foregroundStyle(Color.pInk3)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -131,7 +127,7 @@ struct MenuPanelView: View {
                         .stroke(headerTint, style: StrokeStyle(lineWidth: 3.6, lineCap: .round))
                         .rotationEffect(.degrees(-90))
                     Text(mmss(remaining))
-                        .font(mono(10.5))
+                        .font(mono(11))
                         .monospacedDigit()
                         .foregroundStyle(Color.pInk)
                 }
@@ -169,8 +165,6 @@ struct MenuPanelView: View {
     private var emptyCopy: SettingsPresentation.EmptyStateCopy? {
         session.lastLibraryState.flatMap(SettingsPresentation.emptyStateCopy)
     }
-    /// 脚注只在「正在放」时写：那时用户最可能想找文件名。
-    private var showsFooter: Bool { !isEmpty && !isHeld }
 
     /// 可见性照抄原型的 data-when：暂停/下一个只在有播放会话时出现。
     /// 刻意的偏离：删除项在空态也隐藏 —— 原型没给它写 data-when（全态可见），
@@ -227,6 +221,15 @@ struct MenuPanelView: View {
 /// 行样式的可见域 = 本文件：MenuPanelView 与 MenuRow 共用，不提到文件外。
 fileprivate enum MenuRowStyle { case normal, primary, danger }
 
+/// 统一按压语言：缩放代替透明度（精修提案 v2.1）。
+private struct MenuRowButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
 private struct MenuRow: View {
     let glyph: String
     let label: String
@@ -240,11 +243,11 @@ private struct MenuRow: View {
         Button(action: action) {
             HStack(spacing: 11) {
                 Image(systemName: glyph)
-                    .font(.system(size: 12))
-                    .opacity(0.8)
+                    .font(.system(size: 13))
+                    .foregroundStyle(glyphColor)
                     .frame(width: 16)
                 Text(label)
-                    .font(.system(size: 12.5, weight: style == .primary ? .semibold : .regular))
+                    .font(.system(size: 13, weight: style == .primary ? .semibold : .regular))
                 Spacer(minLength: 0)
                 if let shortcut {
                     Text(shortcut)
@@ -252,8 +255,9 @@ private struct MenuRow: View {
                         .foregroundStyle(shortcutColor)
                 }
             }
-            .padding(.horizontal, 11)
-            .padding(.vertical, 9)
+            .padding(.horizontal, 10)
+            .frame(height: 34)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .foregroundStyle(textColor)
             .background(
                 RoundedRectangle(cornerRadius: Metrics.ctlRadius, style: .continuous)
@@ -261,9 +265,9 @@ private struct MenuRow: View {
             )
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(MenuRowButtonStyle())
         .onHover { hovering = $0 }
-        .animation(.easeInOut(duration: 0.12), value: hovering)
+        .animation(.easeOut(duration: 0.12), value: hovering)
     }
 
     private var textColor: Color {
@@ -271,6 +275,15 @@ private struct MenuRow: View {
         case .primary: return .pBrandInk
         case .danger: return .pBad
         case .normal: return .pInk
+        }
+    }
+
+    /// 图标色固定语义色，不用透明度（精修提案 v2.1）：主行动随 brandInk、危险随 bad、其余 ink3。
+    private var glyphColor: Color {
+        switch style {
+        case .primary: return .pBrandInk.opacity(0.65)
+        case .danger: return .pBad
+        case .normal: return .pInk3
         }
     }
 

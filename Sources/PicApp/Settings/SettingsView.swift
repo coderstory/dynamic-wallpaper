@@ -46,7 +46,9 @@ struct SettingsView: View {
         VStack(spacing: 0) {
             titleRow
             // TabBar 钉在顶部不跟滚：三页内容高度差很多，滚动时页签必须原地可点。
-            TabBar(items: Self.tabTitles, index: $tab)
+            // 滑块分段铺满给定宽度、段宽均分（精修提案 v2.1 第二批）。
+            SlideSegmented(items: Self.tabTitles, index: $tab)
+                .frame(width: 264, height: 30)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityIdentifier("main-tabs")
                 .padding(.horizontal, Metrics.winPadding)
@@ -97,7 +99,7 @@ struct SettingsView: View {
     private var titleRow: some View {
         HStack(spacing: 10) {
             Text("动态壁纸")
-                .font(display(13.5, .semibold))
+                .font(display(15, .semibold))
                 .foregroundStyle(Color.pInk)
             Spacer(minLength: 0)
             statusPill
@@ -170,11 +172,11 @@ struct SettingsView: View {
                             Circle().fill(heroTint.opacity(0.22)).frame(width: 15, height: 15)
                         )
                     Text(heroHeadline)
-                        .font(display(16))
+                        .font(display(15))
                         .foregroundStyle(Color.pInk)
                 }
                 Text(heroSummary)
-                    .font(.system(size: 12))
+                    .font(.system(size: 13))
                     .foregroundStyle(Color.pInk2)
                     .fixedSize(horizontal: false, vertical: true)
                 heroTags
@@ -211,10 +213,24 @@ struct SettingsView: View {
                     TagChip(text: SettingsPresentation.holdReasonLabel(reason))
                 }
             } else {
-                TagChip(text: SettingsPresentation.rateLabel(store.rate), accent: true)
-                TagChip(text: "\(SettingsPresentation.volumePercent(store.volume))% 音量")
-                TagChip(text: "\(session.playableCount) 个视频")
+                // 精修提案 v2.1：胶囊标签 → 一行等宽数字 meta，数字直接可读。
+                heroMeta(value: SettingsPresentation.rateLabel(store.rate), label: "速度")
+                heroMeta(value: "\(SettingsPresentation.volumePercent(store.volume))%", label: "音量")
+                heroMeta(value: "\(session.playableCount)", label: "个视频")
             }
+        }
+    }
+
+    /// hero 的单个读数：等宽数字在上、灰标签在下。
+    private func heroMeta(value: String, label: String) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(value)
+                .font(mono(16, .semibold))
+                .monospacedDigit()
+                .foregroundStyle(Color.pInk)
+            Text(label)
+                .font(.system(size: 11))
+                .foregroundStyle(Color.pInk3)
         }
     }
 
@@ -231,11 +247,11 @@ struct SettingsView: View {
                     .rotationEffect(.degrees(-90))
                 VStack(spacing: 1) {
                     Text(remaining.map { mmss($0) } ?? "—")
-                        .font(mono(13.5, .semibold))
+                        .font(mono(12, .semibold))
                         .monospacedDigit()
                         .foregroundStyle(Color.pInk)
                     Text(remaining == nil ? "不轮换" : "换下一个")
-                        .font(.system(size: 8.5))
+                        .font(.system(size: 10))
                         .foregroundStyle(Color.pInk3)
                 }
             }
@@ -258,8 +274,9 @@ struct SettingsView: View {
     // ── 空态（三变体完整区分） ──
     private var emptyTile: some View {
         HStack(alignment: .top, spacing: 16) {
-            Text(emptyMark)
-                .font(.system(size: 17))
+            // 精修提案 v2.1：ASCII 字形（▣ ! ▤）→ SF Symbols，与菜单行同语言。
+            Image(systemName: emptyMark)
+                .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(Color.pHold)
                 .frame(width: 38, height: 38)
                 .background(
@@ -268,24 +285,24 @@ struct SettingsView: View {
                 )
             VStack(alignment: .leading, spacing: 0) {
                 Text(emptyCopy?.title ?? "没有可播文件")
-                    .font(display(14.5))
+                    .font(display(15))
                     .foregroundStyle(Color.pInk)
                     .padding(.bottom, 7)
                 // 逐字硬需求，三种变体共用同一句。
                 Text(SettingsPresentation.emptyStateBody)
-                    .font(.system(size: 12))
+                    .font(.system(size: 13))
                     .foregroundStyle(Color.pInk2)
                     .fixedSize(horizontal: false, vertical: true)
                 if let reason = emptyCopy?.reason {
                     Text(reason)
-                        .font(.system(size: 11.5))
+                        .font(.system(size: 11))
                         .foregroundStyle(Color.pInk3)
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.top, 10)
                 }
                 if let folder = missingFolderPath {
                     Text(folder)
-                        .font(mono(10.5))
+                        .font(mono(11))
                         .foregroundStyle(Color.pInk2)
                         .lineLimit(1)
                         .truncationMode(.middle)
@@ -313,11 +330,12 @@ struct SettingsView: View {
         .tileSurface()
     }
 
+    /// 三种空态各配一个有图形语义的 SF Symbol。
     private var emptyMark: String {
         switch session.lastLibraryState {
-        case .folderUnconfigured: "▣"
-        case .folderMissing: "!"
-        default: "▤"
+        case .folderUnconfigured: "folder.badge.questionmark"
+        case .folderMissing: "exclamationmark.triangle"
+        default: "film"
         }
     }
 
@@ -357,7 +375,7 @@ struct SettingsView: View {
 
     private var speedTile: some View {
         SettingsTile(title: "速度", tail: {
-            Text("音高不变").font(.system(size: 10.5)).foregroundStyle(Color.pInk3)
+            Text("音高不变").font(.system(size: 11)).foregroundStyle(Color.pInk3)
         }) {
             HStack(spacing: 11) {
                 GlowSlider(value: $rateDrag, range: 0.5...2,
@@ -381,29 +399,35 @@ struct SettingsView: View {
 
     private var volumeTile: some View {
         SettingsTile(title: "声音") {
-            HStack(spacing: 11) {
-                GlowSlider(value: volumePercent, range: 0...100,
-                           label: "音量",
-                           valueText: "\(SettingsPresentation.volumePercent(store.volume))%",
-                           onChanged: {
-                    store.volume = SettingsPresentation.volumeFromPercent(
-                        SettingsPresentation.volumePercent(store.volume))
-                    applier.applyVolume()
-                }, onEnded: {
-                    store.persist()
-                })
-                .disabled(!SettingsPresentation.volumeControlsEnabled(isMuted: store.isMuted))
-                .accessibilityIdentifier("volume-slider")
-                Text("\(SettingsPresentation.volumePercent(store.volume))%")
-                    .font(mono(12))
-                    .monospacedDigit()
-                    .foregroundStyle(Color.pInk)
-                    .frame(width: Metrics.valueWidth, alignment: .trailing)
-                    .accessibilityIdentifier("volume-value")
-                // 静音时滑杆不可交互 + 视觉变淡。
+            // 精修提案 v2.1：开关升为独立行、滑杆独占满宽 —— 原来一行三件太挤，
+            // 静音时三层置灰叠着看，语义含混（开关到底管谁）。
+            VStack(alignment: .leading, spacing: Metrics.tileGap) {
+                TileRow(title: "有声", sub: "静音时下面的滑杆不可用", divider: false) {
+                    Toggle("", isOn: soundOn).toggleStyle(GlowToggle()).labelsHidden()
+                        .accessibilityIdentifier("sound-toggle")
+                }
+                HStack(spacing: 11) {
+                    GlowSlider(value: volumePercent, range: 0...100,
+                               label: "音量",
+                               valueText: "\(SettingsPresentation.volumePercent(store.volume))%",
+                               onChanged: {
+                        store.volume = SettingsPresentation.volumeFromPercent(
+                            SettingsPresentation.volumePercent(store.volume))
+                        applier.applyVolume()
+                    }, onEnded: {
+                        store.persist()
+                    })
+                    .disabled(!SettingsPresentation.volumeControlsEnabled(isMuted: store.isMuted))
+                    .accessibilityIdentifier("volume-slider")
+                    Text("\(SettingsPresentation.volumePercent(store.volume))%")
+                        .font(mono(12))
+                        .monospacedDigit()
+                        .foregroundStyle(Color.pInk)
+                        .frame(width: Metrics.valueWidth, alignment: .trailing)
+                        .accessibilityIdentifier("volume-value")
+                }
+                // 静音时整行（滑杆 + 读数）一起变淡：开关管的就是这一行。
                 .opacity(SettingsPresentation.volumeControlsEnabled(isMuted: store.isMuted) ? 1 : 0.34)
-                Toggle("", isOn: soundOn).toggleStyle(GlowToggle()).labelsHidden()
-                    .accessibilityIdentifier("sound-toggle")
             }
         }
     }
@@ -411,7 +435,7 @@ struct SettingsView: View {
     // ── 让路规则：四条不可关 + 一条可关 ──
     private var rulesTile: some View {
         SettingsTile(icon: "hand.raised", title: "这些情况会让路", tail: {
-            Text("前四项不可关闭").font(.system(size: 10.5)).foregroundStyle(Color.pInk3)
+            Text("前四项不可关闭").font(.system(size: 11)).foregroundStyle(Color.pInk3)
         }) {
             VStack(alignment: .leading, spacing: Metrics.tileGap) {
                 HStack(spacing: 7) {
@@ -496,7 +520,7 @@ struct SettingsView: View {
         if rows.isEmpty {
             SettingsTile(icon: "checkmark.circle", title: "没有需要处理的文件") {
                 Text("壁纸目录里的 MKV / AVI / WEBM 会自动出现在这里；高于 \(Int(FpsDownscaleCommand.maxFrameRate))fps 的文件会归到降帧。")
-                    .font(.system(size: 11.5))
+                    .font(.system(size: 11))
                     .foregroundStyle(Color.pInk3)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -520,7 +544,7 @@ struct SettingsView: View {
                 QueueFilterBar(index: $queueFilter, counts: (transcodeCount, fpsCount, rows.count))
                 Spacer(minLength: 0)
                 Text(queueProgressText)
-                    .font(.system(size: 11.5))
+                    .font(.system(size: 11))
                     .foregroundStyle(queueHasFailure ? Color.pBad : Color.pInk3)
             }
             .accessibilityIdentifier("transcode-badge")
@@ -533,8 +557,9 @@ struct SettingsView: View {
         } label: {
             VStack(alignment: .leading, spacing: 9) {
                 Text(row.kind == .transcode ? "转码" : "降帧")
-                    .font(mono(9.5, .semibold))
-                    .foregroundStyle(row.kind == .transcode ? Color.pBrand : Color.pInk2)
+                    .font(mono(10, .semibold))
+                    // brand 作文字：用 brandText（亮橙作文字在白底不达标），精修提案 v2.1。
+                    .foregroundStyle(row.kind == .transcode ? Color.pBrandText : Color.pInk2)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
                     .background(
@@ -542,18 +567,18 @@ struct SettingsView: View {
                             .fill(row.kind == .transcode ? Color.pBrandSoft : Color.pSurface2)
                     )
                 Text(row.fileName)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(Color.pInk)
                     .lineLimit(1)
                     .truncationMode(.middle)
                 Text(row.meta)
-                    .font(mono(10.5))
+                    .font(mono(11))
                     .foregroundStyle(Color.pInk3)
                     .lineLimit(1)
                 HStack(spacing: 10) {
                     ProgressBar(percent: row.percent, failed: row.state.isFailure)
                     Text(row.state.label)
-                        .font(mono(10.5))
+                        .font(mono(11))
                         .foregroundStyle(row.state.isFailure ? Color.pBad : Color.pInk3)
                         .lineLimit(1)
                 }
@@ -575,7 +600,7 @@ struct SettingsView: View {
     private func commandTile(_ command: String) -> some View {
         SettingsTile(title: "将要执行的命令") {
             Text(command)
-                .font(mono(10.5))
+                .font(mono(11))
                 .foregroundStyle(Color.pInk)
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
@@ -615,7 +640,7 @@ struct SettingsView: View {
                 if anyRunning {
                     Text(anyPaused ? "已暂停" : "处理中…")
                         .font(mono(11))
-                        .foregroundStyle(Color.pBrand)
+                        .foregroundStyle(Color.pBrandText)
                 }
                 Button("选择目录或文件…") { Task { await transcodeViewModel.loadPickedSources() } }
                     .buttonStyle(GlowSmallButton())
@@ -638,20 +663,20 @@ struct SettingsView: View {
                 }
             }
 
-            Eyebrow(text: "关于")
+            // 精修提案 v2.1：原来 Eyebrow「关于」+ 磁贴 title「关于」同屏重复，只留磁贴一处。
             SettingsTile(title: "关于") {
                 HStack(spacing: 17) {
                     AboutIcon()
                     VStack(alignment: .leading, spacing: 0) {
                         Text("动态壁纸")
-                            .font(display(17))
+                            .font(display(15))
                             .foregroundStyle(Color.pInk)
                         Text("版本 \(appVersion) · arm64 · GPL v2")
                             .font(mono(11))
                             .foregroundStyle(Color.pInk3)
                             .padding(.top, 4)
                         Text("用视频当动态壁纸。菜单栏常驻，全屏 / 锁屏 / 熄屏 / 睡眠时自动让路。")
-                            .font(.system(size: 12))
+                            .font(.system(size: 13))
                             .foregroundStyle(Color.pInk2)
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(.top, 8)
@@ -851,8 +876,8 @@ private struct TagChip: View {
 
     var body: some View {
         Text(text)
-            .font(mono(9.5))
-            .foregroundStyle(accent ? Color.pBrand : Color.pInk2)
+            .font(mono(10))
+            .foregroundStyle(accent ? Color.pBrandText : Color.pInk2)
             .padding(.horizontal, 9)
             .padding(.vertical, 3)
             .background(Capsule().fill(accent ? Color.pBrandSoft : Color.pSurface2))
@@ -881,48 +906,33 @@ private struct LibStat: View {
                 .monospacedDigit()
                 .foregroundStyle(alert ? Color.pHold : Color.pInk)
             Text(label)
-                .font(.system(size: 10.5))
+                .font(.system(size: 11))
                 .foregroundStyle(Color.pInk3)
         }
     }
 }
 
-/// 队列筛选条。
+/// 队列筛选条。视觉语言统一为滑块分段（SlideSegmented），本结构只负责把
+/// QueueFilter 枚举适配成 Int 下标、拼带计数的标签。
 private struct QueueFilterBar: View {
     @Binding var index: QueueFilter
     let counts: (transcode: Int, fps: Int, all: Int)
 
-    private var items: [(String, QueueFilter)] {
-        [("全部 \(counts.all)", .all),
-         ("转码 \(counts.transcode)", .transcode),
-         ("降帧 \(counts.fps)", .fps)]
+    /// 全部 / 转码 / 降帧 的声明顺序就是 chips 顺序，别重排。
+    private var items: [String] {
+        ["全部 \(counts.all)", "转码 \(counts.transcode)", "降帧 \(counts.fps)"]
+    }
+
+    private var selectedIndex: Binding<Int> {
+        Binding(
+            get: { index.rawValue },
+            set: { index = QueueFilter(rawValue: $0) ?? .all }
+        )
     }
 
     var body: some View {
-        HStack(spacing: 3) {
-            ForEach(items, id: \.0) { label, value in
-                let on = index == value
-                Button { index = value } label: {
-                    Text(label)
-                        .font(.system(size: 11.5, weight: on ? .semibold : .regular))
-                        .foregroundStyle(on ? Color.pInk : Color.pInk2)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 5)
-                        .background(
-                            RoundedRectangle(cornerRadius: Metrics.ctlRadius - 3, style: .continuous)
-                                .fill(on ? Color.pSurface : .clear)
-                        )
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityElement()
-            }
-        }
-        .padding(Metrics.segPadding)
-        .background(
-            RoundedRectangle(cornerRadius: Metrics.ctlRadius, style: .continuous)
-                .fill(Color.pSurface2)
-        )
+        SlideSegmented(items: items, index: selectedIndex)
+            .frame(width: 300, height: 30)
     }
 }
 
@@ -943,6 +953,6 @@ private struct ProgressBar: View {
             }
         }
         .frame(height: 5)
-        .frame(maxWidth: 108)
+        // 精修提案 v2.1：去掉无出处的 maxWidth 108 限宽，铺满所在列。
     }
 }

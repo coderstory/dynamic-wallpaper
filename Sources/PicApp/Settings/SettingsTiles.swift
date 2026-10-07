@@ -37,11 +37,11 @@ struct SettingsTile<Content: View, Tail: View>: View {
             HStack(spacing: 8) {
                 if let icon {
                     Image(systemName: icon)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Color.pInk3)
                 }
                 Text(title)
-                    .font(display(12.5))
+                    .font(display(13))
                     .foregroundStyle(Color.pInk)
                 Spacer(minLength: 0)
                 tail()
@@ -91,7 +91,7 @@ struct TileRow<Content: View>: View {
         HStack(spacing: Metrics.rowGap) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(display(12.5, .medium))
+                    .font(display(13, .medium))
                     .foregroundStyle(Color.pInk)
                 if let sub {
                     Text(sub)
@@ -128,7 +128,7 @@ struct TickSelector: View {
                             .frame(height: on ? 11 : 6)
                             .frame(minWidth: Metrics.tickMinWidth, maxWidth: .infinity)
                         Text(items[i])
-                            .font(mono(9.5, on ? .semibold : .regular))
+                            .font(mono(10, on ? .semibold : .regular))
                             .foregroundStyle(on ? Color.pInk : Color.pInk3)
                     }
                     .frame(maxWidth: .infinity)
@@ -174,10 +174,10 @@ struct StatusPill: View {
             }
             HStack(spacing: 3) {
                 Text(lead)
-                    .font(.system(size: 11.5, weight: .semibold))
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(Color.pInk)
                 Text(rest)
-                    .font(.system(size: 11.5))
+                    .font(.system(size: 11))
                     .foregroundStyle(Color.pInk2)
             }
         }
@@ -198,7 +198,7 @@ struct WarningStrip<Action: View>: View {
                 .fill(Color.pHold)
                 .frame(width: 8, height: 8)
             Text(text)
-                .font(.system(size: 12))
+                .font(.system(size: 13))
                 .foregroundStyle(Color.pInk)
             Spacer(minLength: 0)
             action()
@@ -220,11 +220,11 @@ struct Eyebrow: View {
     var body: some View {
         HStack(spacing: 8) {
             Text(text)
-                .font(display(12, .semibold))
+                .font(display(13, .semibold))
                 .foregroundStyle(Color.pInk)
             if let badge {
                 Text(badge)
-                    .font(mono(9.5))
+                    .font(mono(10))
                     .foregroundStyle(Color.pInk2)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 2)
