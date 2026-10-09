@@ -9,22 +9,23 @@ extension View {
     func cardSurface() -> some View { modifier(CardSurface()) }
 }
 
-/// 卡片面是否走系统液态玻璃。走环境量而不是 modifier 参数：glass 判断只在根视图读一次
-/// `store.liquidGlassEnabled` 往下传，所有卡片调用点（含 SettingsCard 内部）零改动；
-/// 默认 false，任何没挂环境量的视图（如 sheet）自动落在旧渲染路径上。
-private struct CardSurfaceGlassKey: EnvironmentKey {
+/// 液态玻璃是否激活。走环境量而不是 modifier 参数：glass 判断只在根视图读一次
+/// `store.liquidGlassEnabled` 往下传，所有消费点（卡片面、顶栏底、侧栏底）零改动；
+/// 覆盖范围 = **整窗**——开启时根背景是超薄材质，顶栏/侧栏底让位透明（透出材质），
+/// 卡片走 glassEffect；默认 false，任何没挂环境量的视图（如 sheet）自动落在旧渲染路径上。
+private struct LiquidGlassActiveKey: EnvironmentKey {
     static let defaultValue = false
 }
 
 extension EnvironmentValues {
-    var cardSurfaceGlass: Bool {
-        get { self[CardSurfaceGlassKey.self] }
-        set { self[CardSurfaceGlassKey.self] = newValue }
+    var liquidGlassActive: Bool {
+        get { self[LiquidGlassActiveKey.self] }
+        set { self[LiquidGlassActiveKey.self] = newValue }
     }
 }
 
 struct CardSurface: ViewModifier {
-    @Environment(\.cardSurfaceGlass) private var glass
+    @Environment(\.liquidGlassActive) private var glass
 
     func body(content: Content) -> some View {
         if glass {
@@ -311,6 +312,7 @@ struct WarningStrip<Action: View>: View {
 // 右端秩序固定：状态胶囊（只读，挤了先截）→ 壁纸来源标签 → 来源切换（永不截断）。
 // 来源切换不染分区色：它切的是内容类型，不是「去哪个区」。
 struct SettingsTopBar<Pill: View>: View {
+    @Environment(\.liquidGlassActive) private var glass
     let kind: WallpaperKind
     /// 仅当目标来源 != 当前来源时由内部保证调用；动作本身由装配层注入。
     let switchSource: (WallpaperKind) -> Void
@@ -349,7 +351,9 @@ struct SettingsTopBar<Pill: View>: View {
         .padding(.leading, 14)
         .padding(.trailing, 14)
         .frame(maxWidth: .infinity, minHeight: Metrics.topbarHeight, maxHeight: Metrics.topbarHeight)
-        .background(Color.pSurface2)
+        // 液态玻璃开启时顶栏让位给根材质（整窗统一玻璃），底部分隔线保留出结构；
+        // 关闭时不透明 pSurface2，与原状逐像素相同。
+        .background(glass ? AnyShapeStyle(.clear) : AnyShapeStyle(Color.pSurface2))
         .overlay(alignment: .bottom) {
             Rectangle().fill(Color.pLine).frame(height: 1)
         }
@@ -361,6 +365,7 @@ struct SettingsTopBar<Pill: View>: View {
 // 每个导航项用**自己区**的身份色：选中 = soft 底 + text 色文字 + 实心图标盒；
 // 未选中 = ink2 文字 + surface3 图标盒。
 struct SettingsSideBar: View {
+    @Environment(\.liquidGlassActive) private var glass
     let kind: WallpaperKind
     @Binding var page: SettingsPresentation.SettingsPage
     /// 队列徽标：只在 > 0 时出现，徽标只给「有事要做」的区。
@@ -379,7 +384,8 @@ struct SettingsSideBar: View {
         .padding(14)
         .frame(maxHeight: .infinity, alignment: .topLeading)
         .frame(width: Metrics.sidebarWidth, alignment: .topLeading)
-        .background(Color.pSurface2)
+        // 同顶栏：玻璃开启让位根材质，右缘分隔线保留；关闭时不透明 pSurface2。
+        .background(glass ? AnyShapeStyle(.clear) : AnyShapeStyle(Color.pSurface2))
         .overlay(alignment: .trailing) {
             Rectangle().fill(Color.pLine).frame(width: 1)
         }

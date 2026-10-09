@@ -85,7 +85,7 @@ struct MenuPanelView: View {
                 : AnyShapeStyle(Color.pGround))
         }
         // 卡片面是否走液态玻璃只在根视图读一次 store，头部卡经环境量继承。
-        .environment(\.cardSurfaceGlass, store.liquidGlassEnabled)
+        .environment(\.liquidGlassActive, store.liquidGlassEnabled)
     }
 
     /// 组的起点（维护 / 系统）上方给 7pt 呼吸，代替原来的三条分隔线。

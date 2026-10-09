@@ -71,7 +71,7 @@ struct SettingsView: View {
                 .ignoresSafeArea()
         }
         // 卡片面是否走液态玻璃只在根视图读一次 store，卡片调用点经环境量继承。
-        .environment(\.cardSurfaceGlass, store.liquidGlassEnabled)
+        .environment(\.liquidGlassActive, store.liquidGlassEnabled)
         .preferredColorScheme(.light)
         .onAppear(perform: seedAndObserve)
         // 窗已开时面板再发落地页请求（典型：设置开着，菜单里点「去片库转码」）。
