@@ -11,6 +11,12 @@ final class SettingsSessionState {
     var lastLibraryState: LibraryState?
     var playableCount = 0
     var lastScanDate: Date?
+
+    /// 图片来源的三格计数。**与 `playableCount` 分开**：切来源时两边的数字不该互相覆盖，
+    /// 「切过去的一瞬间显示上一个来源的数字」比显示 0 更接近事实（见切换不清空数字的约定）。
+    var imageTotal = 0
+    var imagePassing = 0
+    var imageFiltered = 0
     /// 防重入：扫描期间三个入口一起置灰。
     var isScanning = false
     /// ffmpeg 可用性读数，`AppDelegate.refreshFFmpegAvailability` 的唯一回填点。

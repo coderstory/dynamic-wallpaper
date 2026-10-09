@@ -37,6 +37,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         presenting: WallpaperPresenter(controller: wallpaper),
         stopping: PlaybackStopper(player: player)
     )
+    /// 图片侧扫描内核。与 `library`（视频）并存且各自缓存 —— 切换来源不重扫对方的目录。
+    let imageLibrary = ImageLibrary()
+    /// 图片侧装载端：后台解码 → 主线程上屏，并写续播键。
+    private lazy var imageLoader = ImageWallpaperLoader(controller: wallpaper, store: store)
+    /// 图片侧路由器。**与 `router` 共用同一个 `rotation`**，间隔 / 模式 / 让路暂停两边因此完全一致。
+    /// 切来源时必须先停掉旧的再起新的 —— 两个装载端会争抢同一个 `onAdvance`。
+    lazy var imageRouter = ImagePlaybackRouter(rotation: rotation, loader: imageLoader)
     /// 设置窗的会话态读数（计数 / 空态 / 扫描时间）。不进 store —— 不是用户设过的偏好。
     let sessionState = SettingsSessionState()
     /// ffmpeg 判定的单一真相源：设置窗状态卡、维护行置灰态、徽章读的都是它。
@@ -155,6 +162,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         arbiter.attach(player)
         // 轮换接进「当场生效」的唯一落点（模式/间隔的改写从这里出去）。
         settingsApplier.attach(rotation: rotation)
+        // 换屏重建完成 → 重上图（见 reattachWallpaperAfterRebuild）。只在这里接一次。
+        wallpaper.onRebuilt = { [weak self] in self?.reattachWallpaperAfterRebuild() }
 
         // 任何让路（手动暂停 / 锁屏 / 全屏 / 睡眠 / 电池）都冻结轮换定时器：壁纸看不见时
         // 换片没有意义，倒计时也应静止。恢复按冻结的剩余时间续跑。
@@ -164,11 +173,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
             if playing {
                 rotation.resumeRotation()
             } else {
-                if let url = rotation.current?.url {
-                    self.store.lastPlayedPath = url.path
-                    self.store.lastPlayedPosition = self.player.arbiterCurrentPosition()
-                    self.store.persist()
-                }
+                self.recordCurrentForResume(position: self.player.arbiterCurrentPosition())
                 rotation.pauseRotation()
             }
         }
@@ -201,6 +206,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         wallpaper.rebuildForCurrentScreen(player: player.player)
     }
 
+    /// 换屏重建后的重上图。视频层重建时由 `attach(player:)` 自动接回同一个 player；
+    /// 图片层的新窗没有任何图（`imageLayer` 是 init 固定的隐藏 + 空图），必须在这里补：
+    /// 重新断言 kind，再把当前那张经现有装载端（后台解码 → 上屏 → 写键）重新贴上 ——
+    /// 不重扫、不重抽签，这是最轻的重上图路径。
+    private func reattachWallpaperAfterRebuild() {
+        wallpaper.setKind(store.wallpaperKind)
+        guard store.wallpaperKind == .image, let url = imageRouter.current else { return }
+        imageLoader.showImage(url: url)
+    }
+
     /// 最近一次已知的电源状态。设置窗的 toggle 要用它**当场**重估，不能等下一次电源跃迁。
     private var lastIsOnBattery = false
 
@@ -217,8 +232,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     }
 
     /// 设置窗「开机自启」toggle 的行为侧：拨动即刻落系统侧，状态由 `AutoStartManager` 打。
+    /// 失败不静默：具体原因已在 `AutoStartManager.routeB` 打过 stderr，这里再落一行
+    /// 让「开关拨了但没生效」在日志里有迹可循。不改 UI 契约（返回值被 UI 忽略）。
     func setLaunchAtLogin(_ enabled: Bool) {
-        autostart.setEnabled(enabled)
+        if enabled, !autostart.setEnabled(true) {
+            FileHandle.standardError.write(Data("Pic: 开机自启开启失败（原因见上一行）\n".utf8))
+        }
     }
 
     /// ffmpeg 判定的**唯一**写入口：启动查一次 + 每次点「打开…」重查。
@@ -332,6 +351,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     /// —— AppKit 只在 app 活跃时才把「点了面板外」递进来，面板会一直悬着（用户实测）。
     /// 全局监听只收别的 app 的事件，所以本 app 自己的窗口必须再补一条本地监听。
     private func installMenuDismissMonitors() {
+        // 幂等：关闭动画未完成时重开面板会再进这里 —— 先拆掉旧引用再装，
+        // 否则旧引用被覆盖后再也拆不掉（全局监听永久截事件）。
+        removeMenuMonitors()
         let panelWindow = { [weak self] in self?.menuPopover?.contentViewController?.view.window }
         let global = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             MainActor.assumeIsolated { self?.closeMenuPanelIfShown() }
@@ -383,7 +405,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
             nextVideo: { [weak self] in self?.nextVideoNow() },
             rescanFolder: { [weak self] in self?.rescanLibrary() },
             deleteCurrent: { [weak self] in self?.deleteCurrentWallpaperNow() },
-            requestFolder: { [weak self] in self?.requestFolderNow() }
+            requestFolder: { [weak self] in self?.requestFolderNow() },
+            switchSource: { [weak self] in
+                guard let self else { return }
+                self.switchWallpaperKind(to: self.store.wallpaperKind == .image ? .video : .image)
+            }
         )
         .environment(store)
         .environment(arbiter)
@@ -392,6 +418,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
 
     /// 面板上展示的快捷键必须是真的：⌘, 开设置、⌘Q 退出。监听只在面板打开期间活着。
     private func installMenuKeyMonitor() {
+        // 幂等：同 installMenuDismissMonitors —— 动画期重开时旧 monitor 还挂在属性上，
+        // 不先拆就覆盖，旧 popover 的 didClose 会把**新** monitor 一并清掉。
+        removeMenuMonitors()
         menuKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self,
                   event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
@@ -410,7 +439,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         }
     }
 
-    func popoverDidClose(_ notification: Notification) {
+    /// 拆面板期监听。安装（幂等前置）与 `popoverDidClose`（正常 teardown）共用同一份。
+    private func removeMenuMonitors() {
         if let menuKeyMonitor {
             NSEvent.removeMonitor(menuKeyMonitor)
             self.menuKeyMonitor = nil
@@ -419,6 +449,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
             NSEvent.removeMonitor(monitor)
         }
         menuDismissMonitors = []
+    }
+
+    func popoverDidClose(_ notification: Notification) {
+        // 竞态防护：close() 动画未完成时用户再点图标会建出**新** popover 并覆盖 menuPopover。
+        // 随后旧 popover 的 didClose 才回调 —— object 是旧的，此刻清状态会把新 monitor 与
+        // 新 popover 一并清掉（新面板点外面收不起来、旧 monitor 永久泄漏全局截 ⌘,/⌘Q）。
+        // 只清「object 就是当前面板」的那一次。
+        guard (notification.object as? NSPopover) === menuPopover else { return }
+        removeMenuMonitors()
         menuPopover = nil
         // 归还为面板借的激活。close() 动画完成才回调 —— 此刻设置窗可能已被行动作打开，
         // 它在台前时不能 deactivate（会把用户刚叫出来的窗又压下去）。
@@ -453,7 +492,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
             guard fit.height > 100 else { return }
             let maxH = (NSScreen.main?.visibleFrame.height ?? 900) - 60
             win.setContentSize(NSSize(
-                width: max(SettingsPresentation.windowMinWidth, min(fit.width, 900)),
+                // 新 shell 侧栏 216 + 内容区，理想宽超过旧 900 上限，钳制放宽到 1120。
+                width: max(SettingsPresentation.windowMinWidth, min(fit.width, 1120)),
                 height: max(320, min(fit.height, maxH))))
         }
     }
@@ -468,7 +508,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
             fpsViewModel: fpsTranscodeViewModel,
             refreshFFmpeg: { [weak self] in self?.refreshFFmpegAvailability() },
             rotation: rotation,
-            requestWindowFit: { [weak self] in self?.fitSettingsWindow() })
+            requestWindowFit: { [weak self] in self?.fitSettingsWindow() },
+            // 顶栏切壁纸来源：复用全仓唯一的切换落点，不另写一条切换路径。
+            switchSource: { [weak self] kind in self?.switchWallpaperKind(to: kind) },
+            // 当前图换铺法：不重解码不重扫，把新 fit 直接送渲染层。
+            applyImageFit: { [weak self] in self?.wallpaper.applyImageFit(self?.store.imageFit ?? .fill) },
+            // 分辨率档位改后重扫：ImageLibrary 缓存键含 minPixels，走既有重扫路径即可。
+            applyImageFilter: { [weak self] in Task { self?.rescanLibrary() } })
             .environment(store)
             .environment(arbiter)
             .environment(settingsApplier)
@@ -483,7 +529,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         // 替代 SettingsView.applyWindowChrome 的 0.5s 延时 hack：窗在自家手里，创建时直接设。
         win.isMovableByWindowBackground = true
         // 初始高度只是占位：showSettings 紧接着会 fitSettingsWindow 贴到内容真实高度。
-        win.setContentSize(NSSize(width: SettingsPresentation.windowWidth, height: 700))
+        win.setContentSize(NSSize(width: SettingsPresentation.windowWidth, height: 680))
+        // 液态玻璃开启时根背景是超薄材质，窗体必须透明才能透出桌面模糊；
+        // 关闭时根背景是不透明 pGround，观感不变。
+        win.isOpaque = false
+        win.backgroundColor = .clear
         win.contentMinSize = NSSize(width: SettingsPresentation.windowMinWidth, height: 320)
         win.delegate = self
         win.center()
@@ -549,12 +599,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        // 单循环续播：退出前把当前视频与进度落盘（正常退出是最后一个写点）。
-        if let url = rotation.current?.url {
-            store.lastPlayedPath = url.path
-            store.lastPlayedPosition = player.arbiterCurrentPosition()
-            store.persist()
-        }
+        // 单循环续播：退出前把当前条目落盘（正常退出是最后一个写点）。
+        recordCurrentForResume(position: player.arbiterCurrentPosition())
         // 与 wiring() 里的四个 start() 加一条订阅严格配对
         lockWatcher.stop()
         fullscreenDetector.stop()
@@ -574,13 +620,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     /// 异步化 + 走 `MediaLibrary.scan` + `router.start`。装载分派由 router 内部的 `onAdvance`
     /// 完成（内部装载 `items[0]` 并重放仲裁决策）。
     private func startWallpaper() async {
-        guard let folder = store.resolvedFolderURL() else { return }
-        // 存在性检查归 `MediaLibrary.scan`（folderMissing），本守卫只判「扫完有没有可播条目」。
-        guard let report = try? await library.scan(folder: folder), !report.items.isEmpty else { return }
-
+        // 两种来源共用同一扇窗（视频层与图片层都在树上），翻哪一层由 `setKind` 决定。
         // 传的是 AVQueuePlayer 实例本身，不是 AVPlayerItem —— looper 的模板 item 属性在 init
         // 时就冻结，挂在 item 上「改设置立即生效」是假的。
         wallpaper.attach(player: player.player)
+        wallpaper.setKind(store.wallpaperKind)
+
+        if store.wallpaperKind == .image {
+            // 图片模式：装载由 `dispatchImages` 完成（`rescanAndApply()` 已经起过一轮）。
+            // 这里只把起/停决策交给仲裁器 —— 它管的是轮换定时器，与播放器无关；
+            // 没有视频可播时 `setRate` 对图片没有意义，还会让空播放器空转。
+            arbiter.applyCurrentDecision()
+            if !arbiter.decision.shouldPlay { rotation.pauseRotation() }
+            return
+        }
+
+        guard let folder = store.resolvedFolderURL(for: .video) else { return }
+        // 存在性检查归 `MediaLibrary.scan`（folderMissing），本守卫只判「扫完有没有可播条目」。
+        guard let report = try? await library.scan(folder: folder), !report.items.isEmpty else { return }
+
         // 启动路径上 `rescanAndApply()` 已经通过 `dispatchPlayback` 起过一轮了，
         // 这里再 start 一次会把首条重新装载一遍 —— 随机模式下还会重新抽签，观感是开场闪一下。
         if !router.isStarted {
@@ -627,7 +685,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     /// 取消不是错误：安静返回 false —— 不弹错误窗、不崩、不重试。
     private func requestFolderIfNeeded() async -> Bool {
         let env = ProcessInfo.processInfo.environment[SettingsStore.envSourceFolderKey]
-        guard FolderRequestPolicy.shouldRequestFolder(sourceFolder: store.sourceFolder,
+        // 按**当前来源**的目录判：拿视频目录去判图片来源会得出「已配置」的假结论，
+        // 首启于图片模式时因此永远不弹框。
+        let currentPath = store.wallpaperKind == .image ? store.imageFolderPath : store.sourceFolder
+        guard FolderRequestPolicy.shouldRequestFolder(sourceFolder: currentPath,
                                                        envOverride: env) else {
             return true
         }
@@ -652,7 +713,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         hideSettingsAndRestorePolicy()
         guard let url else { return .cancelled }
         guard FolderRequestPolicy.isAcceptableSelection(url) else { return .rejected }
-        store.sourceFolder = FolderRequestPolicy.normalizedPath(url)
+        // 写进**当前来源**的那一个键：两个目录并存，写错一个等于配了个看不见的目录。
+        let path = FolderRequestPolicy.normalizedPath(url)
+        if store.wallpaperKind == .image {
+            store.imageFolderPath = path
+        } else {
+            store.sourceFolder = path
+        }
         store.persist()
         return .accepted
     }
@@ -664,9 +731,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
             if await pickFolder() == .accepted {
                 // 换目录后必须失效缓存再重扫。`scan` 的缓存现在按目录判等（换目录自然失效），
                 // 这里显式失效是纵深：让「切换目录」与「重新扫描」走同一条语义，不依赖缓存判等这一个闸。
-                library.invalidateCache()
+                if store.wallpaperKind == .image { imageLibrary.invalidateCache() } else { library.invalidateCache() }
                 await rescanAndApply()
             }
+        }
+    }
+
+    /// 切壁纸来源（视频 ⇄ 图片）—— **唯一的切换落点**。
+    ///
+    /// 顺序不可换：① 先停旧的装载端（不能让它在新的渲染层上继续回调）→ ② 翻渲染层 →
+    /// ③ 失效缓存 → ④ 重扫。③④ 的顺序是跨文件不变量（`invalidateCache()` 必须排在重扫之前）。
+    ///
+    /// 图片目录没配时不回退到视频：用户是显式切过来的，静默弹回去会被读成「切换没生效」，
+    /// 停在空态并给「改用视频壁纸」的兜底才是可解释的。
+    func switchWallpaperKind(to kind: WallpaperKind) {
+        guard kind != store.wallpaperKind else { return }
+        let previous = store.wallpaperKind
+        store.wallpaperKind = kind
+        store.persist()
+
+        if previous == .video {
+            router.stop()
+            player.stop()
+        } else {
+            imageRouter.stop()
+            // 停旧装载端必须同时作废在途解码：不 invalidate 的话，切走后慢解码返回
+            // 仍会把旧图送上屏、把过期 URL 写进 lastImagePath。
+            imageLoader.invalidate()
+            wallpaper.showImage(nil, fit: store.imageFit)
+        }
+        wallpaper.setKind(kind)
+
+        Task {
+            if kind == .image { imageLibrary.invalidateCache() } else { library.invalidateCache() }
+            await rescanAndApply()
         }
     }
 
@@ -675,13 +773,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     private func rescanAndApply() async {
         sessionState.isScanning = true
         defer { sessionState.isScanning = false }
-        guard let folder = store.resolvedFolderURL() else {
+        // 模式与间隔从设置带过来（当场生效，不存第二份真相）—— 两种来源共用同一个轮换器。
+        rotation.mode = store.playMode
+        rotation.setInterval(store.rotationInterval)
+        if store.wallpaperKind == .image {
+            await rescanImagesAndApply()
+            return
+        }
+        guard let folder = store.resolvedFolderURL(for: .video) else {
             await applyAndDispatch(scanOutcome: .success(0), folderConfigured: false, report: nil)
             return
         }
-        // 模式与间隔从设置带过来（当场生效，不存第二份真相）。
-        rotation.mode = store.playMode
-        rotation.setInterval(store.rotationInterval)
         do {
             let report = try await library.scan(folder: folder)
             sessionState.playableCount = report.playableCount
@@ -694,6 +796,64 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
             await applyAndDispatch(scanOutcome: .failure(.folderUnreadable),
                                    folderConfigured: true, report: nil)
         }
+    }
+
+    /// 图片来源的「扫描 → 分派」。与视频侧**结构对称**，判定与产物都不同：
+    /// 口径是总像素量、没有转码 / 降帧、也没有 `Converted/` 产物要合并。
+    private func rescanImagesAndApply() async {
+        guard let folder = store.resolvedFolderURL(for: .image) else {
+            await applyImages(scanOutcome: .success(0), folderConfigured: false, urls: [])
+            return
+        }
+        do {
+            let report = try await imageLibrary.scan(folder: folder, minPixels: store.imageMinPixels)
+            sessionState.imageTotal = report.total
+            sessionState.imagePassing = report.passing
+            sessionState.imageFiltered = report.filteredOut
+            await applyImages(scanOutcome: .success(report.passing), folderConfigured: true,
+                              urls: report.items.map(\.url))
+        } catch let error as MediaLibrary.MediaLibraryError {
+            await applyImages(scanOutcome: .failure(error), folderConfigured: true, urls: [])
+        } catch {
+            // scan 只抛 MediaLibraryError，这里是编译器要的兜底。
+            await applyImages(scanOutcome: .failure(.folderUnreadable), folderConfigured: true, urls: [])
+        }
+    }
+
+    private func applyImages(scanOutcome: Result<Int, MediaLibrary.MediaLibraryError>,
+                             folderConfigured: Bool, urls: [URL]) async {
+        let state = coordinator.apply(scanOutcome: scanOutcome, folderConfigured: folderConfigured)
+        await dispatchImages(for: state, urls: urls)
+        updateFolderWatch(for: state)
+    }
+
+    /// 图片侧装载分派。与 `dispatchPlayback` 同款契约：`.playing` 走 `refresh` 而不是 `start`
+    /// —— 每次 `start` 都会把轮换索引打回第一张。
+    private func dispatchImages(for state: LibraryState, urls: [URL]) async {
+        switch state {
+        case .playing:
+            // 幂等：启动就是图片模式时也靠这一句把渲染层翻过来。
+            wallpaper.setKind(.image)
+            if !imageRouter.isStarted, let resume = imageResumeTarget(in: urls) {
+                imageRouter.start(with: urls, resumingAt: resume)
+            } else {
+                imageRouter.refresh(with: urls)
+            }
+        case .folderUnconfigured, .folderMissing, .noPlayableVideos:
+            imageRouter.stop()
+            // 同 switchWallpaperKind：停装载端就要作废在途解码，防止停用后旧图后到上屏。
+            imageLoader.invalidate()
+            // 清屏而不是留着上一张：留着会让「没有可用图片」看起来像「壁纸卡住了」。
+            wallpaper.showImage(nil, fit: store.imageFit)
+        }
+    }
+
+    /// 图片的单张续播目标：上次显示的那张仍在清单里 → 它的 URL；不在（被删 / 换目录）→ nil。
+    /// **必须与视频的 `loopSingleResumeTarget` 分开**：拿 `lastPlayedPath`（视频路径）去匹配
+    /// 图片清单永远匹配不到，结果是每次启动都从第一张开始 —— 不崩，但没法解释。
+    private func imageResumeTarget(in urls: [URL]) -> URL? {
+        guard store.playMode == .loopSingle, !store.lastImagePath.isEmpty else { return nil }
+        return urls.first { $0.path == store.lastImagePath }
     }
 
     /// `apply` → 分派 → 看护。三件事必须捆在一起：分开写时，总会有一条分支漏掉看护 ——
@@ -719,7 +879,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
             onReturned: { [weak self] in
                 guard let self else { return }
                 // 与「重新扫描」同一条语义：先失效缓存再重扫，否则拿回的是缺失态那一轮的 report。
-                self.library.invalidateCache()
+                self.invalidateActiveLibraryCache()
                 Task { await self.rescanAndApply() }
             })
     }
@@ -765,6 +925,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         store.persist()
     }
 
+    /// 让路 / 退出的续播写点。**按来源分派**：图片拿 `lastPlayedPath`（视频路径）去匹配
+    /// 图片清单永远匹配不到，结果是每次启动都从第一张重新开始 —— 不崩，但没法解释。
+    private func recordCurrentForResume(position: TimeInterval) {
+        guard let url = rotation.current else { return }
+        if store.wallpaperKind == .image {
+            store.lastImagePath = url.path
+        } else {
+            store.lastPlayedPath = url.path
+            store.lastPlayedPosition = position
+        }
+        store.persist()
+    }
+
     /// 「立即下一个」的行为侧：只叫轮换器，不碰 player、不碰 arbiter —— 换片由
     /// onAdvance → 装载完成（菜单动作不得绕过仲裁器把已 hold 的播放器重新拉起）。
     func nextVideoNow() {
@@ -797,7 +970,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         try? table.reconcileWithDerivatives()
 
         // ⑤ 必须失效缓存 —— 否则清单里那条路径已不存在，下次轮换会装载失败。
-        library.invalidateCache()
+        invalidateActiveLibraryCache()
         Task { await rescanAndApply() }
     }
 
@@ -820,10 +993,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         return alert.runModal() == .alertFirstButtonReturn
     }
 
+    /// 按当前来源分派扫描缓存失效。**不能只失效视频库**：图片库（`ImageLibrary`）的缓存键
+    /// 只含目录 + minPixels —— 文件的增删不换键，不失效就吃旧缓存，「删除当前壁纸 /
+    /// 重新扫描」在图片模式下会看似点了没反应。`requestFolderNow` 已是正确写法，三处统一走这里。
+    private func invalidateActiveLibraryCache() {
+        if store.wallpaperKind == .image {
+            imageLibrary.invalidateCache()
+        } else {
+            library.invalidateCache()
+        }
+    }
+
     /// 「重新扫描」的唯一落点（菜单与设置窗共用）：显式失效缓存再重扫 ——
     /// 不失效的话菜单项会看起来「点了没反应」。
     func rescanLibrary() {
-        library.invalidateCache()
+        invalidateActiveLibraryCache()
         Task { await rescanAndApply() }
     }
 }
@@ -839,6 +1023,54 @@ private final class WallpaperPresenter: WallpaperPresenting {
 
     func show() { controller.show() }
     func hide() { controller.hide() }
+}
+
+/// 图片侧的装载端：后台解码 → 主线程上屏 → 写续播键。
+///
+/// **解码必须离开主线程**：一张 4K HEIC 的解码足以卡一帧，而换图是定时触发的，
+/// 卡帧会被读成「换壁纸时整个系统顿一下」。
+@MainActor
+private final class ImageWallpaperLoader: ImageLoading {
+
+    private let controller: WallpaperWindowController
+    private let store: SettingsStore
+    /// 装载代次。`showImage` 每次自增并给在途任务捕获快照，`present` 前比对 ——
+    /// 后台解码的完成顺序不保证与发起顺序一致，快速换图时慢解码后到会覆盖新图、
+    /// 还把过期的 URL 写进 `lastImagePath`（下次启动续播到一张早已不在屏上的图）。
+    /// 切来源 / 停用（`invalidate()`）后，在途任务同样不许落屏、不许写键。
+    private var generation = 0
+
+    init(controller: WallpaperWindowController, store: SettingsStore) {
+        self.controller = controller
+        self.store = store
+    }
+
+    func showImage(url: URL) {
+        // `fit` 在主线程读一次再带进任务：`store` 是 @MainActor 隔离的，后台里读它就是跨隔离访问。
+        let fit = store.imageFit
+        generation += 1
+        let issuedGeneration = generation
+        Task { [weak self] in
+            let image = await ImageDecoder.decodeInBackground(url)
+            self?.present(image, fit: fit, url: url, generation: issuedGeneration)
+        }
+    }
+
+    /// 作废所有在途解码任务（切来源 / 停用时由 AppDelegate 调）。
+    func invalidate() {
+        generation += 1
+    }
+
+    /// 上屏 + 写续播键。代次不一致（已被更新的一次装载 / invalidate 作废）即丢弃：
+    /// 不上屏、不写键。解码失败（nil）时也**不写**键：写了等于把一张打不开的图钉成
+    /// 「下次启动接着显示它」，下一次还是黑屏。
+    private func present(_ image: CGImage?, fit: ImageFit, url: URL, generation issuedGeneration: Int) {
+        guard issuedGeneration == self.generation else { return }
+        controller.showImage(image, fit: fit)
+        guard image != nil else { return }
+        store.lastImagePath = url.path
+        store.persist()
+    }
 }
 
 /// `PlaybackStopping` 的极薄适配。

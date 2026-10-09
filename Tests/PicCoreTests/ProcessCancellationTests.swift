@@ -7,6 +7,19 @@ final class ProcessCancellationTests: XCTestCase {
 
     private var root: URL!
 
+    /// 轮询等进程真 spawn（10ms 步进、5s 超时）—— 固定 sleep 在慢机上 flaky：
+    /// 太短打在 spawn 之前，太长白拖测试。超时直接 fail，不让 cancel 落空后静默绿。
+    private func waitForRunning(_ runner: ProcessTranscodeRunner) async throws {
+        let deadline = ContinuousClock.now + .seconds(5)
+        while !runner.isRunning {
+            guard ContinuousClock.now < deadline else {
+                XCTFail("5s 内进程仍未 spawn（isRunning 一直为 false），cancel 无法打在运行态")
+                return
+            }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+    }
+
     override func setUp() async throws {
         try await super.setUp()
         root = FileManager.default.temporaryDirectory
@@ -41,7 +54,7 @@ final class ProcessCancellationTests: XCTestCase {
                 onProgressLine: { _ in })
         }
         // 必须先等进程真起来再 cancel，否则可能打在 spawn 之前。
-        try await Task.sleep(nanoseconds: 300_000_000)
+        try await waitForRunning(runner)
         runner.cancel()
 
         let status = await task.value
@@ -57,7 +70,7 @@ final class ProcessCancellationTests: XCTestCase {
                 outputTemporaryPath: root.appendingPathComponent("c.tmp").path,
                 onProgressLine: { _ in })
         }
-        try await Task.sleep(nanoseconds: 300_000_000)
+        try await waitForRunning(runner)
         runner.cancel()
         _ = await first.value
 

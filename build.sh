@@ -4,8 +4,9 @@ cd "$(dirname "$0")"
 
 APP_NAME="Pic"
 BUNDLE_ID="com.local.pic"
-VERSION="0.1.0"
-MIN_MACOS="15.0"
+# 版本唯一来源 = 构建注入（CI/release 侧可 export PIC_VERSION 覆盖）；Info.plist 里
+# 写死的 0.1.0 只是开发期缺省，assemble_app 会用这里的 VERSION 覆写 bundle。
+VERSION="${PIC_VERSION:-0.1.0}"
 OUT="build"
 DIST="dist"
 
@@ -24,6 +25,10 @@ assemble_app() {
   cp "$OUT/$1" "$app/Contents/MacOS/$APP_NAME"
   # Info.plist 的唯一真相源是 Sources/PicApp/Resources/Info.plist，刻意不再内联一份 heredoc —— 两份手写同一份 plist 必然漂移。
   cp "Sources/PicApp/Resources/Info.plist" "$app/Contents/Info.plist"
+  # 版本唯一来源 = 构建注入（见文件头 VERSION）：Info.plist 里的 0.1.0 只是开发期缺省，
+  # 拷进 bundle 后必须被覆写。CFBundleShortVersionString 与 CFBundleVersion 同步成同一值，避免两处不一致。
+  plutil -replace CFBundleShortVersionString -string "$VERSION" "$app/Contents/Info.plist"
+  plutil -replace CFBundleVersion        -string "$VERSION" "$app/Contents/Info.plist"
   # 菜单栏只拷 menubar-v1 的 Template 三档。
   cp "$OUT/Pic.icns" "$app/Contents/Resources/Pic.icns"
   cp "$ASSETS/menubar-v1.png"     "$app/Contents/Resources/menubar-v1Template.png"

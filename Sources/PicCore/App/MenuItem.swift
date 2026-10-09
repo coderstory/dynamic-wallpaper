@@ -6,6 +6,8 @@ public enum MenuItemID: String, CaseIterable {
     case pauseResume
     case nextVideo
     case rescanFolder
+    /// 切壁纸来源（视频 ⇄ 图片）。文案随当前来源变，所以**只有一项**而不是两项常驻。
+    case switchSource
     // 删除当前正在播放的壁纸文件（移到废纸篓）。
     case deleteCurrent
     case openSettings
@@ -14,7 +16,7 @@ public enum MenuItemID: String, CaseIterable {
 
 /// 菜单文案的唯一来源。
 public struct MenuBarModel {
-    public static func label(for id: MenuItemID, isPaused: Bool) -> String {
+    public static func label(for id: MenuItemID, isPaused: Bool, kind: WallpaperKind) -> String {
         switch id {
         case .pauseResume: return isPaused ? "继续" : "暂停"
         case .nextVideo: return "立即下一个"
@@ -22,6 +24,9 @@ public struct MenuBarModel {
         // 删的是「当前正在播的那个」，语义由动作本身说清。
         case .deleteCurrent: return "把当前壁纸移到废纸篓…"
         case .rescanFolder: return "重新扫描文件夹"
+        // 说「改成什么」而不是「切换来源」：菜单里看不出当前是哪一个，
+        // 写「切换壁纸来源」等于让用户先去设置窗确认现状再回来点。
+        case .switchSource: return kind == .image ? "改用视频壁纸" : "改用图片壁纸"
         case .openSettings: return "打开设置"
         case .quit: return "退出"
         }
@@ -33,6 +38,7 @@ public struct MenuBarModel {
                                quit: () -> Void,
                                nextVideo: () -> Void = {},
                                rescanFolder: () -> Void = {},
+                               switchSource: () -> Void = {},
                                deleteCurrent: () -> Void = {}) {
         switch id {
         case .pauseResume:
@@ -46,6 +52,10 @@ public struct MenuBarModel {
             deleteCurrent()
         case .rescanFolder:
             rescanFolder()
+        case .switchSource:
+            // 整条切换链（停旧的 → 翻层 → 失效缓存 → 重扫）在 AppDelegate 里，
+            // 菜单只转交意图 —— 与 deleteCurrent 同一分工。
+            switchSource()
         case .openSettings:
             break
         case .quit:

@@ -26,17 +26,17 @@ final class MenuBarModelTests: XCTestCase {
 
     func testLabelsHaveExactlySixEntriesInEveryState() {
         for isPaused in [false, true] {
-            let labels = MenuItemID.allCases.map { MenuBarModel.label(for: $0, isPaused: isPaused) }
+            let labels = MenuItemID.allCases.map { MenuBarModel.label(for: $0, isPaused: isPaused, kind: .video) }
             XCTAssertEqual(labels.count, MenuItemID.allCases.count,
                            "菜单项数量必须恒等于 MenuItemID.allCases")
-            XCTAssertEqual(labels.count, 6, "共六项菜单（Phase 2 三项 + Phase 4 两项 + 删除当前壁纸）")
-            XCTAssertEqual(Set(labels).count, labels.count, "六项文案不得重复")
+            XCTAssertEqual(labels.count, 7, "共七项菜单（六项 + 切换壁纸来源）")
+            XCTAssertEqual(Set(labels).count, labels.count, "七项文案不得重复")
         }
     }
 
     func testDeleteCurrentLabelNeverNamesAFile() {
         for isPaused in [false, true] {
-            let label = MenuBarModel.label(for: .deleteCurrent, isPaused: isPaused)
+            let label = MenuBarModel.label(for: .deleteCurrent, isPaused: isPaused, kind: .video)
             XCTAssertFalse(label.contains(Self.sentinelFilename), "删除项文案泄露了文件名：\(label)")
             XCTAssertFalse(label.lowercased().contains(".mp4"), "删除项文案泄露了扩展名：\(label)")
             XCTAssertFalse(label.contains(Self.fakeFolder), "删除项文案泄露了目录：\(label)")
@@ -45,7 +45,7 @@ final class MenuBarModelTests: XCTestCase {
 
     func testLabelsNeverContainAnyMediaFileName() {
         for isPaused in [false, true] {
-            let labels = MenuItemID.allCases.map { MenuBarModel.label(for: $0, isPaused: isPaused) }
+            let labels = MenuItemID.allCases.map { MenuBarModel.label(for: $0, isPaused: isPaused, kind: .video) }
             let blob = labels.joined(separator: "|")
 
             XCTAssertFalse(blob.contains(Self.sentinelFilename),
@@ -60,8 +60,8 @@ final class MenuBarModelTests: XCTestCase {
     }
 
     func testPauseResumeLabelIsExactlyTwoStringsWithoutFileNameParts() {
-        let playing = MenuBarModel.label(for: .pauseResume, isPaused: false)
-        let paused = MenuBarModel.label(for: .pauseResume, isPaused: true)
+        let playing = MenuBarModel.label(for: .pauseResume, isPaused: false, kind: .video)
+        let paused = MenuBarModel.label(for: .pauseResume, isPaused: true, kind: .video)
 
         XCTAssertNotEqual(playing, paused, "暂停/继续必须是两个不同的文案")
         for label in [playing, paused] {
@@ -116,13 +116,13 @@ final class MenuBarModelTests: XCTestCase {
 
     func testNextVideoAndRescanLabelsAreDistinctAndPathless() {
         for isPaused in [false, true] {
-            XCTAssertEqual(MenuBarModel.label(for: .nextVideo, isPaused: isPaused),
+            XCTAssertEqual(MenuBarModel.label(for: .nextVideo, isPaused: isPaused, kind: .video),
                            "立即下一个", "「立即下一个」文案逐字冻结（Phase 5 的 UI-SPEC 引用它）")
-            XCTAssertEqual(MenuBarModel.label(for: .rescanFolder, isPaused: isPaused),
+            XCTAssertEqual(MenuBarModel.label(for: .rescanFolder, isPaused: isPaused, kind: .video),
                            "重新扫描文件夹", "「重新扫描文件夹」文案逐字冻结（Phase 5 的 UI-SPEC 引用它）")
         }
-        let next = MenuBarModel.label(for: .nextVideo, isPaused: false)
-        let rescan = MenuBarModel.label(for: .rescanFolder, isPaused: false)
+        let next = MenuBarModel.label(for: .nextVideo, isPaused: false, kind: .video)
+        let rescan = MenuBarModel.label(for: .rescanFolder, isPaused: false, kind: .video)
         XCTAssertNotEqual(next, rescan, "两条新文案必须不同")
         for label in [next, rescan] {
             XCTAssertFalse(label.contains(".mp4"), "菜单文案里出现了媒体扩展名：\(label)")
@@ -163,11 +163,31 @@ final class MenuBarModelTests: XCTestCase {
         XCTAssertEqual(target.applies.count, 0, "重新扫描文件夹不得把决策推给播放端")
     }
 
-    func testMenuItemIDsAreExactlyTheSixFixedItems() {
+    func testMenuItemIDsAreExactlyTheSevenFixedItems() {
         XCTAssertEqual(MenuItemID.allCases,
-                       [.pauseResume, .nextVideo, .rescanFolder, .deleteCurrent, .openSettings, .quit],
-                       "六项菜单，顺序冻结 = 原型 D 面板行序：无副作用操作 → 维护 → 不可逆 → 系统；"
+                       [.pauseResume, .nextVideo, .rescanFolder, .switchSource,
+                        .deleteCurrent, .openSettings, .quit],
+                       "七项菜单，顺序冻结 = 原型 D 面板行序：无副作用操作 → 维护 → 不可逆 → 系统；"
                        + "新增项插在 openSettings 之前、quit 保持最后（面板分隔线位置依赖它）")
+    }
+
+    /// 来源项的文案必须随当前来源变：写死成「切换壁纸来源」等于让用户先去设置窗确认现状。
+    func testSwitchSourceLabelNamesTheOtherSide() {
+        XCTAssertEqual(MenuBarModel.label(for: .switchSource, isPaused: false, kind: .video),
+                       "改用图片壁纸")
+        XCTAssertEqual(MenuBarModel.label(for: .switchSource, isPaused: false, kind: .image),
+                       "改用视频壁纸")
+    }
+
+    /// 切换只走注入的闭包 —— 与 deleteCurrent 同款分工：菜单不得自己实现切换链。
+    func testPerformSwitchSourceGoesOnlyThroughInjectedClosure() {
+        let target = SpyTarget()
+        let arbiter = HoldArbiter(target: target)
+        var calls = 0
+        MenuBarModel.perform(.switchSource, isPaused: false, arbiter: arbiter,
+                             quit: {}, switchSource: { calls += 1 })
+        XCTAssertEqual(calls, 1, "切换来源必须调注入的闭包，且只调一次")
+        XCTAssertEqual(target.applies.count, 0, "菜单不得直接把决策推给播放端")
     }
 
     func testDeleteCurrentGoesOnlyThroughInjectedClosure() {

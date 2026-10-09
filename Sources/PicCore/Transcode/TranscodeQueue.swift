@@ -175,6 +175,11 @@ public final class TranscodeQueue {
 
     public var isPaused: Bool { controlLock.withLock { _pauseRequested } }
 
+    /// 重入闸（与 `FpsTranscodeQueue.run()` 同款）：run() 只允许一轮在跑。
+    /// 类是 `@MainActor`，裸属性即可 —— 并发调用本就串行化在主 actor 上，防的是
+    /// 「上一轮还在 await runner 时又起一轮」的交错 drain，不需要锁。
+    private var isRunning = false
+
     private func shouldStop() -> Bool {
         controlLock.withLock { _pauseRequested || _cancelRequested }
     }
@@ -190,6 +195,10 @@ public final class TranscodeQueue {
     }
 
     public func run() async {
+        guard !isRunning else { return }
+        isRunning = true
+        defer { isRunning = false }
+
         var didWork = false
         for index in jobs.indices {
             guard case .pending = jobs[index].state else { continue }

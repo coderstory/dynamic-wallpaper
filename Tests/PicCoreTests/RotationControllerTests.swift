@@ -53,10 +53,10 @@ final class RotationControllerTests: XCTestCase {
     }
 
     /// 三条视频。文件名随便造：`VideoItem` 只吃 `URL`，不碰磁盘。
-    private static let threeItems: [VideoItem] = [
-        VideoItem(url: URL(fileURLWithPath: "/tmp/pic-0402-fixture/v0.mp4")),
-        VideoItem(url: URL(fileURLWithPath: "/tmp/pic-0402-fixture/v1.mp4")),
-        VideoItem(url: URL(fileURLWithPath: "/tmp/pic-0402-fixture/v2.mp4")),
+    private static let threeItems: [URL] = [
+        URL(fileURLWithPath: "/tmp/pic-0402-fixture/v0.mp4"),
+        URL(fileURLWithPath: "/tmp/pic-0402-fixture/v1.mp4"),
+        URL(fileURLWithPath: "/tmp/pic-0402-fixture/v2.mp4"),
     ]
 
     private func makeController(random: any RandomSource) -> (RotationController, ManualScheduler) {
@@ -86,7 +86,7 @@ final class RotationControllerTests: XCTestCase {
         controller.setItems(Self.threeItems)
         controller.mode = .loopSingle
         var loaded: [String] = []
-        controller.onAdvance = { loaded.append($0.url.path) }
+        controller.onAdvance = { loaded.append($0.path) }
         controller.start()
 
         // start 装载首条一次；之后到点解析出的下标恒等于当前下标（=0），
@@ -94,7 +94,7 @@ final class RotationControllerTests: XCTestCase {
         // 重建 item + looper、播放头归零，等于「每到一个间隔从头重播一次」。
         for _ in 0..<3 { scheduler.fire() }
 
-        XCTAssertEqual(loaded, [Self.threeItems[0].url.path],
+        XCTAssertEqual(loaded, [Self.threeItems[0].path],
                        "单循环到点只应装载一次（start 那次）；重载即播放头归零")
         XCTAssertEqual(controller.advances.map(\.index), [0, 0, 0],
                        "切换打点照旧落在同一条 —— 只砍装载，不动索引语义")
@@ -121,11 +121,11 @@ final class RotationControllerTests: XCTestCase {
             let (controller, _) = makeController(random: SeededRandomSource(seed: UInt64(seed)))
             controller.setItems(Self.threeItems)
             controller.mode = .shuffle
-            var played: [VideoItem] = []
+            var played: [URL] = []
             controller.onAdvance = { played.append($0) }
             controller.start()
             XCTAssertEqual(played.count, 1, "start() 必须交出首条")
-            firstItems.insert(played[0].url.path)
+            firstItems.insert(played[0].path)
         }
         XCTAssertGreaterThan(firstItems.count, 1,
                              "随机模式的首条不得恒定 —— 恒为 items[0] 就是「每次开 app 第一张壁纸都一样」")
@@ -138,7 +138,7 @@ final class RotationControllerTests: XCTestCase {
         let (controller, _) = makeController(random: CountingRandomSource())
         controller.setItems(Self.threeItems)
         controller.mode = .shuffle
-        var played: [VideoItem] = []
+        var played: [URL] = []
         controller.onAdvance = { played.append($0) }
         controller.start()
         controller.advanceNow()
@@ -155,7 +155,7 @@ final class RotationControllerTests: XCTestCase {
         controller.mode = .shuffle
         // 一轮的边界从**首条**起算：`start()` 交出的那一条是这一轮的第一条，
         // 只是不计进 `advances`。只统计 advances 会把首条漏在读数的外面。
-        var played: [VideoItem] = []
+        var played: [URL] = []
         controller.onAdvance = { played.append($0) }
         controller.start()
 
@@ -244,21 +244,22 @@ final class RotationControllerTests: XCTestCase {
         controller.mode = .loopList
         controller.start()
 
-        // 停在 1：从 1 出发时列表循环给 2、单循环给 0，这是「切换生效」的判别点
+        // 停在 1：从 1 出发时列表循环给 2、单循环原地不动，这是「切换生效」的判别点
         controller.advanceNow()
         XCTAssertEqual(controller.currentIndex, 1)
 
-        // 用 fire() 而非 advanceNow()：advanceNow 是用户路径，锁定的语义只约束到点那一路
+        // 用 fire() 而非 advanceNow()：advanceNow 是用户路径，锁定的语义只约束到点那一路。
+        // 到点锁定 = 原地续播（下标不变、不重新装载），不是「跳回第 0 条」。
         controller.mode = .loopSingle
         scheduler.fire()
-        XCTAssertEqual(controller.currentIndex, 0,
-                       "从 1 出发，单循环必须回到 0 —— 列表循环会给 2，被这条区分")
+        XCTAssertEqual(controller.currentIndex, 1,
+                       "从 1 出发，单循环到点必须原地不动 —— 列表循环会给 2，被这条区分")
 
         controller.mode = .loopList
         controller.advanceNow()
         controller.advanceNow()
-        XCTAssertEqual(controller.currentIndex, 2)
-        XCTAssertEqual(controller.advances.map(\.index), [1, 0, 1, 2])
+        XCTAssertEqual(controller.currentIndex, 0)
+        XCTAssertEqual(controller.advances.map(\.index), [1, 1, 2, 0])
 
         let scheduleCountBeforeIntervalChange = scheduler.scheduleCount
         controller.setInterval(30)
@@ -428,11 +429,11 @@ final class RotationControllerTests: XCTestCase {
         controller.mode = .loopSingle
 
         var loaded: [URL] = []
-        controller.onAdvance = { loaded.append($0.url) }
-        controller.start(resumingAt: Self.threeItems[2].url)
+        controller.onAdvance = { loaded.append($0) }
+        controller.start(resumingAt: Self.threeItems[2])
 
         XCTAssertEqual(controller.currentIndex, 2)
-        XCTAssertEqual(loaded, [Self.threeItems[2].url], "首条装载必须是定点的那条")
+        XCTAssertEqual(loaded, [Self.threeItems[2]], "首条装载必须是定点的那条")
         XCTAssertNotNil(scheduler.pending, "定点启动同样要排下一程")
     }
 
@@ -443,11 +444,11 @@ final class RotationControllerTests: XCTestCase {
         controller.mode = .loopSingle
 
         var loaded: [URL] = []
-        controller.onAdvance = { loaded.append($0.url) }
+        controller.onAdvance = { loaded.append($0) }
         controller.start(resumingAt: URL(fileURLWithPath: "/tmp/pic-0402-fixture/gone.mp4"))
 
         XCTAssertEqual(controller.currentIndex, 0)
-        XCTAssertEqual(loaded, [Self.threeItems[0].url], "回退 = 普通 start 的首条")
+        XCTAssertEqual(loaded, [Self.threeItems[0]], "回退 = 普通 start 的首条")
         XCTAssertNotNil(scheduler.pending)
     }
 
@@ -458,9 +459,49 @@ final class RotationControllerTests: XCTestCase {
 
         var fired = false
         controller.onAdvance = { _ in fired = true }
-        controller.start(resumingAt: Self.threeItems[0].url)
+        controller.start(resumingAt: Self.threeItems[0])
 
         XCTAssertFalse(fired)
         XCTAssertNil(scheduler.pending)
+    }
+
+    /// 这条在防：loopSingle + 续播（下标 ≠ 0）后，到点被写死成 items[0]，
+    /// 播一个间隔就跳回清单第一条并从此钉死。锁定 = 原地续播，下标不变、不重新装载。
+    func testLoopSingleRotationElapsedHoldsResumedIndex() {
+        let (controller, scheduler) = makeController(random: SeededRandomSource(seed: 42))
+        controller.setItems(Self.threeItems)
+        controller.mode = .loopSingle
+
+        var loaded: [URL] = []
+        controller.onAdvance = { loaded.append($0) }
+        controller.start(resumingAt: Self.threeItems[2])
+
+        scheduler.fire()
+
+        XCTAssertEqual(controller.current, Self.threeItems[2],
+                       "从第 3 条续播，到点必须仍是同一条 —— 写死 items[0] 的实现被这条抓住")
+        XCTAssertEqual(loaded, [Self.threeItems[2]],
+                       "start 已装载过，到点不重新装载（重载即播放头归零）")
+        XCTAssertEqual(controller.advances.last?.index, 2,
+                       "打点落在续播那条上，而不是第 0 条")
+    }
+
+    /// 这条在防：锁定语义被矫枉过正成「loopSingle 下到点、用户点都不换」——
+    /// 「立即下一个」必须照旧按列表前进并重新装载，锁定只约束轮换到点那一路。
+    func testLoopSingleUserRequestedStillAdvancesAndReloads() {
+        let (controller, _) = makeController(random: SeededRandomSource(seed: 42))
+        controller.setItems(Self.threeItems)
+        controller.mode = .loopSingle
+        controller.start(resumingAt: Self.threeItems[2])
+
+        var loaded: [URL] = []
+        controller.onAdvance = { loaded.append($0) }
+        controller.advanceNow()
+
+        XCTAssertEqual(controller.current, Self.threeItems[0],
+                       "用户要下一条：从 2 前进取模回卷到 0，不得被锁定卡住")
+        XCTAssertEqual(loaded, [Self.threeItems[0]],
+                       "用户路径必须重新装载 —— 恒不装载 = 锁定泄漏到了用户意图上")
+        XCTAssertEqual(controller.advances.last?.reason, .userRequested)
     }
 }

@@ -104,8 +104,8 @@ jobs:
           TAG="v$(date -u +%Y.%m.%d)-${GITHUB_RUN_NUMBER}"
           echo "TAG=$TAG" >> "$GITHUB_ENV"
           ls -la artifacts/
-          # build.sh 的 DMG 名里写死了 0.1.0，跨版本会一直显示同一个名字；
-          # 带上 tag 重命名，下载下来的文件才分得清是哪一版
+          # build.sh 未注入 PIC_VERSION 时 DMG 名用缺省 0.1.0，跨版本会一直显示同一个名字；
+          # 带上 tag 重命名，下载下来的文件才分得清是哪一版（bundle 内版本仍为缺省，可接受）
           for f in artifacts/*.dmg; do mv "$f" "artifacts/Pic-${TAG}.dmg"; done
           gh release create "$TAG" artifacts/*.dmg \
             --repo "$GITHUB_REPOSITORY" \

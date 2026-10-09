@@ -92,8 +92,8 @@ final class SettingsApplierTests: XCTestCase {
     }
 
     private static let items = [
-        VideoItem(url: URL(fileURLWithPath: "/tmp/pic-0502-fixture/v0.mp4")),
-        VideoItem(url: URL(fileURLWithPath: "/tmp/pic-0502-fixture/v1.mp4")),
+        URL(fileURLWithPath: "/tmp/pic-0502-fixture/v0.mp4"),
+        URL(fileURLWithPath: "/tmp/pic-0502-fixture/v1.mp4"),
     ]
 
     /// `setInterval` 的重排程门要求 isRunning 且列表非空，夹具必须先 start。

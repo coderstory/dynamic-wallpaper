@@ -2,12 +2,10 @@ import SwiftUI
 import AppKit
 import PicCore
 
-/// 设置窗主体：自绘标题行（状态胶囊常驻）+ 三个工作区（播放 / 片库 / 通用）+ 磁贴网格。
+/// 设置窗主体：顶栏（状态胶囊 + 来源切换）+ 216pt 侧栏导航 + 两列卡片网格。
+/// 视觉与骨架照抄 `.planning/design/ui-redesign-v2-shell.html`。
 /// 六个可调项全部真绑定：`store.<键> = …` → `SettingsApplier.apply*()` → `store.persist()`，
 /// 窗内不出现渲染假数据的 @State。
-///
-/// **`select-button` / `rescan-button` 从播放页位移到了片库页** —— 它们原本挂在「来源与系统」
-/// 卡片上，而新 IA 把那块整体搬进了片库。依赖这两个标识的 XCUITest 断言要先去片库页。
 struct SettingsView: View {
     @Environment(SettingsStore.self) private var store
     @Environment(SettingsApplier.self) private var applier
@@ -29,145 +27,153 @@ struct SettingsView: View {
     let rotation: RotationController
     /// 内容高度变了（切页）请窗口重新贴合 —— 由 AppDelegate 在布局周期外异步读 fittingSize。
     let requestWindowFit: () -> Void
+    /// 带默认值的可选闭包：AppDelegate 未接线时为 nil，UI 照常编译、动作只是不落行为。
+    var switchSource: ((WallpaperKind) -> Void)? = nil
+    var applyImageFit: (() -> Void)? = nil
+    var applyImageFilter: (() -> Void)? = nil
 
     /// ffmpeg 不可用时的安装途径弹层（置灰之外还得给出途径）。
     @State private var showingPathways = false
 
     // 速度滑杆的拖动暂态，每次 onChanged 直通 store + applier。
     @State private var rateDrag: Double = 1.0
-    // 顶部 TAB：0 播放 / 1 片库 / 2 通用。
-    @State private var tab: Int = 0
+    // 当前页：侧栏四区导航（播放 / 片库 / 队列 / 通用）。
+    @State private var page: SettingsPresentation.SettingsPage = .play
     @State private var queueFilter: QueueFilter = .all
     @State private var selectedJobID: String?
 
-    private static let tabTitles = ["播放", "片库", "通用"]
-
     var body: some View {
         VStack(spacing: 0) {
-            titleRow
-            // TabBar 钉在顶部不跟滚：三页内容高度差很多，滚动时页签必须原地可点。
-            // 滑块分段铺满给定宽度、段宽均分（精修提案 v2.1 第二批）。
-            SlideSegmented(items: Self.tabTitles, index: $tab)
-                .frame(width: 264, height: 30)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityIdentifier("main-tabs")
-                .padding(.horizontal, Metrics.winPadding)
-            // 窗口固定 760 高（AppDelegate 按最高的播放页给足），正常状态不出滚动条；
-            // ScrollView 只是溢出的兜底：片库队列超长、或用户把窗拉小时才滚动。
-            ScrollView {
-                Group {
-                    switch tab {
-                    case 1: libraryTab
-                    case 2: generalTab
-                    // default 兜底回播放页。
-                    default: playTab
-                    }
-                }
-                .frame(maxWidth: .infinity)
-                // 上下也用 blockGap：磁贴投影（y6 r10）需要这个余量，贴边会被 ScrollView 裁掉。
-                .padding(.horizontal, Metrics.winPadding)
-                .padding(.vertical, Metrics.blockGap)
+            SettingsTopBar(kind: store.wallpaperKind, switchSource: { switchSource?($0) }) {
+                statusPill
             }
-            // 极端小屏的保护：窗口被拉到比内容短时由滚动接住，不裁磁贴投影。
-            .frame(maxHeight: max(480, (NSScreen.main?.visibleFrame.height ?? 900) - 120))
+            HStack(spacing: 0) {
+                SettingsSideBar(kind: store.wallpaperKind, page: $page,
+                                queueCount: rows.count,
+                                statusTint: statusTint, statusText: sidebarStatusText)
+                // 唯一允许滚动的是队列页（任务数天然不定），其余页一屏看全。
+                ScrollView {
+                    contentColumn
+                        .padding(Metrics.contentPadding)
+                }
+            }
         }
         .frame(minWidth: SettingsPresentation.windowMinWidth,
-               idealWidth: Metrics.windowWidth,
+               idealWidth: SettingsPresentation.windowWidth,
                maxWidth: .infinity, maxHeight: .infinity,
                alignment: .topLeading)
-        .background(Color.pGround.ignoresSafeArea())
+        .background {
+            // 液态玻璃开启时根背景是超薄材质（配合窗体透明透出桌面模糊）；
+            // 关闭时是不透明 pGround，与原状逐像素相同。
+            Rectangle().fill(store.liquidGlassEnabled
+                ? AnyShapeStyle(.ultraThinMaterial)
+                : AnyShapeStyle(Color.pGround))
+                .ignoresSafeArea()
+        }
+        // 卡片面是否走液态玻璃只在根视图读一次 store，卡片调用点经环境量继承。
+        .environment(\.cardSurfaceGlass, store.liquidGlassEnabled)
         .preferredColorScheme(.light)
         .onAppear(perform: seedAndObserve)
         // 窗已开时面板再发落地页请求（典型：设置开着，菜单里点「去片库转码」）。
+        // 菜单传的还是老三页签索引，只能查表映射。
         .onChange(of: session.requestedTab) { _, requested in
             guard let requested else { return }
-            tab = requested
+            page = SettingsPresentation.page(fromLegacyTab: requested)
             session.requestedTab = nil
         }
-        // 三页内容高度差很多：切页后窗口重贴内容，不留底部空白也不出滚动条。
-        .onChange(of: tab) { _, _ in requestWindowFit() }
+        .onChange(of: page) { _, _ in requestWindowFit() }
+        // 图片来源没有队列语义：切到图片时若正停在队列页，必须回落片库 ——
+        // 否则用户停在侧栏里已经消失的一项上。
+        .onChange(of: store.wallpaperKind) { _, kind in
+            if kind == .image && page == .queue { page = .library }
+        }
         .sheet(isPresented: $showingPathways) {
             InstallPathwaysView(onRecheck: { refreshFFmpeg() })
         }
     }
 
-    // ── 标题行 ──
-    /// `windowStyle(.hiddenTitleBar)` 下唯一的「标题栏」。
-    /// 状态胶囊放这里而不是播放页首行：状态是全局的，任何页都该看得见。
-    /// 标题落在红绿灯**下方**、与页签/内容同一左距（winPadding）—— 与红绿灯同行就得让出
-    /// 76pt，四个字的中文名被顶得右倾，视觉重心歪（系统设置 App 同款两层式标题区）。
-    private var titleRow: some View {
-        HStack(spacing: 10) {
-            Text("动态壁纸")
-                .font(display(15, .semibold))
-                .foregroundStyle(Color.pInk)
-            Spacer(minLength: 0)
-            statusPill
-                .lineLimit(1)
-                .accessibilityIdentifier("status-paused")
+    // ── 内容区 ──
+    private var contentColumn: some View {
+        VStack(alignment: .leading, spacing: Metrics.gridGap) {
+            SettingsPageHead(page: page)
+            switch page {
+            case .play: playPage
+            case .library: libraryPage
+            case .queue: queuePage
+            case .general: generalPage
+            }
         }
-        .padding(.horizontal, Metrics.winPadding)
-        // 实测（h1.png 几何）：内容区起点本就在红绿灯下方 ~35pt，顶部只留 10pt 呼吸，
-        // 再给 34 就是一大段空气（用户两次反馈边距过大的根因）。
-        .padding(.top, 10)
-        .padding(.bottom, 10)
-        .contentShape(Rectangle())
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    @ViewBuilder
+    // ── 状态（顶栏胶囊与侧栏页脚同一套判定，文案只在这里派生一份） ──
+    private var isHeld: Bool { !arbiter.decision.activeReasons.isEmpty }
+
+    private var statusTint: Color {
+        if isEmpty { return .pBad }
+        return isHeld ? .pHold : .pOk
+    }
+
+    private var statusKind: StatusPill.Kind {
+        isEmpty ? .blocked : isHeld ? .hold : .playing
+    }
+
+    private var statusLead: String {
+        isEmpty || isHeld ? "已暂停" : "播放中"
+    }
+
+    private var statusRest: String {
+        if isEmpty { return "· 没有可播文件" }
+        if isHeld { return "· \(SettingsPresentation.joinedReasons(arbiter.decision.activeReasons))" }
+        return "· \(SettingsPresentation.playModeLabel(store.playMode, kind: store.wallpaperKind))"
+    }
+
     private var statusPill: some View {
-        if isEmpty {
-            StatusPill(kind: .blocked, lead: "已暂停", rest: "· 没有可播文件")
-        } else if arbiter.decision.activeReasons.isEmpty {
-            StatusPill(kind: .playing, lead: "播放中",
-                       rest: "· \(SettingsPresentation.playModeLabel(store.playMode))")
-        } else {
-            StatusPill(kind: .hold, lead: "已暂停",
-                       rest: "· \(SettingsPresentation.joinedReasons(arbiter.decision.activeReasons))")
-        }
+        StatusPill(kind: statusKind, lead: statusLead, rest: statusRest)
     }
 
-    // ── 播放 ──
-    private var playTab: some View {
-        VStack(spacing: Metrics.blockGap) {
-            // 全宽磁贴是 VStack 直接子节点，不进 TileGrid（跨列声明会被静默丢掉，见 TileGrid 注释）。
-            heroTile
+    private var sidebarStatusText: String {
+        "\(statusLead) \(statusRest)"
+    }
 
+    // ── 播放页 ──
+    // 图片模式掉的是速度/音频整块，不是置灰；下方空着不补占位卡。
+    private var playPage: some View {
+        VStack(spacing: Metrics.gridGap) {
+            heroCard
             if !isEmpty {
-                Eyebrow(text: "播放控制")
-                // 半宽磁贴对，照抄原型：播放模式/轮换间隔、速度/声音都是 .tile 非 wide。
                 TileGrid {
-                    modeTile
-                    rotationTile
+                    modeCard
+                    rotationCard
                 }
-                TileGrid {
-                    speedTile
-                    volumeTile
+                if store.wallpaperKind == .video {
+                    TileGrid {
+                        speedCard
+                        volumeCard
+                    }
                 }
             }
-
-            Eyebrow(text: "让路规则", badge: "什么时候不播")
-            rulesTile
+            rulesCard
         }
     }
 
     @ViewBuilder
-    private var heroTile: some View {
+    private var heroCard: some View {
         if isEmpty {
-            emptyTile
+            emptyCard
         } else {
-            nowTile
+            nowCard
         }
     }
 
-    // ── 正在播放 / 让路（hero 磁贴，宽） ──
-    private var nowTile: some View {
+    // ── 正在播放 / 让路（hero 卡，通栏） ──
+    private var nowCard: some View {
         HStack(alignment: .center, spacing: 18) {
             VStack(alignment: .leading, spacing: 7) {
                 HStack(spacing: 9) {
                     Circle()
                         .fill(heroTint)
-                        .frame(width: 9, height: 9)
+                        .frame(width: 8, height: 8)
                         .background(
                             Circle().fill(heroTint.opacity(0.22)).frame(width: 15, height: 15)
                         )
@@ -182,43 +188,40 @@ struct SettingsView: View {
                 heroTags
             }
             Spacer(minLength: 0)
-            rotationRing
+            if !isHeld && store.playMode == .loopSingle {
+                staticRing
+            } else {
+                rotationRing
+            }
         }
-        .tileSurface()
+        .cardSurface()
     }
 
-    private var isHeld: Bool { !arbiter.decision.activeReasons.isEmpty }
     private var heroTint: Color { isHeld ? .pHold : .pOk }
 
-    /// 倒计时环的颜色与状态点解耦（用户拍板）：播放中走品牌橙，让路仍用 hold 褐。
+    /// 倒计时环的颜色与状态点解耦：播放中走品牌橙，让路仍用 hold 褐。
     private var heroRingTint: Color { isHeld ? Color.pHold : Color.pBrand }
 
     private var heroHeadline: String {
         if isHeld {
             return "已暂停 · \(SettingsPresentation.joinedReasons(arbiter.decision.activeReasons))"
         }
-        return "正在播放 · \(SettingsPresentation.playModeLabel(store.playMode))"
+        return SettingsPresentation.heroHeadline(kind: store.wallpaperKind, mode: store.playMode)
     }
 
     private var heroSummary: String {
         if isHeld {
-            return "条件解除后会自动续播，不会从头开始。"
+            return SettingsPresentation.heroHoldSummary
         }
         let every = SettingsPresentation.rotationLabel(
             minutes: SettingsPresentation.rotationMinutes(seconds: store.rotationInterval))
-        // 文案跟模式走：单循环根本没有「换一个」这件事，interval 对它是死数字。
-        switch store.playMode {
-        case .loopSingle:
-            return "当前视频循环播放，关掉窗口也不会停。"
-        case .loopList:
-            return "\(session.playableCount) 个视频按顺序轮着放，每 \(every)换一个。关掉窗口也不会停。"
-        case .shuffle:
-            return "\(session.playableCount) 个视频随机轮着放，每 \(every)换一个。关掉窗口也不会停。"
-        }
+        let count = store.wallpaperKind == .image ? session.imagePassing : session.playableCount
+        return SettingsPresentation.heroSummary(kind: store.wallpaperKind, mode: store.playMode,
+                                                count: count, every: every)
     }
 
     private var heroTags: some View {
-        // 只在让路时显示原因标签；播放中不放数值行（用户拍板删除）。
+        // 只在让路时显示原因标签；播放中不放数值行。
         HStack(spacing: 7) {
             if isHeld {
                 ForEach(arbiter.decision.activeReasons.sorted(), id: \.self) { reason in
@@ -228,9 +231,8 @@ struct SettingsView: View {
         }
     }
 
-    /// hero 的单个读数：等宽数字在上、灰标签在下。
-    // 倒计时环。TimelineView 每秒重算，不存 @State —— 读数是轮换器的纯派生量，
-    // 存一份就会在 setInterval / advance 之后与真值对不上。
+    /// 倒计时环。TimelineView 每秒重算，不存 @State —— 读数是轮换器的纯派生量，
+    /// 存一份就会在 setInterval / advance 之后与真值对不上。
     private var rotationRing: some View {
         TimelineView(.periodic(from: .now, by: 1)) { _ in
             let remaining = rotation.secondsUntilNextRotation()
@@ -256,6 +258,24 @@ struct SettingsView: View {
         }
     }
 
+    /// 「单张不变 / 单循环」没有倒计时：环底只剩轨道，中心给 — / 不轮换。
+    private var staticRing: some View {
+        ZStack {
+            Circle().stroke(Color.pSurface3, lineWidth: 6)
+            VStack(spacing: 1) {
+                Text("—")
+                    .font(mono(12, .semibold))
+                    .foregroundStyle(Color.pInk)
+                Text("不轮换")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Color.pInk3)
+            }
+        }
+        .frame(width: 78, height: 78)
+        .accessibilityElement()
+        .accessibilityLabel(Text("当前不轮换"))
+    }
+
     private func ringFraction(_ remaining: TimeInterval?) -> Double {
         guard let remaining, rotation.interval > 0 else { return 0 }
         return max(0, min(1, remaining / rotation.interval))
@@ -266,10 +286,9 @@ struct SettingsView: View {
         return String(format: "%d:%02d", total / 60, total % 60)
     }
 
-    // ── 空态（三变体完整区分） ──
-    private var emptyTile: some View {
+    // ── 空态（三变体完整区分，共用同一张通栏卡） ──
+    private var emptyCard: some View {
         HStack(alignment: .top, spacing: 16) {
-            // 精修提案 v2.1：ASCII 字形（▣ ! ▤）→ SF Symbols，与菜单行同语言。
             Image(systemName: emptyMark)
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(Color.pHold)
@@ -322,7 +341,7 @@ struct SettingsView: View {
             }
             Spacer(minLength: 0)
         }
-        .tileSurface()
+        .cardSurface()
     }
 
     /// 三种空态各配一个有图形语义的 SF Symbol。
@@ -341,35 +360,52 @@ struct SettingsView: View {
     }
 
     private func emptyPrimaryAction() {
-        // 「扫到 0」的下一步是去片库转码，不是再选一次文件夹 —— 选了也还是 0。
+        // 「扫到 0」的下一步是去片库（调档位 / 转码），不是再选一次文件夹 —— 选了也还是 0。
         if session.lastLibraryState == .noPlayableVideos {
-            tab = 1
+            page = .library
         } else {
             requestFolder()
         }
     }
 
-    // ── 播放模式 ──
-    private var modeTile: some View {
-        SettingsTile(title: "播放模式") {
-            GlowSegmented(items: PlayMode.allCases.map(SettingsPresentation.playModeLabel),
-                          index: modeIndex)
+    // ── 播放模式 / 轮播方式 ──
+    private var modeCard: some View {
+        SettingsCard(title: store.wallpaperKind == .image ? "轮播方式" : "播放模式") {
+            GlowSegmented(
+                items: PlayMode.allCases.map {
+                    SettingsPresentation.playModeLabel($0, kind: store.wallpaperKind)
+                },
+                index: modeIndex)
                 .accessibilityIdentifier("mode-segmented")
         }
     }
 
     // ── 轮换间隔 ──
-    private var rotationTile: some View {
-        SettingsTile(title: "轮换间隔") {
-            TickSelector(items: SettingsPresentation.rotationChoicesMinutes
-                            .map(SettingsPresentation.rotationLabel(minutes:)),
-                         index: rotationIndex)
-                .accessibilityIdentifier("rotation-stepper")
+    private var rotationEnabled: Bool {
+        SettingsPresentation.rotationControlsEnabled(playMode: store.playMode)
+    }
+
+    private var rotationCard: some View {
+        SettingsCard(title: "轮换间隔") {
+            VStack(alignment: .leading, spacing: 11) {
+                TickSelector(items: SettingsPresentation.rotationChoicesMinutes
+                                .map(SettingsPresentation.rotationLabel(minutes:)),
+                             index: rotationIndex)
+                    .accessibilityIdentifier("rotation-stepper")
+                    .disabled(!rotationEnabled)
+                    .opacity(rotationEnabled ? 1 : 0.42)
+                if !rotationEnabled {
+                    Text(SettingsPresentation.rotationDisabledNote(kind: store.wallpaperKind))
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color.pInk3)
+                }
+            }
         }
     }
 
-    private var speedTile: some View {
-        SettingsTile(title: "播放速度", tail: {
+    // ── 播放速度 / 音频（仅视频来源） ──
+    private var speedCard: some View {
+        SettingsCard(title: "播放速度", tail: {
             Text("音高不变").font(.system(size: 11)).foregroundStyle(Color.pInk3)
         }) {
             HStack(spacing: 11) {
@@ -392,8 +428,8 @@ struct SettingsView: View {
         }
     }
 
-    private var volumeTile: some View {
-        SettingsTile(title: "音频") {
+    private var volumeCard: some View {
+        SettingsCard(title: "音频") {
             // 与「播放速度」同构：滑杆满宽 + 右侧读数 + 开关，单行等高。
             HStack(spacing: 11) {
                 GlowSlider(value: volumePercent, range: 0...100,
@@ -406,15 +442,15 @@ struct SettingsView: View {
                 }, onEnded: {
                     store.persist()
                 })
-                .disabled(!SettingsPresentation.volumeControlsEnabled(isMuted: store.isMuted))
-                .opacity(SettingsPresentation.volumeControlsEnabled(isMuted: store.isMuted) ? 1 : 0.34)
+                .disabled(!volumeEnabled)
+                .opacity(volumeEnabled ? 1 : 0.34)
                 .accessibilityIdentifier("volume-slider")
                 Text("\(SettingsPresentation.volumePercent(store.volume))%")
                     .font(mono(12))
                     .monospacedDigit()
                     .foregroundStyle(Color.pInk)
                     .frame(width: Metrics.valueWidth, alignment: .trailing)
-                    .opacity(SettingsPresentation.volumeControlsEnabled(isMuted: store.isMuted) ? 1 : 0.34)
+                    .opacity(volumeEnabled ? 1 : 0.34)
                     .accessibilityIdentifier("volume-value")
                 Toggle("", isOn: soundOn).toggleStyle(GlowToggle()).labelsHidden()
                     .accessibilityIdentifier("sound-toggle")
@@ -423,9 +459,14 @@ struct SettingsView: View {
         }
     }
 
+    /// 静音时音量滑杆与读数置灰。volumeCard 内三处共用这一份判定。
+    private var volumeEnabled: Bool {
+        SettingsPresentation.volumeControlsEnabled(isMuted: store.isMuted)
+    }
+
     // ── 让路规则：四条不可关 + 一条可关 ──
-    private var rulesTile: some View {
-        SettingsTile(icon: "hand.raised", title: "这些情况会让路", tail: {
+    private var rulesCard: some View {
+        SettingsCard(icon: "hand.raised", title: "这些情况会让路", tail: {
             Text("前四项不可关闭").font(.system(size: 11)).foregroundStyle(Color.pInk3)
         }) {
             VStack(alignment: .leading, spacing: Metrics.tileGap) {
@@ -435,7 +476,7 @@ struct SettingsView: View {
                     }
                 }
                 // 「电池供电」行：不用 TileRow（它的文本在 34pt 行内垂直居中，与顶部分隔线的
-                // 距离是固定的）—— 这里展开手写，给文本单独的上边距（用户反馈贴得太近）。
+                // 距离是固定的）—— 这里展开手写，给文本单独的上边距。
                 HStack(spacing: Metrics.rowGap) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("电池供电")
@@ -468,21 +509,25 @@ struct SettingsView: View {
     private static let fixedHoldReasons: [HoldReason] =
         HoldReason.allCases.filter { $0 != .manualPause && $0 != .battery }
 
-    // ── 片库 ──
-    private var libraryTab: some View {
-        VStack(spacing: Metrics.blockGap) {
-            sourceTile
-            if !session.ffmpegAvailable {
-                WarningStrip(text: "ffmpeg 未安装 · 转码与降帧用不了，其余壁纸功能不受影响。") {
-                    Button("安装途径…") { showingPathways = true }
-                        .buttonStyle(GlowSmallButton())
-                        .accessibilityIdentifier("transcode-pathways")
+    // ── 片库页 ──
+    private var libraryPage: some View {
+        VStack(spacing: Metrics.gridGap) {
+            folderCard
+            if store.wallpaperKind == .image {
+                TileGrid {
+                    tierCard
+                    fitCard
                 }
+            } else {
+                if !session.ffmpegAvailable {
+                    WarningStrip(text: "ffmpeg 未安装 · 转码与降帧用不了，其余壁纸功能不受影响。") {
+                        Button("安装途径…") { showingPathways = true }
+                            .buttonStyle(GlowSmallButton())
+                            .accessibilityIdentifier("transcode-pathways")
+                    }
+                }
+                queueShortcutCard
             }
-
-            Eyebrow(text: "处理队列", badge: queueBadge)
-            queueBody
-
             // 0 尺寸锚点：`status-ffmpeg` 这个 identifier 被 UITest 依赖，删元素会让断言查无此物。
             Color.clear
                 .frame(width: 0, height: 0)
@@ -492,8 +537,9 @@ struct SettingsView: View {
         }
     }
 
-    private var sourceTile: some View {
-        SettingsTile(icon: "folder", title: "壁纸文件夹", tail: {
+    // ── 壁纸文件夹（通栏） ──
+    private var folderCard: some View {
+        SettingsCard(icon: "folder", title: "壁纸文件夹", tail: {
             HStack(spacing: 7) {
                 Button("选择…") { requestFolder() }
                     .buttonStyle(GlowSmallButton())
@@ -510,7 +556,14 @@ struct SettingsView: View {
                 if session.isScanning {
                     scanningRow
                 } else {
+                    // 统计带与路径行之间有一条发丝线（HTML .strip：margin 14 + border + padding 14）。
                     statStrip
+                        .padding(.top, 14)
+                        .overlay(alignment: .top) {
+                            Rectangle()
+                                .fill(Color.pDivider)
+                                .frame(height: 1)
+                        }
                 }
             }
         }
@@ -528,13 +581,19 @@ struct SettingsView: View {
 
     private var isFolderMissing: Bool { session.lastLibraryState == .folderMissing }
 
+    private var resolvedFolder: String {
+        store.wallpaperKind == .image ? store.imageFolderPath : store.sourceFolder
+    }
+
     private var pathText: Text {
-        if store.sourceFolder.isEmpty {
-            return Text("未设置 —— 选一个装视频的文件夹")
+        if resolvedFolder.isEmpty {
+            return Text(store.wallpaperKind == .image
+                        ? "未设置 —— 选一个装图片的文件夹"
+                        : "未设置 —— 选一个装视频的文件夹")
                 .font(.system(size: 12))
                 .foregroundStyle(Color.pInk3)
         }
-        let folder = Text(store.sourceFolder).font(mono(12)).foregroundStyle(Color.pInk2)
+        let folder = Text(resolvedFolder).font(mono(12)).foregroundStyle(Color.pInk2)
         guard isFolderMissing else { return folder }
         // 必须走 Text 插值，不能用 `folder + Text(...)`：Text 的 `+` 在 macOS 26 已废弃。
         // 返回单个 Text 而非 HStack —— pathRow 的 lineLimit(1) + 中段截断要作用在整行上。
@@ -542,22 +601,28 @@ struct SettingsView: View {
     }
 
     // ── 统计带 ──
-    /// 四格均分 + 发丝线分隔，格内数字与标签基线对齐。
-    /// 颜色按「语义」说话：可用视频是全页的关键值，**恒走品牌深琥珀**（用户拍板）；
-    /// 待处理 / 需转码 / 需降帧是「有事要做」，非零同色、零保持安静灰。
+    /// 格子与格数由 `libraryStatCells` 分派（图片三格 / 视频四格），本侧只管渲染与标识。
+    /// 颜色按「语义」说话：emphasis 是「有事要说」→ 品牌深琥珀；否则安静灰。
     private var statStrip: some View {
-        HStack(spacing: 0) {
-            stripStat(value: "\(session.playableCount)", label: "可用视频",
-                      tint: Color.pBrandText, identifier: "count-value")
-            stripDivider
-            stripStat(value: "\(pendingCount)", label: "待处理",
-                      tint: pendingCount > 0 ? Color.pBrandText : Color.pInk3)
-            stripDivider
-            stripStat(value: "\(transcodeCount)", label: "需转码",
-                      tint: transcodeCount > 0 ? Color.pBrandText : Color.pInk3)
-            stripDivider
-            stripStat(value: "\(fpsCount)", label: "需降帧",
-                      tint: fpsCount > 0 ? Color.pBrandText : Color.pInk3)
+        let kind = store.wallpaperKind
+        let cells = SettingsPresentation.libraryStatCells(
+            kind: kind,
+            image: SettingsPresentation.ImageStat(total: session.imageTotal,
+                                                  passing: session.imagePassing,
+                                                  filtered: session.imageFiltered),
+            video: SettingsPresentation.VideoStat(playable: session.playableCount,
+                                                  pending: pendingCount,
+                                                  transcode: transcodeCount,
+                                                  fps: fpsCount))
+        let ids: [String] = kind == .image
+            ? ["image-stat-total", "image-stat-passing", "image-stat-filtered"]
+            : ["video-stat-playable", "video-stat-pending", "video-stat-transcode", "video-stat-fps"]
+        return HStack(spacing: 0) {
+            ForEach(cells.indices, id: \.self) { i in
+                if i > 0 { stripDivider }
+                statCell(cells[i], identifier: ids[i],
+                         legacy: kind == .video && i == 0 ? "count-value" : nil)
+            }
         }
     }
 
@@ -567,24 +632,22 @@ struct SettingsView: View {
             .frame(width: 1, height: 30)
     }
 
-    private func stripStat(value: String, label: String, tint: Color,
-                           identifier: String? = nil) -> some View {
-        let core = HStack(alignment: .firstTextBaseline, spacing: 7) {
-            Text(value)
+    private func statCell(_ cell: SettingsPresentation.StatCell, identifier: String,
+                          legacy: String? = nil) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 7) {
+            Text(cell.value)
                 .font(mono(21, .semibold))
                 .monospacedDigit()
-                .foregroundStyle(tint)
-            Text(label)
+                .foregroundStyle(cell.emphasis ? Color.pBrandText : Color.pInk2)
+                .modifier(LegacyStatID(id: legacy))
+            Text(cell.label)
                 .font(.system(size: 11))
                 .foregroundStyle(Color.pInk3)
         }
-        return Group {
-            if let identifier {
-                core.accessibilityElement().accessibilityIdentifier(identifier)
-            } else {
-                core
-            }
-        }
+        // contain：格容器与内部数字/标签是父子两个 AX 元素 —— 旧 count-value 挂在数字上，
+        // 与容器的 identifier 互不顶掉。
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier(identifier)
         .frame(maxWidth: .infinity)
     }
 
@@ -601,32 +664,75 @@ struct SettingsView: View {
         .padding(.vertical, 5)
     }
 
-    // ── 统一队列。全宽件（头/命令/尾）直接排，只有任务卡进 2 列网格 ──
+    // ── 图片来源专属：分辨率筛选 / 图片适配 ──
+    private var tierCard: some View {
+        SettingsCard(title: "分辨率筛选") {
+            VStack(alignment: .leading, spacing: 11) {
+                SlideSegmented(items: SettingsPresentation.resolutionTierLabels(), index: tierIndex)
+                    .accessibilityIdentifier("tier-segmented")
+                Text(SettingsPresentation.resolutionNote(pixels: store.imageMinPixels))
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.pInk3)
+            }
+        }
+    }
+
+    private var fitCard: some View {
+        SettingsCard(title: "图片适配") {
+            VStack(alignment: .leading, spacing: 11) {
+                GlowSegmented(items: SettingsPresentation.imageFitLabels(), index: fitIndex)
+                    .accessibilityIdentifier("fit-segmented")
+                Text(SettingsPresentation.imageFitCaption(store.imageFit))
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.pInk3)
+            }
+        }
+    }
+
+    // ── 视频来源专属：处理队列入口（通栏） ──
+    private var queueShortcutCard: some View {
+        SettingsCard(icon: "list.bullet.rectangle", title: "处理队列") {
+            HStack(spacing: 14) {
+                VStack(alignment: .leading, spacing: 9) {
+                    Text("\(rows.count) 个任务 · \(queueProgressText)")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Color.pInk)
+                    ProgressBar(percent: queueOverallProgress)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                Button("打开队列") { page = .queue }
+                    .buttonStyle(GlowButton())
+                    .accessibilityIdentifier("queue-shortcut")
+            }
+        }
+    }
+
+    // ── 队列页。全宽件（头/命令/尾）直接排，只有任务卡进 2 列网格 ──
     @ViewBuilder
-    private var queueBody: some View {
+    private var queuePage: some View {
         if rows.isEmpty {
-            SettingsTile(icon: "checkmark.circle", title: "没有需要处理的文件") {
+            SettingsCard(icon: "checkmark.circle", title: "没有需要处理的文件") {
                 Text("壁纸目录里的 MKV / AVI / WEBM 会自动出现在这里；高于 \(Int(FpsDownscaleCommand.maxFrameRate))fps 的文件会归到降帧。")
                     .font(.system(size: 11))
                     .foregroundStyle(Color.pInk3)
                     .fixedSize(horizontal: false, vertical: true)
             }
         } else {
-            queueHeaderTile
+            queueHeaderCard
             TileGrid {
                 ForEach(filteredRows) { row in
-                    queueJobTile(row)
+                    queueJobCard(row)
                 }
             }
             if let command = previewCommand {
-                commandTile(command)
+                commandCard(command)
             }
-            queueFooterTile
+            queueFooterCard
         }
     }
 
-    private var queueHeaderTile: some View {
-        SettingsTile(title: "队列") {
+    private var queueHeaderCard: some View {
+        SettingsCard(title: "队列") {
             HStack(spacing: 10) {
                 QueueFilterBar(index: $queueFilter, counts: (transcodeCount, fpsCount, rows.count))
                 Spacer(minLength: 0)
@@ -638,14 +744,14 @@ struct SettingsView: View {
         }
     }
 
-    private func queueJobTile(_ row: QueueRow) -> some View {
+    private func queueJobCard(_ row: QueueRow) -> some View {
         Button {
             selectedJobID = row.id
         } label: {
             VStack(alignment: .leading, spacing: 9) {
                 Text(row.kind == .transcode ? "转码" : "降帧")
                     .font(mono(10, .semibold))
-                    // brand 作文字：用 brandText（亮橙作文字在白底不达标），精修提案 v2.1。
+                    // brand 作文字：用 brandText（亮橙作文字在白底不达标）。
                     .foregroundStyle(row.kind == .transcode ? Color.pBrandText : Color.pInk2)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
@@ -671,10 +777,11 @@ struct SettingsView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .tileSurface()
+            .cardSurface()
+            // 选中描边用队列区的身份色：v2 卡片选中态走 2px 区色描边。
             .overlay(
-                RoundedRectangle(cornerRadius: Metrics.tileRadius, style: .continuous)
-                    .strokeBorder(Color.pBrand, lineWidth: selectedJobID == row.id ? 2 : 0)
+                RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous)
+                    .strokeBorder(Color.pQueue, lineWidth: selectedJobID == row.id ? 2 : 0)
             )
             .contentShape(Rectangle())
         }
@@ -684,8 +791,8 @@ struct SettingsView: View {
         .accessibilityIdentifier("\(row.kind == .transcode ? "transcode" : "fps")-job-\(row.id)")
     }
 
-    private func commandTile(_ command: String) -> some View {
-        SettingsTile(title: "将要执行的命令") {
+    private func commandCard(_ command: String) -> some View {
+        SettingsCard(title: "将要执行的命令") {
             Text(command)
                 .font(mono(11))
                 .foregroundStyle(Color.pInk)
@@ -702,8 +809,8 @@ struct SettingsView: View {
         }
     }
 
-    private var queueFooterTile: some View {
-        SettingsTile(title: "操作") {
+    private var queueFooterCard: some View {
+        SettingsCard(title: "操作") {
             HStack(spacing: 9) {
                 if anyPaused {
                     Button("继续") { resumeQueues() }
@@ -739,44 +846,56 @@ struct SettingsView: View {
         }
     }
 
-    // ── 通用 ──
-    private var generalTab: some View {
-        VStack(spacing: Metrics.blockGap) {
-            Eyebrow(text: "启动")
-            SettingsTile(title: "开机自启") {
-                TileRow(title: "登录后在菜单栏待命，不弹窗口", divider: false) {
-                    Toggle("", isOn: launchAtLogin).toggleStyle(GlowToggle()).labelsHidden()
-                        .accessibilityIdentifier("autostart-toggle")
-                }
-            }
+    // ── 通用页 ──
+    private var generalPage: some View {
+        TileGrid {
+            aboutCard
+            autostartCard
+            appearanceCard
+        }
+    }
 
-            // 精修提案 v2.1：原来 Eyebrow「关于」+ 磁贴 title「关于」同屏重复，只留磁贴一处。
-            SettingsTile(title: "关于") {
-                HStack(spacing: 17) {
-                    AboutIcon()
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text("动态壁纸")
-                            .font(display(15))
-                            .foregroundStyle(Color.pInk)
-                        Text("版本 \(appVersion) · arm64 · GPL v2")
-                            .font(mono(11))
-                            .foregroundStyle(Color.pInk3)
-                            .padding(.top, 4)
-                        Text("用视频当动态壁纸。菜单栏常驻，全屏 / 锁屏 / 熄屏 / 睡眠时自动让路。")
-                            .font(.system(size: 13))
-                            .foregroundStyle(Color.pInk2)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .padding(.top, 8)
-                    }
-                    Spacer(minLength: 0)
+    private var aboutCard: some View {
+        SettingsCard(title: "关于") {
+            HStack(spacing: 15) {
+                AboutIcon()
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("动态壁纸")
+                        .font(display(15))
+                        .foregroundStyle(Color.pInk)
+                    Text("版本 \(appVersion()) · arm64 · GPL v2")
+                        .font(mono(11))
+                        .foregroundStyle(Color.pInk3)
+                        .padding(.top, 4)
+                    Text("用视频（或图片）当动态壁纸。菜单栏常驻，全屏 / 锁屏 / 熄屏 / 睡眠时自动让路。")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Color.pInk2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.top, 8)
                 }
+                Spacer(minLength: 0)
             }
         }
     }
 
-    /// 版本号取自 bundle，不硬编码。
-    private var appVersion: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+    private var autostartCard: some View {
+        SettingsCard(title: "开机自启") {
+            TileRow(title: "登录后在菜单栏待命",
+                    sub: "不弹窗口；需要时从菜单栏打开设置。", divider: false) {
+                Toggle("", isOn: launchAtLogin).toggleStyle(GlowToggle()).labelsHidden()
+                    .accessibilityIdentifier("autostart-toggle")
+            }
+        }
+    }
+
+    private var appearanceCard: some View {
+        SettingsCard(title: "外观") {
+            TileRow(title: "液态玻璃效果",
+                    sub: "窗口与卡片改用系统液态玻璃材质", divider: false) {
+                Toggle("", isOn: liquidGlass).toggleStyle(GlowToggle()).labelsHidden()
+                    .accessibilityIdentifier("glass-toggle")
+            }
+        }
     }
 
     // ── 派生量 ──
@@ -785,7 +904,7 @@ struct SettingsView: View {
     }
 
     private var emptyCopy: SettingsPresentation.EmptyStateCopy? {
-        session.lastLibraryState.flatMap(SettingsPresentation.emptyStateCopy)
+        session.lastLibraryState.flatMap { SettingsPresentation.emptyStateCopy($0, kind: store.wallpaperKind) }
     }
 
     /// 两个队列只在**视图层**合并，底层仍是两个 ViewModel（9 处语义差异，见 SwiftUI-HANDOFF 第 7 节）。
@@ -822,13 +941,18 @@ struct SettingsView: View {
 
     private var queueHasFailure: Bool { rows.contains { $0.state.isFailure } }
 
-    private var queueBadge: String? { rows.isEmpty ? nil : "\(rows.count) 个任务" }
-
     private var queueProgressText: String {
         if !session.ffmpegAvailable { return "等待 ffmpeg" }
         if anyRunning { return anyPaused ? "已暂停" : "处理中" }
         if queueHasFailure { return "有失败项" }
         return "全部待处理"
+    }
+
+    /// 队列入口卡的总进度：各任务百分比的均值（nil 视为 0），是个概览不是承诺。
+    private var queueOverallProgress: Double? {
+        guard !rows.isEmpty else { return nil }
+        let total = rows.reduce(0.0) { $0 + ($1.percent ?? 0) }
+        return total / Double(rows.count)
     }
 
     /// 正在跑的转码任务优先，否则看选中项。**降帧任务没有命令串** —— 只有转码有。
@@ -893,6 +1017,28 @@ struct SettingsView: View {
             })
     }
 
+    private var tierIndex: Binding<Int> {
+        Binding(
+            get: { SettingsPresentation.resolutionTierIndex(pixels: store.imageMinPixels) },
+            set: { i in
+                store.imageMinPixels = SettingsPresentation.resolutionTierPixels(index: i)
+                store.persist()
+                // 档位变了要当场重筛：由 AppDelegate 接线触发重扫/重贴。
+                applyImageFilter?()
+            })
+    }
+
+    private var fitIndex: Binding<Int> {
+        Binding(
+            get: { SettingsPresentation.imageFitIndex(store.imageFit) },
+            set: { i in
+                store.imageFit = ImageFit.allCases[i]
+                store.persist()
+                // 适配方式直接改窗口内容的摆放，不必重扫。
+                applyImageFit?()
+            })
+    }
+
     private var volumePercent: Binding<Double> {
         Binding(
             get: { Double(SettingsPresentation.volumePercent(store.volume)) },
@@ -934,10 +1080,21 @@ struct SettingsView: View {
             })
     }
 
+    /// 液态玻璃。与 launchAtLogin 同款写 store → persist 两步——**没有第三步**：
+    /// 纯展示偏好不走 Applier、不需要动窗口，@Observable 让 SwiftUI 即时重渲染。
+    private var liquidGlass: Binding<Bool> {
+        Binding(
+            get: { store.liquidGlassEnabled },
+            set: {
+                store.liquidGlassEnabled = $0
+                store.persist()
+            })
+    }
+
     private func seedAndObserve() {
         // 菜单面板指定了落地页（打开设置 / 去片库转码）时先消费掉，再铺默认状态。
         if let requested = session.requestedTab {
-            tab = requested
+            page = SettingsPresentation.page(fromLegacyTab: requested)
             session.requestedTab = nil
         }
         rateDrag = Double(store.rate)
@@ -970,8 +1127,6 @@ private struct TagChip: View {
             .background(Capsule().fill(accent ? Color.pBrandSoft : Color.pSurface2))
     }
 }
-
-/// 统计读数（旧 LibStat 已被 sourceTile 的 statStrip 取代——格内基线对齐、0 走安静色）。
 
 /// 队列筛选条。视觉语言统一为滑块分段（SlideSegmented），本结构只负责把
 /// QueueFilter 枚举适配成 Int 下标、拼带计数的标签。
@@ -1014,6 +1169,14 @@ private struct ProgressBar: View {
             }
         }
         .frame(height: 5)
-        // 精修提案 v2.1：去掉无出处的 maxWidth 108 限宽，铺满所在列。
+    }
+}
+
+/// legacy identifier 只在给了值时挂：同一格要同时留旧 `count-value` 和新 `video-stat-playable`，
+/// 旧标识挂在数字 Text 上（与格容器是父子两个 AX 元素，互不顶掉）。
+private struct LegacyStatID: ViewModifier {
+    let id: String?
+    func body(content: Content) -> some View {
+        if let id { content.accessibilityIdentifier(id) } else { content }
     }
 }

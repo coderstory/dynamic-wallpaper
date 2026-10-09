@@ -1,7 +1,7 @@
 import XCTest
 @testable import PicCore
 
-/// 窗口常量（780/680）在这里锁死 —— 唯一来源是 `SettingsPresentation`，视图与探针都读它，不许散落字面量。
+/// 窗口常量（1024/880）在这里锁死 —— 唯一来源是 `SettingsPresentation`，视图与探针都读它，不许散落字面量。
 final class SettingsPresentationTests: XCTestCase {
 
     func testRateLabelFormatsBounds() {
@@ -35,8 +35,8 @@ final class SettingsPresentationTests: XCTestCase {
     }
 
     func testWindowConstantsMatchContract() {
-        XCTAssertEqual(SettingsPresentation.windowWidth, 780)
-        XCTAssertEqual(SettingsPresentation.windowMinWidth, 680)
+        XCTAssertEqual(SettingsPresentation.windowWidth, 1024)
+        XCTAssertEqual(SettingsPresentation.windowMinWidth, 880)
     }
 
     func testRateBoundsAreHalfToDouble() {
@@ -83,6 +83,46 @@ final class SettingsPresentationTests: XCTestCase {
                        ["单循环", "列表循环", "随机"])
     }
 
+    /// 轮播方式的标签按来源分派。图片不谈「循环」—— 同一张图不会「循环播放」，它是「不变」；
+    /// 写成「单图循环」会让用户以为图片自己在动。
+    func testPlayModeLabelForImageUsesCarouselWording() {
+        XCTAssertEqual(PlayMode.allCases.map { SettingsPresentation.playModeLabel($0, kind: .image) },
+                       ["单张不变", "顺序轮播", "随机轮播"])
+    }
+
+    /// 派发函数最容易顺手把两版写成一样 —— 视频这三个字一个都不能动。
+    func testPlayModeLabelForVideoIsUnchangedByDispatch() {
+        XCTAssertEqual(PlayMode.allCases.map { SettingsPresentation.playModeLabel($0, kind: .video) },
+                       ["单循环", "列表循环", "随机"])
+    }
+
+    func testResolutionTierLabelsFollowTierOrder() {
+        XCTAssertEqual(SettingsPresentation.resolutionTierLabels(), ["1080P", "2K", "4K"])
+        XCTAssertEqual(ImageResolutionTier.allCases.map(\.pixels),
+                       [2_073_600, 3_686_400, 8_294_400])
+    }
+
+    func testResolutionTierIndexRoundTrips() {
+        for (index, tier) in ImageResolutionTier.allCases.enumerated() {
+            XCTAssertEqual(SettingsPresentation.resolutionTierIndex(pixels: tier.pixels), index)
+            XCTAssertEqual(SettingsPresentation.resolutionTierPixels(index: index), tier.pixels)
+        }
+    }
+
+    /// 对不上任何一档的像素值（手改过 / 旧版本）必须吸附，否则分段控件会索引越界。
+    func testResolutionTierIndexSnapsToNearestTier() {
+        XCTAssertEqual(SettingsPresentation.resolutionTierIndex(pixels: 1), 0)
+        XCTAssertEqual(SettingsPresentation.resolutionTierIndex(pixels: 3_000_000), 1)
+        XCTAssertEqual(SettingsPresentation.resolutionTierIndex(pixels: 99_000_000), 2)
+    }
+
+    func testResolutionTierPixelsClampsOutOfRangeIndex() {
+        XCTAssertEqual(SettingsPresentation.resolutionTierPixels(index: -1),
+                       ImageResolutionTier.p1080.pixels)
+        XCTAssertEqual(SettingsPresentation.resolutionTierPixels(index: 99),
+                       ImageResolutionTier.p1080.pixels)
+    }
+
     /// 哨兵写在本测试里，不引用常量 —— 常量改一个字这里就红。
     func testEmptyStateBodyMatchesSpecVerbatim() {
         XCTAssertEqual(SettingsPresentation.emptyStateBody,
@@ -118,11 +158,37 @@ final class SettingsPresentationTests: XCTestCase {
     /// 三种空态必须给出两两不同的标题与主行动 —— 压成同一份就退回了「三态一张皮」，用户仍不知道下一步。
     func testEmptyStateCopyDistinguishesThreeVariants() {
         let variants: [LibraryState] = [.folderUnconfigured, .folderMissing, .noPlayableVideos]
-        let copies = variants.compactMap(SettingsPresentation.emptyStateCopy)
+        let copies = variants.compactMap { SettingsPresentation.emptyStateCopy($0) }
         XCTAssertEqual(copies.count, 3, "三种空态都必须给出文案")
         XCTAssertEqual(Set(copies.map(\.title)).count, 3, "三种空态标题两两不同")
         XCTAssertEqual(Set(copies.map(\.primaryAction)).count, 3, "三种空态主行动两两不同")
         XCTAssertNil(SettingsPresentation.emptyStateCopy(.playing), "播放中不该显示空态")
+    }
+
+    /// 同一个 `LibraryState` 在两种来源下是**两件事**：图片没有转码这条路，
+    /// 沿用视频文案会把「不够档位」说成「不能播放」，主行动还会指向一个不存在的动作。
+    func testEmptyStateCopyDiffersByWallpaperKind() {
+        // 没配目录：两种来源的主行动都是「选文件夹」，只有标题与原因不同 ——
+        // 断言主行动也必须不同是错的，那会逼着把一个正确的共享文案拆成两份。
+        let unconfiguredVideo = SettingsPresentation.emptyStateCopy(.folderUnconfigured, kind: .video)
+        let unconfiguredImage = SettingsPresentation.emptyStateCopy(.folderUnconfigured, kind: .image)
+        XCTAssertNotNil(unconfiguredVideo)
+        XCTAssertNotNil(unconfiguredImage)
+        XCTAssertNotEqual(unconfiguredVideo?.title, unconfiguredImage?.title)
+        XCTAssertEqual(unconfiguredVideo?.primaryAction, unconfiguredImage?.primaryAction,
+                       "没配目录就是去选目录，与媒体类型无关")
+
+        let video = SettingsPresentation.emptyStateCopy(.noPlayableVideos, kind: .video)
+        let image = SettingsPresentation.emptyStateCopy(.noPlayableVideos, kind: .image)
+        XCTAssertNotEqual(video?.title, image?.title)
+        XCTAssertNotEqual(video?.primaryAction, image?.primaryAction, "图片没有转码这条路")
+        XCTAssertFalse(image?.reason.contains("MP4") ?? true, "图片空态不该提 MP4 转码")
+    }
+
+    /// 目录不见那一条两种来源同文案 —— 它与媒体类型无关，分派只该发生在有差异的两条上。
+    func testFolderMissingCopyIsSharedByBothKinds() {
+        XCTAssertEqual(SettingsPresentation.emptyStateCopy(.folderMissing, kind: .video),
+                       SettingsPresentation.emptyStateCopy(.folderMissing, kind: .image))
     }
 
     func testHoldReasonLabelsCoverAllSixCasesVerbatim() {

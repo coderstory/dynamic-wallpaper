@@ -84,50 +84,71 @@ public final class AutoStartManager {
     }
 
     /// 用户拨动开关。启动时也直接调它：偏好为 false 时清两路是幂等的。
-    public func setEnabled(_ enabled: Bool) {
-        if enabled {
-            ensureRegistered()
-        } else {
-            disableBoth()
-        }
+    /// 返回开启是否成功；关闭恒为 true（清理是 best-effort，A 路语义不变）。
+    /// 失败原因已在 `routeB()` 里打到 stderr。
+    @discardableResult
+    public func setEnabled(_ enabled: Bool) -> Bool {
+        enabled ? ensureRegistered() : disableBoth()
     }
 
-    private func ensureRegistered() {
+    @discardableResult
+    private func ensureRegistered() -> Bool {
         do {
             try registration.register()
         } catch {
-            routeB()
-            return
+            return routeB()
         }
         switch registration.status {
         case .enabled:
-            break
+            return true
         case .requiresApproval:
             // 注册已成功，缺的只是用户点一次批准 —— 落 B 会变成两套注册并存。
             registration.openSettings()
+            return true
         default:
-            routeB()
+            return routeB()
         }
     }
 
-    /// 路线 B：bootout → 写盘 → bootstrap。
+    /// 路线 B：bootout → 写盘 → bootstrap。返回是否成功（bootstrap rc == 0 且 plist 已落盘）。
     /// 不 throwing：两个调用点都在 catch 块 / 兜底分支里，让它 throwing 会把整条
     /// `ensureRegistered()` 拖成 throwing，写盘因而走 `try?`。
     ///
+    /// 失败绝不静默：此前写盘 `try?`、两个 rc 全丢弃，偏好已 persist 而系统侧没成 ——
+    /// 用户以为开机自启开了，重启后 app 却没起来，且日志里无迹可循。失败必须带原因打 stderr。
+    ///
     /// bootout 的 rc 一律忽略 —— plist 可能压根不存在（首次开启），
     /// 也可能指向已被移动的旧路径（两种都要能被 bootstrap 覆盖掉）。
-    private func routeB() {
+    @discardableResult
+    private func routeB() -> Bool {
         let domain = "gui/\(getuid())"
         let path = writer.plistURL().path
         runner.run("/bin/launchctl", ["bootout", domain, path])
-        try? writer.write(executablePath: executablePath)
-        runner.run("/bin/launchctl", ["bootstrap", domain, path])
+        do {
+            try writer.write(executablePath: executablePath)
+        } catch {
+            routeBFailure("写入 LaunchAgent plist 失败：\(error.localizedDescription)")
+            return false
+        }
+        let rc = runner.run("/bin/launchctl", ["bootstrap", domain, path])
+        guard rc == 0, FileManager.default.fileExists(atPath: path) else {
+            routeBFailure("launchctl bootstrap 退出码 \(rc)")
+            return false
+        }
+        return true
+    }
+
+    /// 路线 B 失败的唯一出口：一行带原因的 stderr。
+    private func routeBFailure(_ reason: String) {
+        let line = "Pic: 开机自启（LaunchAgent 路线）开启失败 —— \(reason)\n"
+        FileHandle.standardError.write(Data(line.utf8))
     }
 
     ///  关：两条路线都清。路线 A 的注销失败也必须继续清 B， 否则系统里会留下一条用户已经关掉的登录项。
-    private func disableBoth() {
+    private func disableBoth() -> Bool {
         try? registration.unregister()
         runner.run("/bin/launchctl", ["bootout", "gui/\(getuid())", writer.plistURL().path])
         writer.remove()
+        return true
     }
 }

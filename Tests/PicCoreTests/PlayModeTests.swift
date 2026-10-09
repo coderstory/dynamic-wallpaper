@@ -58,7 +58,7 @@ final class PlayModeTests: XCTestCase {
                        "未知 rawValue 必须回落到 seed.playMode —— 兜底行为与 Phase 2 一致")
     }
 
-    /// `persist()` 写出的键集合**恰好**是那 8 个。过滤用「排除系统注入键」而不是「包含某前缀」：
+    /// `persist()` 写出的键集合**恰好**是那 16 个。过滤用「排除系统注入键」而不是「包含某前缀」：
     /// `dictionaryRepresentation()` 对 suite 域返回**不带 suite 前缀的裸键名**，且混有系统键
     /// （`AppleLanguages` / `com.apple.*` / `NS*` 一类）。系统键集合从一个**全新的空 suite**
     /// 实测取得，不写死清单 —— 谁往 `persist()` 里多加一个键，差集里立刻多出一项，这条当场红。
@@ -85,8 +85,14 @@ final class PlayModeTests: XCTestCase {
             SettingsStore.Key.launchAtLogin,
             SettingsStore.Key.lastPlayedPath,
             SettingsStore.Key.lastPlayedPosition,
+            SettingsStore.Key.wallpaperKind,
+            SettingsStore.Key.imageFolderPath,
+            SettingsStore.Key.imageMinPixels,
+            SettingsStore.Key.imageFit,
+            SettingsStore.Key.liquidGlassEnabled,
+            SettingsStore.Key.lastImagePath,
         ]
         XCTAssertEqual(written, expected,
-                       "persist() 写出的键必须恰好是已知的 10 个（D-03，单循环续播 +2）—— 多一个少一个都算破契约")
+                       "persist() 写出的键必须恰好是已知的 16 个（D-03 的 10 个 + 图片来源 5 个 + 液态玻璃 1 个）—— 多一个少一个都算破契约")
     }
 }

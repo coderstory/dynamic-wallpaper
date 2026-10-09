@@ -33,7 +33,8 @@ public final class PlaybackRouter {
     /// `resumingAt` 非空时走定点启动（单循环续播：从上次播放的文件接着来）。
     public func start(with items: [VideoItem], resumingAt url: URL? = nil) {
         bind()
-        rotation.setItems(items)
+        // 轮换内核只认 URL（图片来源复用同一个内核），`VideoItem` 这一层包装在进出时剥掉。
+        rotation.setItems(items.map(\.url))
         if let url {
             rotation.start(resumingAt: url)
         } else {
@@ -47,14 +48,14 @@ public final class PlaybackRouter {
     /// 少了这条入口，任何一次重扫（换个设置、转完一个批次）都会把壁纸拽回列表第一条从头播。
     public func refresh(with items: [VideoItem]) {
         guard isBound else { start(with: items); return }
-        if rotation.refreshItems(items) { return }
+        if rotation.refreshItems(items.map(\.url)) { return }
         rotation.start()
     }
 
     private func bind() {
         // 记的是**真的交出去的装载次数，不是播放状态**。
-        rotation.onAdvance = { [weak self] item in
-            self?.loader.loadPlayback(url: item.url)
+        rotation.onAdvance = { [weak self] url in
+            self?.loader.loadPlayback(url: url)
             self?.loadCount += 1
         }
         isBound = true
@@ -75,7 +76,9 @@ public final class PlaybackRouter {
         rotation.advanceNow()
     }
 
+    /// 当前条目。轮换内核只存 URL，出口处包回 `VideoItem` ——
+    /// 调用方（菜单 / 设置窗）拿到的仍是条目类型，不受内核换类型的影响。
     public var current: VideoItem? {
-        rotation.current
+        rotation.current.map(VideoItem.init(url:))
     }
 }
