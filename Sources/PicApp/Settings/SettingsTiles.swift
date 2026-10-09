@@ -381,7 +381,9 @@ struct SettingsSideBar: View {
         .overlay(alignment: .trailing) {
             Rectangle().fill(Color.pLine).frame(width: 1)
         }
-        .accessibilityIdentifier("nav-sidebar")
+        // 刻意**不给**容器挂 accessibilityIdentifier("nav-sidebar")：macOS AX 桥接会把容器
+        // 标识向下串染，把四个导航行自己的 nav-button-* 全部覆盖成 nav-sidebar（XCUITest
+        // 真机首跑实测，树里 9 处全被串染）。容器语义由子元素各自的 id 承载，别加回来。
     }
 
     private var identity: some View {

@@ -7,8 +7,10 @@
 
 - 产品代码 **8873 行**（`PicCore` 纯逻辑 + `PicApp` 装配与 UI），零第三方依赖，仅 macOS 27
 - 测试 **6980 行 / 全量 406 用例**：本机沙箱 396 绿（5 个进程类 10 例会挂起，见下）；CI 全量 406
-- 验收两条路：`swift test`（PicCoreTests）+ `xcodebuild test`（PicUITests，XCUITest 由
-  Pic.xcodeproj 承载；**无 GUI 会话跑不了**——系统自动化认证被拒，需真机跑一次）
+- 验收两条路：`swift test`（PicCoreTests）+ **PicUITests（XCUITest）真机 5/5 绿**
+  （跑法 = `tools/run-uitests.sh`；Xcode 27 对手写 pbxproj 的 UITargetAppPath 解析有缺陷，
+  脚本内改写 xctestrun 规避——直接 `xcodebuild test` 会报 "bundle identifier for PicApp
+  couldn't be read"，见脚本头注释）
 - 构建：`swift build` 编译交付；`./build.sh` 出 .app + DMG（不签名）；版本经 `PIC_VERSION`
   注入并同步进 bundle（Info.plist 里的 0.1.0 只是开发期缺省）
 
@@ -24,7 +26,6 @@
 8. **SettingsView 音量滑杆 onChanged 是无效往返换算**（死代码）；QueueRow 在 body 里逐任务 stat 盘。
 9. **ExternalToolLocator 探测表缺 MacPorts 路径**（/opt/local/bin/ffmpeg）。
 10. **FFmpegAvailabilityTests 与 ExternalToolLocatorTests 覆盖高度重复**（两套同形 Fake）。
-11. **PicUITests 5 用例从未真正执行过**（沙箱无 GUI 会话；断言本身未经验证）——真机首跑前别当成已验收。
 
 ## 明确不动（复核过，别再「顺手优化」）
 
