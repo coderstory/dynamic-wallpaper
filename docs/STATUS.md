@@ -5,18 +5,26 @@
 
 ## 现状快照
 
-- 产品代码 **7365 行**（`PicCore` 纯逻辑 + `PicApp` 装配与 UI），零第三方依赖，仅 macOS 27
-- 测试 **6051 行 / 344 用例，0 skipped**，`swift test` 全绿（现查：2026-10-07）
-- 验收只有 XCTest 一条路（原 `scripts/` + `test.sh` + `UITests/` 那套「emit 打点 + shell grep」已整体删除）
-- 构建：`swift build` 编译交付；`./build.sh` 出 .app + DMG（不签名）
+- 产品代码 **8873 行**（`PicCore` 纯逻辑 + `PicApp` 装配与 UI），零第三方依赖，仅 macOS 27
+- 测试 **6980 行 / 全量 406 用例**：本机沙箱 396 绿（5 个进程类 10 例会挂起，见下）；CI 全量 406
+- 验收两条路：`swift test`（PicCoreTests）+ `xcodebuild test`（PicUITests，XCUITest 由
+  Pic.xcodeproj 承载；**无 GUI 会话跑不了**——系统自动化认证被拒，需真机跑一次）
+- 构建：`swift build` 编译交付；`./build.sh` 出 .app + DMG（不签名）；版本经 `PIC_VERSION`
+  注入并同步进 bundle（Info.plist 里的 0.1.0 只是开发期缺省）
 
-## 未修问题
+## 未修问题（2026-10-09 全量审查后用户拍板：P0×1 + P1×11 已修，以下 P2 暂不修）
 
-**无。** 最后逐条复核：2026-10-06。
-
-原先 9 条要么已修（转码页取消/暂停、换屏重建窗口、滑杆 VoiceOver、scheduler 主线程契约、
-`LineSplitter` 锁外 emit、转码途中换目录路径快照、删恒 skip 的测试），要么判定不做后移进下面
-「明确不动」（首屏探测走有界并发；拔盘重生的实现方式）。已修的条目不再留在表里。
+1. **图片模式「删除当前壁纸」借道共享轮换器**取当前 URL（经 VideoItem 包回），能用但语义绕；菜单项可见性只判 `!isEmpty` 不分 kind。
+2. **MediaLibrary / ImageLibrary 首段枚举同步跑在 MainActor**（上限 5000 条 + resourceValues），大盘目录首次扫描可能卡主线程一拍。
+3. **ImageWallpaperLoader 解码乱序已有 generation 防护，但 ImageLibrary.scan 仍每次全量**——无增量扫描。
+4. **LockWatcher 观察者闭包强捕获 self**（与 DisplayWatcher 的 `[weak self]` 风格不一致）；存续期依赖 stop() 配对。
+5. **DisplayWatcher CG 注册失败时全局表残留闭包**，stop() 不清（弱引用不悬垂，泄漏不配对）。
+6. **PowerWatcher start 先置 isRunning**，source 注册失败永久失聪且不上报（连 stderr 都没有）。
+7. **SettingsStore env 覆盖值经 persist() 固化进 UserDefaults**——开发会话一次 persist 后顶掉用户真实目录。
+8. **SettingsView 音量滑杆 onChanged 是无效往返换算**（死代码）；QueueRow 在 body 里逐任务 stat 盘。
+9. **ExternalToolLocator 探测表缺 MacPorts 路径**（/opt/local/bin/ffmpeg）。
+10. **FFmpegAvailabilityTests 与 ExternalToolLocatorTests 覆盖高度重复**（两套同形 Fake）。
+11. **PicUITests 5 用例从未真正执行过**（沙箱无 GUI 会话；断言本身未经验证）——真机首跑前别当成已验收。
 
 ## 明确不动（复核过，别再「顺手优化」）
 
@@ -52,6 +60,15 @@
    所以点自己那扇没激活的设置窗要靠本地监听 —— 两条缺一，各自漏一半。
    本地监听里「面板内」与「状态栏图标」两种点击必须放过：前者归 SwiftUI，后者若要关掉，
    随后的 mouseUp 会把面板判成「没有面板」再重开一次。
+9. **EXIF 口径成对契约**：显示用**摆正后**像素（`ImageDecoder` 经 `WithTransform` 摆正），
+   档位判定用**存储**像素（宽高互换乘积不变）。两处成对注释在 decode 与 probe——只改一边
+   就会出现「显示横躺」或「档位误判」，别当 bug 修回单边。
+10. **液态玻璃关闭分支必须与平面路径逐字节一致**（`CardSurface` 读环境量 `\.cardSurfaceGlass`，
+    默认 false）。这是「默认关 = 老用户零视觉变化」的硬承诺，别在关闭分支加任何透明度/阴影。
+11. **转码进程不加 watchdog**（用户拍板 2026-10-09）：ffmpeg 挂死靠用户取消兜底；取消竞态已在
+    spawn 前同锁复查封死。
+12. **设置窗四个来源/档位/适配控件的判定阈值都存绝对值**（imageMinPixels 存像素不存下标、
+    wallpaperKind/imageFit 存 rawValue），读不到就吸附/回落——加档位不迁移是这个设计的全部意义。
 
 ## 目录清单（哪些在 git 里、哪些不在）
 
@@ -59,6 +76,7 @@
 |---|---|---|---|
 | `assets/` | ✅ | app 图标 10 档 + 菜单栏图标 3 档，`build.sh` 的唯一资源来源 | `./build.sh` 跑不起来 |
 | `fixtures/` | ✅ | `clip-a/b.mp4` 各 2 秒（共 52K），`PlayerController` 那两条用例需要真实可解码视频 | 用例直接红（刻意不 skip） |
+| `Tests/PicUITests/` | ✅ | XCUITest 5 用例；target 由 `Pic.xcodeproj` 手写承载，SwiftPM 不支持 macOS UI 测试 | xcodebuild test 少一条验收路 |
 | `build/` `dist/` | ❌ | 构建产物（`.app` / `.dmg`） | `./build.sh` 重建 |
 | `.build/` | ❌ | SwiftPM 构建缓存（本仓最大的本地目录） | 下次 `swift build/test` 从零编 |
 | `cpp-singleton-logger/` | ❌ | 某轮会话交付的 C++ 单例日志器示例，刻意不纳入本仓库 | 与 Pic 无关 |
