@@ -2,10 +2,10 @@ import SwiftUI
 import AppKit
 import PicCore
 
-// 菜单栏自绘面板（原型 D），NSPopover 的内容。视觉与尺寸照抄
-// `.planning/design/prototype.html` 的 .panel / .mhead / .mrow / .mdiv / .mfoot。
-// 菜单项仍只由 `MenuItemID.allCases` 遍历产出、动作仍只走 `MenuBarModel.perform` ——
-// 换成自绘面板不是绕过 MenuBarModelTests 哨兵的理由。
+// 菜单栏自绘面板（v2-flat），NSPopover 的内容。视觉同步
+// `.planning/design/ui-redesign-v2-shell.html`：pGround 面板底、.cd 头部卡、
+// 侧栏 navi 同语言的图标盒行。菜单项仍只由 `MenuItemID.allCases` 遍历产出、
+// 动作仍只走 `MenuBarModel.perform` —— 换皮不是绕过 MenuBarModelTests 哨兵的理由。
 struct MenuPanelView: View {
     @Environment(HoldArbiter.self) private var arbiter
     @Environment(SettingsStore.self) private var store
@@ -70,42 +70,70 @@ struct MenuPanelView: View {
                             shortcut: shortcutHint(for: id), style: rowStyle(for: id)) {
                         activate(id)
                     }
-                    .padding(.top, startsGroup(id) ? 6 : 0)
+                    .padding(.top, startsGroup(id) ? 7 : 0)
                     .accessibilityIdentifier("menu-row-\(id.rawValue)")
                 }
             }
         }
-        .padding(9)
+        .padding(10)
         .frame(width: 300)
-        .background(Color.pSurface)
+        .background {
+            // 液态玻璃开启时根背景是超薄材质，与设置窗根背景同一分派逻辑；
+            // 关闭时是不透明 pGround，平面渲染路径零材质。
+            Rectangle().fill(store.liquidGlassEnabled
+                ? AnyShapeStyle(.ultraThinMaterial)
+                : AnyShapeStyle(Color.pGround))
+        }
+        // 卡片面是否走液态玻璃只在根视图读一次 store，头部卡经环境量继承。
+        .environment(\.cardSurfaceGlass, store.liquidGlassEnabled)
     }
 
-    /// 组的起点（维护 / 系统）上方给 6pt 呼吸，代替原来的三条分隔线。
+    /// 组的起点（维护 / 系统）上方给 7pt 呼吸，代替原来的三条分隔线。
     private func startsGroup(_ id: MenuItemID) -> Bool {
         id == .rescanFolder || id == .openSettings
     }
 
-    // ── 头部：状态点 + 标题 + 副行 + 倒计时环（.mhead） ──
+    // ── 头部卡（v2 .cd）：品牌身份块 + 状态点/标题 + 副行 + 倒计时环 ──
+    // 白底 + 1pt pLine 描边 + 圆角 14 + padding 14 的 CardSurface 语言，直接复用
+    // 设置侧的 cardSurface() 修饰器（液态玻璃联动经环境量下传，这里零分支）。
     private var header: some View {
         HStack(spacing: 11) {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 7) {
-                    Circle().fill(headerTint).frame(width: 8, height: 8)
-                    Text(isEmpty || isHeld ? "已暂停" : "正在播放")
-                        .font(display(13, .semibold))
-                        .foregroundStyle(Color.pInk)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 10) {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(Color.pBrand)
+                        .frame(width: 28, height: 28)
+                        .overlay(
+                            Image(systemName: "play.rectangle.fill")
+                                .font(.system(size: 13))
+                                .foregroundStyle(Color.pBrandInk)
+                        )
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("动态壁纸")
+                            .font(display(13))
+                            .foregroundStyle(Color.pInk)
+                        Text("v\(appVersion()) · arm64")
+                            .font(mono(10))
+                            .foregroundStyle(Color.pInk3)
+                    }
                 }
-                Text(headerSubline)
-                    .font(.system(size: 11))
-                    .foregroundStyle(Color.pInk3)
-                    .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 7) {
+                        Circle().fill(headerTint).frame(width: 8, height: 8)
+                        Text(isEmpty || isHeld ? "已暂停" : "正在播放")
+                            .font(display(13, .semibold))
+                            .foregroundStyle(Color.pInk)
+                    }
+                    Text(headerSubline)
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color.pInk3)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             Spacer(minLength: 0)
             countdownRing
         }
-        .padding(.top, 9)
-        .padding(.bottom, 10)
-        .padding(.horizontal, 10)
+        .cardSurface()
     }
 
     private var headerTint: Color { isEmpty ? .pBad : (isHeld ? .pHold : .pOk) }
@@ -242,7 +270,7 @@ struct MenuPanelView: View {
     }
 }
 
-// ── 面板行（.mrow）。三态：normal / primary（品牌底）/ danger（红字，hover 红底）──
+// ── 面板行（v2：normal 带图标盒，primary 品牌实底 = gseg on 态，danger 红字照旧）──
 /// 行样式的可见域 = 本文件：MenuPanelView 与 MenuRow 共用，不提到文件外。
 fileprivate enum MenuRowStyle { case normal, primary, danger }
 
@@ -266,11 +294,8 @@ private struct MenuRow: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 11) {
-                Image(systemName: glyph)
-                    .font(.system(size: 13))
-                    .foregroundStyle(glyphColor)
-                    .frame(width: 16)
+            HStack(spacing: 10) {
+                glyphSlot
                 Text(label)
                     .font(.system(size: 13, weight: style == .primary ? .semibold : .regular))
                 Spacer(minLength: 0)
@@ -295,6 +320,27 @@ private struct MenuRow: View {
         .animation(.easeOut(duration: 0.12), value: hovering)
     }
 
+    /// 图标槽：normal / primary 走 24pt 圆角 8 的图标盒（侧栏 navi 同语言，
+    /// 图标 11pt 居中）；danger 不变 —— 裸 SF Symbol 13pt，仅占同一个 24pt 槽对齐。
+    @ViewBuilder
+    private var glyphSlot: some View {
+        if style == .danger {
+            Image(systemName: glyph)
+                .font(.system(size: 13))
+                .foregroundStyle(Color.pBad)
+                .frame(width: 24, height: 24)
+        } else {
+            Image(systemName: glyph)
+                .font(.system(size: 11))
+                .foregroundStyle(boxGlyphColor)
+                .frame(width: 24, height: 24)
+                .background(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(boxFill)
+                )
+        }
+    }
+
     private var textColor: Color {
         switch style {
         case .primary: return .pBrandInk
@@ -303,24 +349,29 @@ private struct MenuRow: View {
         }
     }
 
-    /// 图标色固定语义色，不用透明度（精修提案 v2.1）：主行动随 brandInk、危险随 bad、其余 ink3。
-    private var glyphColor: Color {
+    /// 图标盒底色：normal 用 surface-3（navi 的 .ic），primary 用 brandInk 淡染。
+    private var boxFill: Color {
         switch style {
-        case .primary: return .pBrandInk.opacity(0.65)
-        case .danger: return .pBad
-        case .normal: return .pInk3
+        case .primary: return .pBrandInk.opacity(0.18)
+        case .normal: return .pSurface3
+        case .danger: return .clear
         }
+    }
+
+    private var boxGlyphColor: Color {
+        style == .primary ? .pBrandInk : .pInk3
     }
 
     private var shortcutColor: Color {
         style == .primary ? .pBrandInk.opacity(0.65) : .pInk3
     }
 
+    /// hover 态：normal 白底（v2 navi:hover），danger 红软底，primary 恒为品牌实底。
     private var background: Color {
         switch style {
         case .primary: return .pBrand
         case .danger: return hovering ? .pBadSoft : .clear
-        case .normal: return hovering ? .pSurface2 : .clear
+        case .normal: return hovering ? .pSurface : .clear
         }
     }
 }
