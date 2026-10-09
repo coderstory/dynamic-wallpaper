@@ -3,92 +3,113 @@ import AppKit
 import PicCore
 
 // 设置窗组件层：配色令牌、间距常量、通用控件。
-// 数值全部照抄设计稿 `.planning/design/ui-rotation-a.html`，不自由发挥。
 // 字体一律系统默认（用户拍板，不打包字体文件），等宽走 `mono(_:_:)`。
 
 // ── 配色令牌 ──
-// 数值来自 `.planning/design/DESIGN-SPEC.md` v1.3（D 圆润亲和）。
-// 已由 `.planning/design/contrast-audit.py` 实测 36 组配对 ≥4.5:1，最低 4.56:1；改值后重跑。
+// v2 shell 令牌，来源 ui-redesign-v2-shell.html，对比度口径 4.5:1。
+// 改值后重跑 `.planning/design/contrast-audit.py`，旧结论作废。
 extension Color {
     // 结构
-    static let pGround   = Color(red: 0xF5/255, green: 0xF7/255, blue: 0xFB/255)
+    static let pGround   = Color(red: 0xF3/255, green: 0xF4/255, blue: 0xF7/255)
     static let pSurface  = Color.white
-    static let pSurface2 = Color(red: 0xEE/255, green: 0xF1/255, blue: 0xF8/255)
-    static let pSurface3 = Color(red: 0xE4/255, green: 0xE9/255, blue: 0xF4/255)
-    /// 磁贴内部的分隔线。本设计靠投影分层、不用描边；但磁贴内部仍需分隔，
-    /// 取 surface2 而非 line —— 后者在白卡上太硬。
+    static let pSurface2 = Color(red: 0xED/255, green: 0xF0/255, blue: 0xF4/255)
+    static let pSurface3 = Color(red: 0xE2/255, green: 0xE6/255, blue: 0xEC/255)
+    /// 卡片描边（v2 是描边分层，不是投影）。
+    static let pLine     = Color(red: 0xDA/255, green: 0xE0/255, blue: 0xE8/255)
+    /// 卡片内部发丝线：取 surface2 而非 line —— 后者在白卡上太硬。
     static let pDivider  = pSurface2
 
     // 文字
-    static let pInk  = Color(red: 0x14/255, green: 0x18/255, blue: 0x21/255)
-    static let pInk2 = Color(red: 0x5B/255, green: 0x64/255, blue: 0x74/255)
-    // 三级文字降一档权重：让正文真正突出（精修提案 v2.1）。
-    static let pInk3 = Color(red: 0x8A/255, green: 0x92/255, blue: 0xA3/255)
+    static let pInk  = Color(red: 0x15/255, green: 0x18/255, blue: 0x1E/255)
+    static let pInk2 = Color(red: 0x5B/255, green: 0x63/255, blue: 0x71/255)
+    static let pInk3 = Color(red: 0x64/255, green: 0x6C/255, blue: 0x79/255)
 
-    // 行动色：暖橙（与 App 图标渐变同族，精修提案 v2.1 拍板：UI 迁就图标）。
-    // 双色规则：brand 只作填充底，上面放 brandInk（近黑，6.7:1）；
-    // brand 作文字时用 brandText（白底 5.45:1）。白字在亮橙底只有 2.67:1，禁用。
-    // 四值全换后 contrast-audit.py 的旧结论作废，必须重跑。
-    static let pBrand     = Color(red: 0xE8/255, green: 0x86/255, blue: 0x2B/255)
-    static let pBrandInk  = Color(red: 0x23/255, green: 0x15/255, blue: 0x07/255)
+    // 行动色：暖橙（与 App 图标渐变同族）。
+    // 双色规则：brand 只作填充底，上面放 brandInk（近黑）；
+    // brand 作文字时用 brandText（白底达标）。白字在亮橙底对比不足，禁用。
+    static let pBrand     = Color(red: 0xF4/255, green: 0x70/255, blue: 0x1B/255)
+    static let pBrandInk  = Color(red: 0x2A/255, green: 0x11/255, blue: 0x04/255)
     /// brand 出现在文字位（徽标、状态字）时的替身。
-    static let pBrandText = Color(red: 0xA8/255, green: 0x51/255, blue: 0x0C/255)
-    static let pBrandSoft = Color(red: 0xFB/255, green: 0xE9/255, blue: 0xD4/255)
+    static let pBrandText = Color(red: 0xB2/255, green: 0x45/255, blue: 0x0A/255)
+    static let pBrandSoft = Color(red: 0xFF/255, green: 0xE8/255, blue: 0xD8/255)
 
-    // 状态色：三态语义，不复用行动色
-    static let pOk       = Color(red: 0x0A/255, green: 0x7C/255, blue: 0x5E/255)
-    static let pOkSoft   = Color(red: 0xE2/255, green: 0xF5/255, blue: 0xEF/255)
-    static let pHold     = Color(red: 0x9E/255, green: 0x5E/255, blue: 0x0A/255)
-    static let pHoldSoft = Color(red: 0xFB/255, green: 0xEF/255, blue: 0xDE/255)
-    static let pBad      = Color(red: 0x8E/255, green: 0x2B/255, blue: 0x3E/255)
-    /// 破坏性按钮上的字。**浅色主题下是白，深色主题下必须是近黑** ——
-    /// 深色的 bad 是亮砖红，白字压上去只有 2.49:1。本版只出浅色，改主题时别忘。
+    // 播放区（play）身份色复用 brand 四件套，不另设。
+
+    // 片库区身份色
+    static let pLib      = Color(red: 0x2C/255, green: 0x7B/255, blue: 0xE5/255)
+    static let pLibInk   = Color(red: 0x06/255, green: 0x10/255, blue: 0x1F/255)
+    static let pLibText  = Color(red: 0x1A/255, green: 0x55/255, blue: 0xA8/255)
+    static let pLibSoft  = Color(red: 0xDE/255, green: 0xE9/255, blue: 0xFC/255)
+
+    // 队列区身份色
+    static let pQueue     = Color(red: 0x8A/255, green: 0x63/255, blue: 0xFF/255)
+    static let pQueueInk  = Color(red: 0x0A/255, green: 0x04/255, blue: 0x20/255)
+    static let pQueueText = Color(red: 0x56/255, green: 0x28/255, blue: 0xCC/255)
+    static let pQueueSoft = Color(red: 0xE9/255, green: 0xE1/255, blue: 0xFF/255)
+
+    // 通用区身份色
+    static let pGen      = Color(red: 0x0E/255, green: 0x93/255, blue: 0x84/255)
+    static let pGenInk   = Color(red: 0x02/255, green: 0x11/255, blue: 0x10/255)
+    static let pGenText  = Color(red: 0x0A/255, green: 0x6B/255, blue: 0x61/255)
+    static let pGenSoft  = Color(red: 0xD6/255, green: 0xF3/255, blue: 0xEF/255)
+
+    // 状态色：三态语义，不复用行动色与身份色
+    static let pOk       = Color(red: 0x09/255, green: 0x70/255, blue: 0x55/255)
+    static let pOkSoft   = Color(red: 0xE0/255, green: 0xF5/255, blue: 0xEF/255)
+    static let pHold     = Color(red: 0x8A/255, green: 0x5A/255, blue: 0x00/255)
+    static let pHoldSoft = Color(red: 0xFA/255, green: 0xEF/255, blue: 0xD9/255)
+    static let pBad      = Color(red: 0xC0/255, green: 0x2B/255, blue: 0x4E/255)
+    /// 破坏性按钮上的字。**浅色主题下是白，深色主题下必须是近黑** —— 本版只出浅色，改主题时别忘。
     static let pBadInk   = Color.white
-    static let pBadSoft  = Color(red: 0xF7/255, green: 0xE4/255, blue: 0xE8/255)
+    static let pBadSoft  = Color(red: 0xFB/255, green: 0xE3/255, blue: 0xE8/255)
 }
 
-/// 字阶（精修提案 v2.1，全 UI 层唯一允许的档位）：
-/// 正文/行 13 · 辅助 11 · 小徽标/chip 10 · 标题 15（display 圆体）· 统计数字 21（mono）。
-/// 数值一律 mono：行内读数 12、hero meta 16、统计 21。
-/// 例外：26 只用于 AboutIcon 占位图标的字形高，不是文字。
+/// 字阶：正文/行 13 · 辅助 11 · 小徽标/chip 10 · 页标题 17 · hero 15 · 统计数字 21（mono）。
+/// 数值一律 mono。例外：26 只用于 AboutIcon 占位图标的字形高，不是文字。
 
 /// 等宽字体：数值 / 副标签 / 版本号 / 命令。字体切换的唯一入口。
 func mono(_ size: CGFloat, _ w: Font.Weight = .regular) -> Font {
     .system(size: size, weight: w, design: .monospaced)
 }
 
-/// 圆体：标题 / 眉标 / 关于页名称。本设计用系统圆体表达「亲和」，
-/// 取不到时回退到系统无衬线。不打包字体文件。
+/// 版本号取自 bundle，不硬编码。侧栏身份区与「关于」卡共用这一份。
+func appVersion() -> String {
+    Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+}
+
+/// 圆体：卡片标题 / 行标题 / hero。取不到时回退到系统无衬线，不打包字体文件。
 func display(_ size: CGFloat, _ w: Font.Weight = .semibold) -> Font {
     .system(size: size, weight: w, design: .rounded)
 }
 
 // ── 间距 / 圆角常量 ──
 enum Metrics {
-    // 窗口
-    static let windowWidth: CGFloat = 780
-    static let winPadding: CGFloat = 16
-    static let blockGap: CGFloat = 16
+    // v2 shell 骨架（ui-redesign-v2-shell.html §02）。窗宽唯一来源是
+    // SettingsPresentation.windowWidth，这里不再存第二份拷贝。
+    static let sidebarWidth: CGFloat = 216
+    static let topbarHeight: CGFloat = 44
+    static let cardRadius: CGFloat = 14
+    static let contentPadding: CGFloat = 18
 
-    // 磁贴网格
-    static let gridGap: CGFloat = 12
+    // 磁贴网格（v2 g2：gap 14）
+    static let gridGap: CGFloat = 14
     static let tilePadding: CGFloat = 14
     static let tileGap: CGFloat = 12
-    // 圆角三档：控件/行 10 · 磁贴 16（精修提案 v2.1；小徽标沿用 −4 派生 ≈7）。
-    static let tileRadius: CGFloat = 16
+    // 圆角：磁贴/卡片 14、控件/行 10。
+    static let tileRadius: CGFloat = 14
     static let ctlRadius: CGFloat = 10
 
-    // 磁贴内的一行
+    // 卡片内的一行
     static let rowMinHeight: CGFloat = 34
     static let rowGap: CGFloat = 11
 
-    // 开关
+    // 开关（HTML .tgl：42×24，滑块 20pt）
     static let toggleW: CGFloat = 42
     static let toggleH: CGFloat = 24
-    static let toggleKnob: CGFloat = 18
+    static let toggleKnob: CGFloat = 20
 
-    // 滑杆。**没有定宽常量** —— 本设计里滑杆铺满磁贴，
-    // 旧的 sliderWidth=128 定宽会让两条轨道右端对齐的诉求变成「一起挤在左边」。
+    // 滑杆。**没有定宽常量** —— 滑杆铺满卡片，
+    // 定宽会让两条轨道右端对齐的诉求变成「一起挤在左边」。
     static let sliderHeight: CGFloat = 26    // 命中区 ≥24
     static let sliderTrack: CGFloat = 5
     static let sliderKnob: CGFloat = 15
@@ -98,19 +119,15 @@ enum Metrics {
     static let segMinHeight: CGFloat = 30
     static let segPadding: CGFloat = 3
 
-    // 关于页
+    // 关于卡
     static let aboutIcon: CGFloat = 58
     static let aboutIconRadius: CGFloat = 15
-
-    // 数字
-    static let countFont: CGFloat = 17
-    static let countTopFont: CGFloat = 21
 
     /// 滑杆与开关右侧那个定宽读数。定宽才让几行读数的小数点对齐。
     static let valueWidth: CGFloat = 46
 }
 
-// ── 关于页图标 ──
+// ── 关于卡图标 ──
 // 必须显式 NSImage 加载：app 图标编译成 bundle 根部的 Pic.icns（CFBundleIconFile），
 // 不在 Resources/，SwiftUI 按名查找取不到 —— Image("AppIcon") 渲染为空白。
 struct AboutIcon: View {
@@ -147,7 +164,6 @@ struct AboutIcon: View {
         }
         .frame(width: Metrics.aboutIcon, height: Metrics.aboutIcon)
         .clipShape(RoundedRectangle(cornerRadius: Metrics.aboutIconRadius, style: .continuous))
-        .shadow(color: .black.opacity(0.16), radius: 6, y: 3)
     }
 }
 
@@ -221,8 +237,7 @@ struct GlowSlider: View {
                 onEnded?()
             })
         }
-        // 不给定宽：本设计里滑杆铺满磁贴。旧的 sliderWidth=128 定宽会让
-        // 「两条轨道右端对齐」退化成「一起挤在左边」。
+        // 不给定宽：滑杆铺满所在卡片。
         .frame(height: Metrics.sliderHeight)
         .accessibilityElement()
         .accessibilityLabel(Text(label))
@@ -243,13 +258,13 @@ struct GlowSlider: View {
     }
 }
 
-// ── 分段控件：播放模式用，3 格等分 ──
+// ── 分段控件：值选择用，3–4 格等分，选中段 brand 实心 ──
 struct GlowSegmented: View {
     let items: [String]
     @Binding var index: Int
 
     var body: some View {
-        HStack(spacing: 3) {
+        HStack(spacing: 2) {
             ForEach(items.indices, id: \.self) { i in
                 let on = index == i
                 let fill: Color = on ? Color.pBrand : .clear
@@ -276,21 +291,24 @@ struct GlowSegmented: View {
     }
 }
 
-// ── 滑块分段：页签与片库筛选共用（精修提案 v2.1 第二批）──
-/// 替换掉原来的两套胶囊语言（TabBar 胶囊高亮 / QueueFilterBar 白块高亮），统一为
-/// iOS 式「灰轨道 + 白滑块」，滑块 0.2s 弹簧滑移。brand 实心只留给「播放模式」这类
-/// 值选择（GlowSegmented），页签这类导航保持中性 —— 一屏内橙色块才不会失控。
+// ── 滑块分段：导航/筛选这类中性选择 ──
+/// iOS 式「灰轨道 + 白滑块」，滑块 0.2s 弹簧滑移。brand 实心只留给值选择（GlowSegmented），
+/// 这类导航保持中性 —— 一屏内橙色块才不会失控。
 /// 控件铺满调用方给定的宽度、段宽均分；外层用 .frame(width:height:) 控制总宽。
+/// `track` 可换：顶栏底色就是 surface2，轨道同色会看不见，那里传 surface3。
+/// `itemIdentifiers` 逐段挂 identifier（如顶栏来源切换的两段），不需要就不传。
 struct SlideSegmented: View {
     let items: [String]
     @Binding var index: Int
+    var track: Color = .pSurface2
+    var itemIdentifiers: [String]? = nil
 
     var body: some View {
         GeometryReader { geo in
             let segmentWidth = geo.size.width / CGFloat(items.count)
             ZStack(alignment: .leading) {
-                // 白滑块：位置随 index 弹簧滑移，不逐段淡入淡出。
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                // 白滑块：位置随 index 弹簧滑移，不逐段淡入淡出。圆角 6 与 HTML .seg .knob 一致。
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .fill(Color.pSurface)
                     .shadow(color: .black.opacity(0.10), radius: 2, y: 1)
                     .frame(width: segmentWidth - 4, height: geo.size.height - 4)
@@ -308,6 +326,7 @@ struct SlideSegmented: View {
                         // 自绘分段没有内建 AX 语义：逐段合成，选中段标 isSelected。
                         .accessibilityElement()
                         .accessibilityAddTraits(index == i ? [.isSelected, .isButton] : .isButton)
+                        .modifier(OptionalSegmentID(id: itemIdentifiers.flatMap { i < $0.count ? $0[i] : nil }))
                     }
                 }
             }
@@ -315,9 +334,17 @@ struct SlideSegmented: View {
         .padding(2)
         .background(
             RoundedRectangle(cornerRadius: Metrics.ctlRadius - 3, style: .continuous)
-                .fill(Color.pSurface2)
+                .fill(track)
         )
         .animation(.spring(response: 0.22, dampingFraction: 0.85), value: index)
+    }
+}
+
+/// identifier 只在给了值时挂：空串 identifier 会污染 AX 查询。
+private struct OptionalSegmentID: ViewModifier {
+    let id: String?
+    func body(content: Content) -> some View {
+        if let id { content.accessibilityIdentifier(id) } else { content }
     }
 }
 
@@ -337,7 +364,7 @@ struct GlowButton: ButtonStyle {
             .background(
                 RoundedRectangle(cornerRadius: Metrics.ctlRadius, style: .continuous).fill(bg)
             )
-            // 统一按压语言：缩放代替透明度（精修提案 v2.1）。
+            // 统一按压语言：缩放代替透明度。
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
@@ -355,7 +382,7 @@ struct GlowButton: ButtonStyle {
     }
 }
 
-/// 小号按钮：磁贴尾部那一排（选择… / 重新扫描）用它，与磁贴标题同排不能太大。
+/// 小号按钮：卡片尾部那一排（选择… / 重新扫描）用它，与卡片标题同排不能太大。
 struct GlowSmallButton: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label

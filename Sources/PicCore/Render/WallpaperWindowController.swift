@@ -19,7 +19,15 @@ public final class WallpaperWindowController {
     /// 否则同一个 player 上会挂两个 AVPlayerLayer，渲染哪一路变成不确定的事。
     public private(set) var layer: AVPlayerLayer?
 
+    /// 图片图层，首次 `attach` 后才有值。与 `layer` 同款可选语义：图层由窗口创建。
+    public private(set) var imageLayer: WallpaperImageLayer?
+
     public init() {}
+
+    /// 换屏重建完成后的回调。**调用方 = AppDelegate**：新窗口的 `imageLayer.isHidden`
+    /// 是 init 固定的默认隐藏、且没有任何图 —— 重建后当前若处于图片模式，接线方必须按
+    /// store 重新断言 kind 并把当前图重新贴上。控制器不知道 store，这个职责留在调用侧。
+    public var onRebuilt: (() -> Void)?
 
     /// 建窗 + 挂图层 + 提到最前。第一次调用才建，之后是幂等的。
     public func attach(player: AVQueuePlayer) {
@@ -28,7 +36,24 @@ public final class WallpaperWindowController {
         let created = WallpaperWindow(screen: screen, player: player)
         window = created
         layer = created.videoLayer
+        imageLayer = created.imageLayer
         created.orderFrontRegardless()
+    }
+
+    /// 切来源。**只翻可见性，不动播放器**：视频层保留着 player，切回视频时不用重新装载。
+    public func setKind(_ kind: WallpaperKind) {
+        window?.setKind(kind)
+    }
+
+    /// 显示一张图片。`image` 为 nil 时清屏（空态/解码失败）—— 传 nil 是合法调用，不是错误。
+    public func showImage(_ image: CGImage?, fit: ImageFit) {
+        imageLayer?.setImage(image, fit: fit)
+    }
+
+    /// UI 改完 `store.imageFit` 之后唯一的「当场生效」通道。走 `showImage(_:fit:)` 重设就得多解码
+    /// 一次同一张图 —— 解码在主线程是一张卡的可见卡顿，而这里要变的只有落位几何。
+    public func applyImageFit(_ fit: ImageFit) {
+        imageLayer?.setFit(fit)
     }
 
     /// 重新断言系统默认的 Space 行为：重设集合行为后重新提到最前。
@@ -69,11 +94,15 @@ public final class WallpaperWindowController {
         guard window != nil else { return }
         teardown()
         attach(player: player)
+        // 只有真建出窗才通知：attach 失败（拿不到 NSScreen.main）时没有「重建完成」可言，
+        // 旧 kind/旧图也没有新窗可贴。
+        if window != nil { onRebuilt?() }
     }
 
     public func teardown() {
         window?.orderOut(nil)
         window = nil
         layer = nil
+        imageLayer = nil
     }
 }

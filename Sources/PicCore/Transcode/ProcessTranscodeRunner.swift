@@ -28,7 +28,9 @@ public final class ProcessTranscodeRunner: TranscodeRunning, @unchecked Sendable
         running?.terminate()
     }
 
-    /// 本次 run 是否已被取消 —— spawn 前查一次，避免取消后还把进程拉起来。
+    /// 消费上一次 run 遗留的取消标志（上次 cancel 置位后进程被杀，标志会留存到下一次 run）。
+    /// 真正的 spawn 前取消闸在 run() 里登记 process 的同一把锁内 —— 只在这里查一次追不上
+    /// 「consume 之后、登记之前」落进来的 cancel。
     private func consumeCancellation() -> Bool {
         lock.withLock { () -> Bool in
             let was = cancelled
@@ -50,14 +52,29 @@ public final class ProcessTranscodeRunner: TranscodeRunning, @unchecked Sendable
         // stderr 必须丢给 /dev/null，不能挂一个不读的 Pipe：管道缓冲区（约 64KB）一满，ffmpeg 就阻塞在写 stderr 上，进程永不退出 —— 表现是 waitUntilExit 挂住、队列卡死、CPU 归零（转长视频必现）。人话输出格式随版本漂，本就不解析，所以直接丢弃。
         process.standardError = FileHandle.nullDevice
 
-        lock.withLock { self.process = process }
-
+        // spawn 竞态闸：cancel() 恰落在 consumeCancellation() 之后、登记之前的话，
+        // 只有这里锁内复查才追得上 —— 复查、登记、spawn 必须在同一临界区里，
+        // 否则「锁外复查 → 锁内登记 → 锁外 run」任一段间隙都够 cancel 溜进来，
+        // 被取消的 job 照样跑完并记 .succeeded。spawn 持锁时间 = fork/exec 一次，可忽略；
+        // cancel() 只会短暂等锁，拿到时进程已在跑，terminate() 正常生效。
+        let launched: Bool
         do {
-            try process.run()
+            launched = try lock.withLock { () -> Bool in
+                if cancelled {
+                    cancelled = false
+                    return false
+                }
+                self.process = process
+                try process.run()
+                return true
+            }
         } catch {
             clearProcess()
             return -1
         }
+        // 复查为真 = 本次 run 已被取消：不拉进程，按取消路径返回非 0
+        // （与进程被 terminate 的退出码同语义，队列据此退回 .pending 不落盘）。
+        guard launched else { return -1 }
         let splitter = LineSplitter(emit: onProgressLine)
         let handle = stdoutPipe.fileHandleForReading
         handle.readabilityHandler = { reading in

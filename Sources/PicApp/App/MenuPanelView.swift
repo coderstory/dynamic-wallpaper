@@ -22,6 +22,8 @@ struct MenuPanelView: View {
     private let rescanFolder: () -> Void
     private let deleteCurrent: () -> Void
     private let requestFolder: () -> Void
+    /// 切壁纸来源（视频 ⇄ 图片）。整条链在 AppDelegate 里，这里只转交意图。
+    private let switchSource: () -> Void
 
     init(rotation: RotationController,
          dismiss: @escaping () -> Void,
@@ -30,7 +32,8 @@ struct MenuPanelView: View {
          nextVideo: @escaping () -> Void,
          rescanFolder: @escaping () -> Void,
          deleteCurrent: @escaping () -> Void,
-         requestFolder: @escaping () -> Void) {
+         requestFolder: @escaping () -> Void,
+         switchSource: @escaping () -> Void) {
         self.rotation = rotation
         self.dismiss = dismiss
         self.terminate = terminate
@@ -39,6 +42,7 @@ struct MenuPanelView: View {
         self.rescanFolder = rescanFolder
         self.deleteCurrent = deleteCurrent
         self.requestFolder = requestFolder
+        self.switchSource = switchSource
     }
 
     var body: some View {
@@ -60,7 +64,9 @@ struct MenuPanelView: View {
                 if isVisible(id) {
                     // 分组靠留白，唯一保留的线在危险区（不可逆操作）前 —— 精修提案 v2.1。
                     if id == .deleteCurrent { divider }
-                    MenuRow(glyph: glyph(for: id), label: MenuBarModel.label(for: id, isPaused: isPaused),
+                    MenuRow(glyph: glyph(for: id),
+                            label: MenuBarModel.label(for: id, isPaused: isPaused,
+                                                      kind: store.wallpaperKind),
                             shortcut: shortcutHint(for: id), style: rowStyle(for: id)) {
                         activate(id)
                     }
@@ -115,7 +121,18 @@ struct MenuPanelView: View {
         if isHeld {
             return "\(SettingsPresentation.joinedReasons(arbiter.decision.activeReasons)) · 条件解除后自动续播"
         }
-        return "\(SettingsPresentation.playModeLabel(store.playMode)) · \(session.playableCount) 个视频"
+        // 模式标签必须带 kind（图片不谈「循环」）；计数与量词同样按来源分派：
+        // 视频走 playableCount，图片走 imagePassing —— 图片路径从不更新 playableCount，
+        // 拿它计数在图片模式下永远是 0。
+        return "\(SettingsPresentation.playModeLabel(store.playMode, kind: store.wallpaperKind))"
+            + " · \(countText)"
+    }
+
+    /// 头部计数文案，按来源分派（量词跟着走：张 / 个视频）。
+    private var countText: String {
+        store.wallpaperKind == .image
+            ? "\(session.imagePassing) 张"
+            : "\(session.playableCount) 个视频"
     }
 
     /// 倒计时环。与设置窗 hero 环是同族两尺寸（46 vs 78），小而各自内联 —— 不为两处用例起抽象。
@@ -167,7 +184,7 @@ struct MenuPanelView: View {
         session.lastLibraryState.map(SettingsPresentation.isEmptyState) ?? false
     }
     private var emptyCopy: SettingsPresentation.EmptyStateCopy? {
-        session.lastLibraryState.flatMap(SettingsPresentation.emptyStateCopy)
+        session.lastLibraryState.flatMap { SettingsPresentation.emptyStateCopy($0, kind: store.wallpaperKind) }
     }
 
     /// 可见性照抄原型的 data-when：暂停/下一个只在有播放会话时出现。
@@ -176,7 +193,7 @@ struct MenuPanelView: View {
     private func isVisible(_ id: MenuItemID) -> Bool {
         switch id {
         case .pauseResume, .nextVideo, .deleteCurrent: return !isEmpty
-        case .rescanFolder, .openSettings, .quit: return true
+        case .rescanFolder, .switchSource, .openSettings, .quit: return true
         }
     }
 
@@ -185,6 +202,8 @@ struct MenuPanelView: View {
         case .pauseResume: return isPaused ? "play.fill" : "pause.fill"
         case .nextVideo: return "forward.end.fill"
         case .rescanFolder: return "arrow.clockwise"
+        // 图标说的是「切过去的那一边」：当前是图片 → 显示胶卷（切回视频）。
+        case .switchSource: return store.wallpaperKind == .image ? "film" : "photo"
         case .deleteCurrent: return "trash"
         case .openSettings: return "gearshape"
         case .quit: return "power"
@@ -205,7 +224,7 @@ struct MenuPanelView: View {
 
     private func rowStyle(for id: MenuItemID) -> MenuRowStyle {
         switch id {
-        case .pauseResume: return .primary
+        case .pauseResume, .switchSource: return .primary
         case .deleteCurrent: return .danger
         default: return .normal
         }
@@ -215,7 +234,9 @@ struct MenuPanelView: View {
         dismiss()
         MenuBarModel.perform(id, isPaused: isPaused, arbiter: arbiter,
                              quit: terminate, nextVideo: nextVideo,
-                             rescanFolder: rescanFolder, deleteCurrent: deleteCurrent)
+                             rescanFolder: rescanFolder,
+                             switchSource: switchSource,
+                             deleteCurrent: deleteCurrent)
         // perform(.openSettings) 刻意是空操作：窗这一侧由调用方处理（与旧 MenuContentView 同一分工）。
         if id == .openSettings { openSettings(0) }
     }

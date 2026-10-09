@@ -64,7 +64,9 @@ public final class RotationController {
     }
 
 
-    public private(set) var items: [VideoItem] = []
+    /// 轮换的条目。**只存 URL 而不是 `VideoItem`**：图片来源复用同一个内核，
+    /// 把图片包成「视频条目」能编译但语义是错的。
+    public private(set) var items: [URL] = []
     public private(set) var currentIndex: Int = 0
     public private(set) var advances: [RotationAdvance] = []
     public private(set) var interval: TimeInterval = 300
@@ -76,7 +78,7 @@ public final class RotationController {
     public var mode: PlayMode
 
     /// 装配层用它把「下一条」转成播放端的装载。单向出参。
-    public var onAdvance: ((VideoItem) -> Void)?
+    public var onAdvance: ((URL) -> Void)?
 
     /// 洗牌袋：`setItems` 时清空，跨同一次列表内的 `advance` 保持 —— 这正是
     /// 「一轮内每条恰好一次」的实现载体。
@@ -96,7 +98,7 @@ public final class RotationController {
     /// 这个冻结值 —— 菜单环静止，不再走秒。
     public private(set) var remainingAtPause: TimeInterval?
 
-    public var current: VideoItem? { items.isEmpty ? nil : items[currentIndex] }
+    public var current: URL? { items.isEmpty ? nil : items[currentIndex] }
 
 
     /// **没有 player 参数，也没有 interval 参数** —— 这是让「到点就切 ≠ 播完才切」结构上不可绕过的关键。
@@ -108,7 +110,7 @@ public final class RotationController {
     }
 
     /// 换列表：索引归 0、清空洗牌袋。`start()` 之前调。
-    public func setItems(_ newItems: [VideoItem]) {
+    public func setItems(_ newItems: [URL]) {
         items = newItems
         currentIndex = 0
         bag = []
@@ -122,10 +124,9 @@ public final class RotationController {
     /// 洗牌袋里存的是**旧列表的下标**，列表一换就全部失效 —— 必须作废，留着会按旧下标
     /// 挑出已经不在列表里的条目（越界或播到错片）。
     @discardableResult
-    public func refreshItems(_ newItems: [VideoItem]) -> Bool {
+    public func refreshItems(_ newItems: [URL]) -> Bool {
         bag = []
-        guard let currentURL = current?.url,
-              let newIndex = newItems.firstIndex(where: { $0.url == currentURL }) else {
+        guard let currentURL = current, let newIndex = newItems.firstIndex(of: currentURL) else {
             items = newItems
             currentIndex = 0
             return false
@@ -168,7 +169,7 @@ public final class RotationController {
     /// （装配层只在 loopSingle 下调用；误用时等价于定点命中或回退，无副作用）。
     public func start(resumingAt url: URL) {
         guard !items.isEmpty else { return }
-        guard let index = items.firstIndex(where: { $0.url == url }) else {
+        guard let index = items.firstIndex(of: url) else {
             start()
             return
         }
@@ -243,7 +244,7 @@ public final class RotationController {
             if reason == .userRequested {
                 nextIndex = (currentIndex + 1) % items.count
             } else {
-                nextIndex = 0
+                nextIndex = currentIndex
             }
         case .loopList:
             nextIndex = (currentIndex + 1) % items.count

@@ -46,12 +46,15 @@ jobs:
         run: swift build
 
       - name: 测试
+        timeout-minutes: 15   # 熔断：防 runner 挂死吃满 6h 上限（swift test 卡住时直接杀步）
         run: |
           set +e
           # 只在 CI 侧隔离一条：PowerWatcherTests 的电源键名用例断言 readPowerState() 不得返回 .failed，
           # 前提是宿主必须真有电源源。runner 是 VM，IOPSCopyPowerSourcesList 返回空列表，源码如实返回
           # .failed —— 源码行为正确，是本机 MacBook 有电池所以本地恒绿。代码与用例一字不动。
-          # 若该用例改名 / 删除，这条 --skip 会退化成空匹配（测试数从 323 变 324），注意看摘要行。
+          # 校验口径（相对，不记绝对数 —— 总数会持续增长）：CI 隔离后摘要行的总数应比正常态少 1；
+          # 若该用例改名 / 删除，这条 --skip 会退化成空匹配、总数比正常态少 2，唯一线索就是摘要行，
+          # 所以 --skip 名单必须与类名 / 用例名逐字一致。
           swift test \
             --skip 'PowerWatcherTests/testPowerSourceStateKeyIsTheRealSDKKeyAndValuesAreStrings' \
             2>&1 | tee /tmp/test.log

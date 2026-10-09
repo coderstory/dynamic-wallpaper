@@ -9,6 +9,25 @@ public enum PlayMode: String, CaseIterable, Sendable {
     case shuffle
 }
 
+/// 壁纸来源。`rawValue` 会落 UserDefaults —— 改名等于让老用户的偏好读不出来，改名前先想迁移。
+public enum WallpaperKind: String, CaseIterable, Sendable {
+    case video
+    case image
+}
+
+/// 图片铺屏方式。默认 `.fill` 与系统一致（Windows / macOS 的桌面壁纸默认都是「填充」）：
+/// 等比放大到铺满、超出裁掉、不变形。
+public enum ImageFit: String, CaseIterable, Sendable {
+    /// 填充：铺满，超出裁掉。
+    case fill
+    /// 适应：完整显示，留边由「留边处」决定。
+    case fit
+    /// 居中：原始尺寸居中，不放大。
+    case center
+    /// 平铺：原始尺寸重复铺满。
+    case tile
+}
+
 /// 用户设置的单一真相源 —— 别处不得再存第二份。不含业务逻辑、不碰 AVFoundation，只做持久化与解析。
 @MainActor
 @Observable
@@ -25,11 +44,23 @@ public final class SettingsStore {
         public var pauseOnBattery: Bool
         /// 默认 false：自启是用户显式打开的东西，默认开等于替用户往开机项里塞一个登录项。
         public var launchAtLogin: Bool
+        public var wallpaperKind: WallpaperKind
+        public var imageFolderPath: String
+        public var imageMinPixels: Int
+        public var imageFit: ImageFit
+        /// 默认 false：材质是显式开启的视觉偏好，默认开等于替老用户换掉既见的界面。
+        public var liquidGlassEnabled: Bool
 
+        /// 新参数一律**加在末尾**：既有调用点用位置无关具名传参，插到中间会让它们编译不过。
         public init(sourceFolder: String = "", rate: Float = 1.0, volume: Float = 1.0,
                     isMuted: Bool = false, playMode: PlayMode = .loopSingle,
                     rotationInterval: TimeInterval = 300, pauseOnBattery: Bool = false,
-                    launchAtLogin: Bool = false) {
+                    launchAtLogin: Bool = false,
+                    wallpaperKind: WallpaperKind = .video,
+                    imageFolderPath: String = "",
+                    imageMinPixels: Int = ImageResolutionTier.k2.pixels,
+                    imageFit: ImageFit = .fill,
+                    liquidGlassEnabled: Bool = false) {
             self.sourceFolder = sourceFolder
             self.rate = rate
             self.volume = volume
@@ -38,6 +69,11 @@ public final class SettingsStore {
             self.rotationInterval = rotationInterval
             self.pauseOnBattery = pauseOnBattery
             self.launchAtLogin = launchAtLogin
+            self.wallpaperKind = wallpaperKind
+            self.imageFolderPath = imageFolderPath
+            self.imageMinPixels = imageMinPixels
+            self.imageFit = imageFit
+            self.liquidGlassEnabled = liquidGlassEnabled
         }
     }
 
@@ -53,6 +89,12 @@ public final class SettingsStore {
         public static let launchAtLogin = "launchAtLogin"
         public static let lastPlayedPath = "lastPlayedPath"
         public static let lastPlayedPosition = "lastPlayedPosition"
+        public static let wallpaperKind = "wallpaperKind"
+        public static let imageFolderPath = "imageFolderPath"
+        public static let imageMinPixels = "imageMinPixels"
+        public static let imageFit = "imageFit"
+        public static let liquidGlassEnabled = "liquidGlassEnabled"
+        public static let lastImagePath = "lastImagePath"
     }
 
     /// 开发期覆盖入口：`swift run` 起的进程没有 bundle id，UserDefaults 域取不到 `com.local.pic`，故留一条环境变量路径。
@@ -73,6 +115,19 @@ public final class SettingsStore {
     public var lastPlayedPath: String
     /// 上次播放的视频内进度（秒）。每次装载归零，让路 / 退出时写真值。
     public var lastPlayedPosition: TimeInterval
+    /// 当前壁纸来源。读不到持久化值时回落 `.video` —— 老用户（只有视频偏好）不需要迁移。
+    public var wallpaperKind: WallpaperKind
+    /// 图片来源目录，与 `sourceFolder` 并存：两个来源可以同时配好，切 `wallpaperKind` 即时生效。
+    public var imageFolderPath: String
+    /// 参与轮播的最低总像素量。存**绝对值**而不是档位下标，加档位不用迁移。
+    public var imageMinPixels: Int
+    public var imageFit: ImageFit
+    /// 「液态玻璃效果」。默认关：材质是显式开启的视觉偏好，默认开会让老用户升级后界面变样。
+    /// **纯展示偏好**——只被 SwiftUI 读，不走 Applier、不动窗口，@Observable 让开关即时生效。
+    public var liquidGlassEnabled: Bool
+    /// 上次显示的图片路径。**必须与 `lastPlayedPath` 分开**：图片的单张续播若拿视频路径去匹配，
+    /// 匹配不到就静默从第一张开始 —— 不崩，但用户不知道为什么换了一张。
+    public var lastImagePath: String
 
     private let defaults: UserDefaults
 
@@ -100,12 +155,34 @@ public final class SettingsStore {
         self.launchAtLogin = defaults.object(forKey: Key.launchAtLogin) as? Bool ?? seed.launchAtLogin
         self.lastPlayedPath = defaults.string(forKey: Key.lastPlayedPath) ?? ""
         self.lastPlayedPosition = defaults.object(forKey: Key.lastPlayedPosition) as? Double ?? 0
+        if let raw = defaults.string(forKey: Key.wallpaperKind), let k = WallpaperKind(rawValue: raw) {
+            self.wallpaperKind = k
+        } else {
+            self.wallpaperKind = seed.wallpaperKind
+        }
+        self.imageFolderPath = defaults.string(forKey: Key.imageFolderPath) ?? seed.imageFolderPath
+        self.imageMinPixels = defaults.object(forKey: Key.imageMinPixels) as? Int ?? seed.imageMinPixels
+        if let raw = defaults.string(forKey: Key.imageFit), let f = ImageFit(rawValue: raw) {
+            self.imageFit = f
+        } else {
+            self.imageFit = seed.imageFit
+        }
+        self.liquidGlassEnabled = defaults.object(forKey: Key.liquidGlassEnabled) as? Bool
+            ?? seed.liquidGlassEnabled
+        self.lastImagePath = defaults.string(forKey: Key.lastImagePath) ?? ""
     }
 
     /// 解析后的壁纸目录 URL。只走文件系统路径这一个形态：存在性检查必须喂 `url.path` 那种裸路径，喂 URL 的字符串形式会让含中文/空格的路径恒为假。
     public func resolvedFolderURL() -> URL? {
-        guard !sourceFolder.isEmpty else { return nil }
-        return URL(fileURLWithPath: sourceFolder)
+        resolvedFolderURL(for: wallpaperKind)
+    }
+
+    /// 指定来源的目录 URL。切来源后必须用**对应**的那一份路径去判存在性 ——
+    /// 拿视频目录去判图片来源会得出「已配置」的假结论。
+    public func resolvedFolderURL(for kind: WallpaperKind) -> URL? {
+        let path = kind == .image ? imageFolderPath : sourceFolder
+        guard !path.isEmpty else { return nil }
+        return URL(fileURLWithPath: path)
     }
 
     public func fileExists(at url: URL) -> Bool {
@@ -124,5 +201,11 @@ public final class SettingsStore {
         defaults.set(launchAtLogin, forKey: Key.launchAtLogin)
         defaults.set(lastPlayedPath, forKey: Key.lastPlayedPath)
         defaults.set(lastPlayedPosition, forKey: Key.lastPlayedPosition)
+        defaults.set(wallpaperKind.rawValue, forKey: Key.wallpaperKind)
+        defaults.set(imageFolderPath, forKey: Key.imageFolderPath)
+        defaults.set(imageMinPixels, forKey: Key.imageMinPixels)
+        defaults.set(imageFit.rawValue, forKey: Key.imageFit)
+        defaults.set(liquidGlassEnabled, forKey: Key.liquidGlassEnabled)
+        defaults.set(lastImagePath, forKey: Key.lastImagePath)
     }
 }
