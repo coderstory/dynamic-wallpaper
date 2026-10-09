@@ -860,14 +860,14 @@ struct SettingsView: View {
             HStack(spacing: 15) {
                 AboutIcon()
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("动态壁纸")
+                    Text("壁纸儿")
                         .font(display(15))
                         .foregroundStyle(Color.pInk)
                     Text("版本 \(appVersion()) · arm64 · GPL v2")
                         .font(mono(11))
                         .foregroundStyle(Color.pInk3)
                         .padding(.top, 4)
-                    Text("用视频（或图片）当动态壁纸。菜单栏常驻，全屏 / 锁屏 / 熄屏 / 睡眠时自动让路。")
+                    Text("用视频（或图片）当壁纸。菜单栏常驻，全屏 / 锁屏 / 熄屏 / 睡眠时自动让路。")
                         .font(.system(size: 13))
                         .foregroundStyle(Color.pInk2)
                         .fixedSize(horizontal: false, vertical: true)

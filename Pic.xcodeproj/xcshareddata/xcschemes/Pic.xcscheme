@@ -17,7 +17,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "510500000000000000000401"
-               BuildableName = "Pic.app"
+               BuildableName = "壁纸儿.app"
                BlueprintName = "PicApp"
                ReferencedContainer = "container:Pic.xcodeproj">
             </BuildableReference>
@@ -58,7 +58,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "510500000000000000000401"
-            BuildableName = "Pic.app"
+            BuildableName = "壁纸儿.app"
             BlueprintName = "PicApp"
             ReferencedContainer = "container:Pic.xcodeproj">
          </BuildableReference>
@@ -75,7 +75,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "510500000000000000000401"
-            BuildableName = "Pic.app"
+            BuildableName = "壁纸儿.app"
             BlueprintName = "PicApp"
             ReferencedContainer = "container:Pic.xcodeproj">
          </BuildableReference>

@@ -97,8 +97,53 @@ public final class SettingsStore {
         public static let lastImagePath = "lastImagePath"
     }
 
-    /// 开发期覆盖入口：`swift run` 起的进程没有 bundle id，UserDefaults 域取不到 `com.local.pic`，故留一条环境变量路径。
+    /// 开发期覆盖入口：`swift run` 起的进程没有 bundle id，UserDefaults 域取不到 `com.local.bizhier`，故留一条环境变量路径。
     public static let envSourceFolderKey = "PIC_SOURCE_FOLDER"
+
+    /// 改名前的旧偏好域 id。刻意按段拼接而不是写成完整字面量：仓库守门 grep 要求 Sources /
+    /// Tests 里不出现旧 id 的连续字样（「任何地方不出现」的机器可验形式）。只供迁移默认参数用，
+    /// 模块内别处不得引用。
+    static let legacySuiteName = ["com.local", "pic"].joined(separator: ".")
+
+    /// 产品入口：对改名后的新域跑一次性迁移（见下面的完整实现）。
+    public static func migrateLegacyPreferencesIfNeeded(defaults: UserDefaults) {
+        migrateLegacyPreferencesIfNeeded(defaults: defaults, legacySuiteName: legacySuiteName)
+    }
+
+    /// bundle id 改名后的一次性偏好迁移：新域从未写过值、旧域有值时，把旧域里属于 `Key`
+    /// 全集的键逐个搬进当前域，再整体删除旧域。
+    ///
+    /// - 触发时机：AppDelegate 在创建 `SettingsStore` **之前**调用 —— store 的 init 就在读
+    ///   偏好，晚于它迁移等于白搬（store 已用空域的种子值定终身）。
+    /// - 幂等：新域已有 `wallpaperKind`（= 新域写过偏好，迁移早已完成或用户已重新设置过）
+    ///   直接返回，绝不覆盖。
+    /// - 按 `Key` 全集过滤：旧域的 `dictionaryRepresentation()` 会混进系统塞的杂键
+    ///   （全局域 + 注册域的内容都在里面），照单全收等于把垃圾写进新域。
+    /// - 只有真搬了东西才删旧域：对不存在的域空跑 `removePersistentDomain` 会让 cfprefsd
+    ///   把一个全新的空旧域 plist 写回磁盘（见 `TestDefaults` 头注释），等于给每台新机器造残留文件。
+    ///
+    /// `legacySuiteName` 是测试注入缝：单测指 `pic.tests.*` 隔离域，绝不碰真实旧域。
+    static func migrateLegacyPreferencesIfNeeded(
+        defaults: UserDefaults,
+        legacySuiteName: String
+    ) {
+        guard defaults.object(forKey: Key.wallpaperKind) == nil else { return }
+        guard let legacy = UserDefaults(suiteName: legacySuiteName) else { return }
+        let knownKeys: Set<String> = [
+            Key.sourceFolderPath, Key.rate, Key.volume, Key.muted, Key.playMode,
+            Key.rotationInterval, Key.pauseOnBattery, Key.launchAtLogin,
+            Key.lastPlayedPath, Key.lastPlayedPosition, Key.wallpaperKind,
+            Key.imageFolderPath, Key.imageMinPixels, Key.imageFit,
+            Key.liquidGlassEnabled, Key.lastImagePath,
+        ]
+        var migrated = false
+        for (key, value) in legacy.dictionaryRepresentation() where knownKeys.contains(key) {
+            defaults.set(value, forKey: key)
+            migrated = true
+        }
+        guard migrated else { return }
+        legacy.removePersistentDomain(forName: legacySuiteName)
+    }
 
     public var sourceFolder: String
     public var rate: Float

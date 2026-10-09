@@ -275,4 +275,46 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertNil(store.resolvedFolderURL(for: .image))
         XCTAssertEqual(store.resolvedFolderURL(for: .video)?.path, "/tmp/videos")
     }
+
+    // MARK: - 改名一次性偏好迁移（migrateLegacyPreferencesIfNeeded）
+
+    /// 新域已写过偏好（`wallpaperKind` 在）→ 不迁移、不覆盖：动了就是把用户在新版里的
+    /// 现状拉回旧版的值。旧域原样保留 —— 幂等守卫在拷贝之前就短路了。
+    func testMigrationSkippedWhenNewDomainAlreadyHasValues() {
+        let legacyName = "pic.tests.migration-legacy-\(UUID().uuidString)"
+        defer { TestDefaults.purge(legacyName) }
+        let legacy = UserDefaults(suiteName: legacyName)!
+        legacy.set("/from/legacy", forKey: SettingsStore.Key.sourceFolderPath)
+
+        defaults.set("/already-new", forKey: SettingsStore.Key.sourceFolderPath)
+        defaults.set(WallpaperKind.video.rawValue, forKey: SettingsStore.Key.wallpaperKind)
+
+        SettingsStore.migrateLegacyPreferencesIfNeeded(defaults: defaults, legacySuiteName: legacyName)
+
+        XCTAssertEqual(defaults.string(forKey: SettingsStore.Key.sourceFolderPath), "/already-new")
+        XCTAssertEqual(UserDefaults(suiteName: legacyName)?
+            .string(forKey: SettingsStore.Key.sourceFolderPath), "/from/legacy")
+    }
+
+    /// 新域空 + 旧域有值 → 属于 `Key` 全集的键逐个迁入，系统塞的杂键不搬，旧域整体删除。
+    func testMigrationCopiesKnownKeysAndRemovesLegacyDomain() {
+        let legacyName = "pic.tests.migration-legacy-\(UUID().uuidString)"
+        defer { TestDefaults.purge(legacyName) }
+        let legacy = UserDefaults(suiteName: legacyName)!
+        legacy.set("/from/legacy", forKey: SettingsStore.Key.sourceFolderPath)
+        legacy.set(1.5, forKey: SettingsStore.Key.rate)
+        legacy.set(true, forKey: SettingsStore.Key.pauseOnBattery)
+        legacy.set("junk", forKey: "SomeSystemJunkKey")
+
+        SettingsStore.migrateLegacyPreferencesIfNeeded(defaults: defaults, legacySuiteName: legacyName)
+
+        XCTAssertEqual(defaults.string(forKey: SettingsStore.Key.sourceFolderPath), "/from/legacy")
+        XCTAssertEqual(defaults.double(forKey: SettingsStore.Key.rate), 1.5)
+        XCTAssertEqual(defaults.bool(forKey: SettingsStore.Key.pauseOnBattery), true)
+        XCTAssertNil(defaults.object(forKey: "SomeSystemJunkKey"),
+                     "旧域里的系统杂键不得搬进新域")
+        // 旧域整体消失：迁移后用新实例再读，键已不在。
+        XCTAssertNil(UserDefaults(suiteName: legacyName)?
+            .object(forKey: SettingsStore.Key.sourceFolderPath))
+    }
 }

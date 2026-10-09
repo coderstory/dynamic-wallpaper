@@ -1,4 +1,4 @@
-# Dynamic Wallpaper
+# 壁纸儿
 
 把一个文件夹里的视频当 macOS 桌面壁纸循环播放。菜单栏常驻，全屏、最大化窗口、锁屏、电池供电时自动让路。
 
@@ -36,12 +36,12 @@ cd dynamic-wallpaper
 ./build.sh
 ```
 
-产物在 `dist/`：`Pic-0.1.0.dmg`。
+产物在 `dist/`：`壁纸儿-0.1.0.dmg`。
 
 **不签名、不公证** —— 首次打开需要右键 → 打开，或：
 
 ```bash
-xattr -dr com.apple.quarantine /Applications/Pic.app
+xattr -dr com.apple.quarantine /Applications/壁纸儿.app
 ```
 
 只想编译不想打包：

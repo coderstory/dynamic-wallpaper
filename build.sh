@@ -2,8 +2,12 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-APP_NAME="Pic"
-BUNDLE_ID="com.local.pic"
+# 交付名（用户可见：Contents/MacOS、.app、.icns、DMG 全用它）。
+APP_NAME="壁纸儿"
+BUNDLE_ID="com.local.bizhier"
+# SwiftPM 包名没改（内部模块标识符），release 产物二进制仍叫 `Pic` —— 与交付名拆成
+# 两个变量：包名 = 编译期内部名，APP_NAME = 交付名，assemble_app 负责把前者拷成后者。
+SWIFTPM_BINARY="Pic"
 # 版本唯一来源 = 构建注入（CI/release 侧可 export PIC_VERSION 覆盖）；Info.plist 里
 # 写死的 0.1.0 只是开发期缺省，assemble_app 会用这里的 VERSION 覆写 bundle。
 VERSION="${PIC_VERSION:-0.1.0}"
@@ -18,11 +22,11 @@ mkdir -p "$OUT" "$DIST"
 # 意味着干净 clone 上本脚本必然在 cp 处失败 —— 交付构建不可复现。已搬进 assets/ 并纳入版本控制。
 ASSETS="assets"
 
-# 组装 .app。$1 = 产物名；裸二进制已在 $OUT/$1 就位。
+# 组装 .app。$1 = 产物名；交付二进制已在 $OUT/$APP_NAME 就位（由 SWIFTPM_BINARY 拷来）。
 assemble_app() {
   local app="$OUT/$1.app"
   mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
-  cp "$OUT/$1" "$app/Contents/MacOS/$APP_NAME"
+  cp "$OUT/$APP_NAME" "$app/Contents/MacOS/$APP_NAME"
   # Info.plist 的唯一真相源是 Sources/PicApp/Resources/Info.plist，刻意不再内联一份 heredoc —— 两份手写同一份 plist 必然漂移。
   cp "Sources/PicApp/Resources/Info.plist" "$app/Contents/Info.plist"
   # 版本唯一来源 = 构建注入（见文件头 VERSION）：Info.plist 里的 0.1.0 只是开发期缺省，
@@ -30,7 +34,7 @@ assemble_app() {
   plutil -replace CFBundleShortVersionString -string "$VERSION" "$app/Contents/Info.plist"
   plutil -replace CFBundleVersion        -string "$VERSION" "$app/Contents/Info.plist"
   # 菜单栏只拷 menubar-v1 的 Template 三档。
-  cp "$OUT/Pic.icns" "$app/Contents/Resources/Pic.icns"
+  cp "$OUT/${APP_NAME}.icns" "$app/Contents/Resources/${APP_NAME}.icns"
   cp "$ASSETS/menubar-v1.png"     "$app/Contents/Resources/menubar-v1Template.png"
   cp "$ASSETS/menubar-v1@2x.png"  "$app/Contents/Resources/menubar-v1Template@2x.png"
   cp "$ASSETS/menubar-v1@3x.png"  "$app/Contents/Resources/menubar-v1Template@3x.png"
@@ -42,18 +46,19 @@ echo "==> 出 .icns（iconutil，图标真相源 = assets/）"
 rm -rf "$OUT/${APP_NAME}.iconset"
 mkdir -p "$OUT/${APP_NAME}.iconset"
 cp "$ASSETS"/icon_*.png "$OUT/${APP_NAME}.iconset/"
-iconutil -c icns "$OUT/${APP_NAME}.iconset" -o "$OUT/Pic.icns"
+iconutil -c icns "$OUT/${APP_NAME}.iconset" -o "$OUT/${APP_NAME}.icns"
 
 echo "==> 编译交付产物（D-01：走 SwiftPM，不走 xcodebuild）"
 swift build --package-path . -c release
-cp ".build/release/${APP_NAME}" "$OUT/${APP_NAME}"
+# SwiftPM 产物名由包名决定（SWIFTPM_BINARY），交付名由 APP_NAME 决定 —— 在这里换名。
+cp ".build/release/${SWIFTPM_BINARY}" "$OUT/${APP_NAME}"
 
 echo "==> 组装交付 .app"
 assemble_app "$APP_NAME"
 APP="$OUT/${APP_NAME}.app"
 
 # DMG 的内容物只从 staging 来，绝不指 build/ —— 那里还住着 iconset 等中间产物。
-echo "==> 准备 staging（只放 Pic.app）"
+echo "==> 准备 staging（只放 ${APP_NAME}.app）"
 STAGE="$DIST/stage"
 mkdir -p "$STAGE"
 cp -R "$APP" "$STAGE/${APP_NAME}.app"

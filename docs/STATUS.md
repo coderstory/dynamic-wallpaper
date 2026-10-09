@@ -1,9 +1,11 @@
-# Pic 现状与未修问题
+# 壁纸儿现状与未修问题
 
 > **唯一一份活文档。** 历史过程报告已整体删除 —— 报告是快照，写完其中的结论就陆续失效，留着只会误导。
 > 改动过程看 `git log`，逐轮「为什么这么改」看 `.workbuddy/memory/`。
 
 ## 现状快照
+
+- 产品名**壁纸儿**（历史代号 Pic）；`PicCore` / `PicApp` 等为内部模块标识符，保留不改
 
 - 产品代码 **8873 行**（`PicCore` 纯逻辑 + `PicApp` 装配与 UI），零第三方依赖，仅 macOS 27
 - 测试 **6980 行 / 全量 406 用例**：本机沙箱 396 绿（5 个进程类 10 例会挂起，见下）；CI 全量 406
@@ -80,7 +82,7 @@
 | `Tests/PicUITests/` | ✅ | XCUITest 5 用例；target 由 `Pic.xcodeproj` 手写承载，SwiftPM 不支持 macOS UI 测试 | xcodebuild test 少一条验收路 |
 | `build/` `dist/` | ❌ | 构建产物（`.app` / `.dmg`） | `./build.sh` 重建 |
 | `.build/` | ❌ | SwiftPM 构建缓存（本仓最大的本地目录） | 下次 `swift build/test` 从零编 |
-| `cpp-singleton-logger/` | ❌ | 某轮会话交付的 C++ 单例日志器示例，刻意不纳入本仓库 | 与 Pic 无关 |
+| `cpp-singleton-logger/` | ❌ | 某轮会话交付的 C++ 单例日志器示例，刻意不纳入本仓库 | 与壁纸儿无关 |
 
 夹具重造（需要系统 `ffmpeg`）：
 

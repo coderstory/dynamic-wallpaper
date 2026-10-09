@@ -397,7 +397,7 @@ struct SettingsSideBar: View {
                         .foregroundStyle(Color.pBrandInk)
                 )
             VStack(alignment: .leading, spacing: 2) {
-                Text("动态壁纸")
+                Text("壁纸儿")
                     .font(display(13))
                     .foregroundStyle(Color.pInk)
                 Text("v\(appVersion()) · arm64")

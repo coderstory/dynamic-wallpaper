@@ -1,6 +1,6 @@
-# CLAUDE.md — Pic
+# CLAUDE.md — 壁纸儿
 
-macOS 动态壁纸播放器。菜单栏常驻（`.accessory`，无 Dock 图标），全屏视频铺满桌面并按设置轮换，
+macOS 壁纸播放器。菜单栏常驻（`.accessory`，无 Dock 图标），全屏视频铺满桌面并按设置轮换，
 系统事件（锁屏 / 全屏 / 熄屏 / 睡眠 / 电池）会压住播放。
 
 - **包**：`PicApp`（可执行，AppKit + SwiftUI）/ `PicCore`（纯逻辑库），仅 macOS 27，零第三方依赖

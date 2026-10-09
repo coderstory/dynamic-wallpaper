@@ -50,7 +50,7 @@
 		510500000000000000000112 /* InstallPathwaysView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstallPathwaysView.swift; sourceTree = "<group>"; };
 		510500000000000000000113 /* TranscodeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscodeViewModel.swift; sourceTree = "<group>"; };
 		510500000000000000000108 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		510500000000000000000201 /* Pic.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Pic.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		510500000000000000000201 /* 壁纸儿.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "壁纸儿.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 5105000000000000000001A1 /* PicUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PicUITests.swift; sourceTree = "<group>"; };
 510500000000000000000202 /* PicUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PicUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -88,7 +88,7 @@
 		510500000000000000000003 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				510500000000000000000201 /* Pic.app */,
+				510500000000000000000201 /* 壁纸儿.app */,
 				510500000000000000000202 /* PicUITests.xctest */,
 			);
 			name = Products;
@@ -182,7 +182,7 @@
 				510500000000000000000702 /* PicCore */,
 			);
 			productName = PicApp;
-			productReference = 510500000000000000000201 /* Pic.app */;
+			productReference = 510500000000000000000201 /* 壁纸儿.app */;
 			productType = "com.apple.product-type.application";
 		};
 		510500000000000000000402 /* PicUITests */ = {
@@ -331,8 +331,8 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.local.pic;
-				PRODUCT_NAME = Pic;
+				PRODUCT_BUNDLE_IDENTIFIER = com.local.bizhier;
+				PRODUCT_NAME = "壁纸儿";
 				SUPPORTED_PLATFORMS = macosx;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 6.0;
@@ -353,8 +353,8 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.local.pic;
-				PRODUCT_NAME = Pic;
+				PRODUCT_BUNDLE_IDENTIFIER = com.local.bizhier;
+				PRODUCT_NAME = "壁纸儿";
 				SUPPORTED_PLATFORMS = macosx;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_COMPILATION_MODE = wholemodule;
@@ -376,7 +376,7 @@
 					"@loader_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.local.pic.uitests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.local.bizhier.uitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = macosx;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -399,7 +399,7 @@
 					"@loader_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.local.pic.uitests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.local.bizhier.uitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = macosx;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";

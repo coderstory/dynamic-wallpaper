@@ -6,10 +6,13 @@ import PicCore
 /// 唯一装配点：全仓唯一把系统信号变成 `HoldReason` 的地方（单向流 `Watcher → HoldArbiter → PlayerController`）。
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSWindowDelegate {
-    let store = SettingsStore(
-        defaults: .standard,
-        seed: SettingsStore.Seed()
-    )
+    /// 改名迁移必须赶在 store 读偏好**之前**：bundle id 换域后新域是空的，store 的 init
+    /// 一旦先跑就会拿种子值定终身。store 是存储属性，属性初始化先于一切方法体，所以迁移
+    /// 挤在同一个立即求值的初始化表达式里、先于 SettingsStore 构造执行。
+    let store: SettingsStore = {
+        SettingsStore.migrateLegacyPreferencesIfNeeded(defaults: .standard)
+        return SettingsStore(defaults: .standard, seed: SettingsStore.Seed())
+    }()
     let player = PlayerController()
     let arbiter = HoldArbiter()
     let wallpaper = WallpaperWindowController()
@@ -236,7 +239,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     /// 让「开关拨了但没生效」在日志里有迹可循。不改 UI 契约（返回值被 UI 忽略）。
     func setLaunchAtLogin(_ enabled: Bool) {
         if enabled, !autostart.setEnabled(true) {
-            FileHandle.standardError.write(Data("Pic: 开机自启开启失败（原因见上一行）\n".utf8))
+            FileHandle.standardError.write(Data("壁纸儿: 开机自启开启失败（原因见上一行）\n".utf8))
         }
     }
 
@@ -520,7 +523,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
             .environment(settingsApplier)
             .environment(sessionState)
         let win = NSWindow(contentViewController: NSHostingController(rootView: root))
-        win.title = "动态壁纸"
+        win.title = "壁纸儿"
         // hiddenTitleBar 的 AppKit 写法：标题栏透明 + contentView 占满，红绿灯仍在原位 ——
         // SettingsView.titleRow 的 76pt 左内边距就是给它们留的。
         win.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]

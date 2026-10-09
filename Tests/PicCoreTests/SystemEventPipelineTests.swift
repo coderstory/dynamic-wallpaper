@@ -19,7 +19,7 @@ final class SystemEventPipelineTests: XCTestCase {
 
     /// 合成通知一律用这个前缀，**绝不投系统通知名** —— `com.apple.screenIsLocked` 由别的进程投递，
     /// 往它投会污染同机其它壁纸 app。
-    private static let prefix = "com.local.pic.tests.lock."
+    private static let prefix = "com.local.bizhier.tests.lock."
 
     private func makeNames() -> LockSignalNames {
         LockSignalNames(locked: "\(Self.prefix)locked", unlocked: "\(Self.prefix)unlocked")
