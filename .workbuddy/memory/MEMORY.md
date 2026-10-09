@@ -10,21 +10,28 @@
 - 分支分工互斥：`ci.yml` 用 `push.branches-ignore: [master]`（+ PR→master + workflow_dispatch），
   `release.yml` 用 `push.branches: [master]`。Release 不跑测试——**master 的提交不会过测试**。
 - Release tag 格式 `vYYYY.MM.DD-<run_number>`，说明由上次 tag 以来的提交信息汇总；
-  DMG 资产重命名成 `Pic-<tag>.dmg`（`build.sh` 里的 `VERSION="0.1.0"` 是写死的，不重命名各版本同名）。
+  DMG 资产重命名成 `Pic-<tag>.dmg`。`build.sh` 的版本经 `PIC_VERSION` 环境变量注入并 plutil
+  同步进 bundle（Info.plist 里的 0.1.0 只是开发期缺省）。
   无 Secrets 依赖：ad-hoc 签名，`GITHUB_TOKEN` 靠 workflow 自带 `permissions: contents: write`。
-- **发布动作 = `git push origin dev:master`**（master 是 dev 的祖先，一律快进，不要 merge commit）。
-  已实测一次：run 37491851240 → tag `v2026.10.06-1`，资产 `Pic-v2026.10.06-1.dmg`（2.1 MB），
-  产物校验通过（adhoc 签名有效 / `CFBundleIdentifier=com.local.pic` / `LSUIElement=true` /
-  `LSMinimumSystemVersion=27.0` / arm64）。`brew install create-dmg` 在 runner 上走主路成功
-  （卷里有 `Applications` 符号链接与 `.DS_Store`），`DMG_FALLBACK` 未触发。
-  首次发布的说明会取最近 40 条提交（无上次 tag 可 diff），属预期。
+- **发布动作 = PR 流（2026-10-09 实测）**：`git push origin dev` → 等 dev 上 CI 绿 →
+  `gh pr create --base master --head dev` → `gh pr merge <n> --merge` → release.yml 自动出
+  tag + DMG。⚠️ 旧约定「直推 `dev:master` 快进」**已失效**：master 顶端有 PR #1 的 merge
+  commit（191872b），直推会被拒——别再试直推，也别强推 master。
+  已实测：PR #2 → run 37878318697 → tag `v2026.10.09-4`，资产 `Pic-v2026.10.09-4.dmg`。
+  首次发布（v2026.10.06-1）产物校验：adhoc 签名 / `CFBundleIdentifier=com.local.pic` /
+  `LSUIElement=true` / `LSMinimumSystemVersion=27.0` / arm64。`brew install create-dmg`
+  在 runner 上走主路成功，`DMG_FALLBACK` 未触发。
+- **本机截图可行（2026-10-09 实测）**：沙箱有 GUI 会话时 `open build/Pic.app` 两次（第二次
+  激活开设置窗）→ `screencapture -x` 全屏（屏幕 1470×956@2x=2940×1912）→ `sips -c h w
+  --cropOffset y x` 裁窗口。用户要求**别随意截图（消耗大）**——一次截成，靠 sips 本地裁剪
+  调整。屏幕 1470×956 正是 FullscreenDetector 内缩常量的实测机型。
 - **CI 靠 `swift test --skip` 隔离了一条 VM 上必红的用例**：
   `PowerWatcherTests/testPowerSourceStateKeyIsTheRealSDKKeyAndValuesAreStrings`
   —— 它断言 `readPowerState()` 不得返回 `.failed`，前提是宿主真有电源源；runner 是 VM，
   `IOPSCopyPowerSourcesList` 返回空列表，源码**如实**返回 `.failed`（源码行为正确）。
   用户明确选择「不改代码与用例，只在 CI 侧隔离」。副作用：该用例若改名/删除，`--skip` 会静默
-  退化成空匹配。⚠️ `ci.yml` 里那句注释仍写着「正常态 323 变 324」（写于测试数更少时），已过时，待改。
-  本机测试数会随功能增长：图片轮播数据层落完后 **366**（CI 隔离后 365）——别把旧数字当基线。
+  退化成空匹配。ci.yml 的注释已改为**相对口径**（CI 隔离后比正常态少 1，少 2 = --skip 空匹配），
+  不再写绝对数。本机全量测试数（2026-10-09）：**406**（396 绿 + 5 个进程类 10 例沙箱挂起）。
 - 缓存：`actions/cache@v6`，path `.build`，key `swiftpm-<OS>-<ARCH>-<sha>` + 前缀回溯。
   冷启 ~60 MB。任务失败时 post 步被 skip，红的运行攒不下缓存。
 
