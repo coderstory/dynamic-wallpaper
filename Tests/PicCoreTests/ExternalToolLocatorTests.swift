@@ -4,19 +4,6 @@ import XCTest
 /// 全部走 Fake 注入，不真跑 which（`ProcessWhichProbe` 不在本文件实例化）；样本路径硬编码、不依赖 `fixtures/`，干净 clone 上 `swift test` 也必须绿。
 final class ExternalToolLocatorTests: XCTestCase {
 
-    /// 可配 status/path 的 which 替身（status 是 terminationStatus 语义）。
-    private struct FakeWhich: WhichProbing {
-        let status: Int32
-        let path: String?
-        func whichFFmpeg() -> (status: Int32, path: String?) { (status, path) }
-    }
-
-    /// 可执行路径集合替身：集合外的路径 = 存在但不可执行 或 不存在。
-    private struct FakeFS: ExecutableFileProbing {
-        let executables: Set<String>
-        func isExecutableFile(atPath path: String) -> Bool { executables.contains(path) }
-    }
-
     private func makeLocator(
         whichStatus: Int32 = 1,
         whichPath: String? = nil,

@@ -524,8 +524,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
             .environment(sessionState)
         let win = NSWindow(contentViewController: NSHostingController(rootView: root))
         win.title = "壁纸儿"
-        // hiddenTitleBar 的 AppKit 写法：标题栏透明 + contentView 占满，红绿灯仍在原位 ——
-        // SettingsView.titleRow 的 76pt 左内边距就是给它们留的。
+        // hiddenTitleBar 的 AppKit 写法：标题栏透明 + contentView 占满，红绿灯仍在原位。
         win.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
         win.titleVisibility = .hidden
         win.titlebarAppearsTransparent = true
@@ -977,7 +976,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         Task { await rescanAndApply() }
     }
 
-    /// 删除前的二次确认。`NSAlert` 而非 SwiftUI sheet：菜单是 `MenuBarExtra`，弹层挂不上去，
+    /// 删除前的二次确认。`NSAlert` 而非 SwiftUI sheet：菜单面板是 NSPopover，弹层挂不上去，
     /// 所以临时提策略、弹完恢复，与 `presentSettingsWindow` 同一套做法。
     /// 「移到废纸篓」刻意不做默认按钮（`alertStyle = .warning` 时首按钮才是默认），
     /// 回车 = 取消：误按回车不该删文件。

@@ -215,7 +215,9 @@ struct SettingsView: View {
         }
         let every = SettingsPresentation.rotationLabel(
             minutes: SettingsPresentation.rotationMinutes(seconds: store.rotationInterval))
-        let count = store.wallpaperKind == .image ? session.imagePassing : session.playableCount
+        let count = SettingsPresentation.libraryCount(kind: store.wallpaperKind,
+                                                      videoCount: session.playableCount,
+                                                      imageCount: session.imagePassing)
         return SettingsPresentation.heroSummary(kind: store.wallpaperKind, mode: store.playMode,
                                                 count: count, every: every)
     }
@@ -1116,15 +1118,14 @@ enum QueueFilter: Int {
 /// 只读的规则标签。
 private struct TagChip: View {
     let text: String
-    var accent = false
 
     var body: some View {
         Text(text)
             .font(mono(10))
-            .foregroundStyle(accent ? Color.pBrandText : Color.pInk2)
+            .foregroundStyle(Color.pInk2)
             .padding(.horizontal, 9)
             .padding(.vertical, 3)
-            .background(Capsule().fill(accent ? Color.pBrandSoft : Color.pSurface2))
+            .background(Capsule().fill(Color.pSurface2))
     }
 }
 

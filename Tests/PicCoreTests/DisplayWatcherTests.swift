@@ -1,23 +1,11 @@
 // 熄屏与睡眠是两条各自独立的 reason：叠加时先解除哪个都不恢复，都清空才 seek 且只 seek 一次。
 // `start()` 不投递任何通知也必须当场把当前状态算一遍。`System/` 与 `State/` 零 AVFoundation。
-// `FakeTarget` 是本文件本地的等价实现，不要改成引用 `HoldArbiterTests` 里那一个 ——
-// 测试替身跨文件耦合后，失败时分不清是替身坏了还是被测代码坏了。
 
 import XCTest
 @testable import PicCore
 
 @MainActor
 final class DisplayWatcherTests: XCTestCase {
-
-    private final class FakeTarget: PlaybackTarget {
-        var position: TimeInterval = 0
-        var seeks: [TimeInterval] = []
-        var applies: [PlaybackDecision] = []
-
-        func arbiterCurrentPosition() -> TimeInterval { position }
-        func arbiterSeek(to seconds: TimeInterval) { seeks.append(seconds) }
-        func arbiterApply(_ decision: PlaybackDecision) { applies.append(decision) }
-    }
 
     /// 替身：接住重配置回调，测试不必真触发一次显示器重配置。
     private final class RecordingReconfigurationHook: DisplayReconfigurationHook {

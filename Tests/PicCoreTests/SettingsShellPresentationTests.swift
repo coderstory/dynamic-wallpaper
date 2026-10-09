@@ -137,6 +137,23 @@ final class SettingsShellPresentationTests: XCTestCase {
         XCTAssertTrue(lit[3].emphasis)
     }
 
+    // ── 头部计数 ──
+
+    /// 图片口径必须走 imagePassing 而不是 playableCount：图片路径从不更新 playableCount，
+    /// 拿它计数在图片模式下永远是 0 —— 量词「张」跟着口径走。
+    func testLibraryCountLineForImageUsesImagePassing() {
+        XCTAssertEqual(SettingsPresentation.libraryCount(kind: .image, videoCount: 9, imageCount: 3), 3)
+        XCTAssertEqual(SettingsPresentation.libraryCountLine(kind: .image, videoCount: 9, imageCount: 3),
+                       "3 张")
+    }
+
+    /// 视频口径走 playableCount，量词是「个视频」。
+    func testLibraryCountLineForVideoUsesPlayableCount() {
+        XCTAssertEqual(SettingsPresentation.libraryCount(kind: .video, videoCount: 5, imageCount: 2), 5)
+        XCTAssertEqual(SettingsPresentation.libraryCountLine(kind: .video, videoCount: 5, imageCount: 2),
+                       "5 个视频")
+    }
+
     // ── hero ──
 
     /// 图片的「单张不变」是显示而不是轮播；同一个 mode 在视频那侧叫单循环 ——

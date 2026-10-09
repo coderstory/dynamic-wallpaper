@@ -149,18 +149,15 @@ struct MenuPanelView: View {
         if isHeld {
             return "\(SettingsPresentation.joinedReasons(arbiter.decision.activeReasons)) · 条件解除后自动续播"
         }
-        // 模式标签必须带 kind（图片不谈「循环」）；计数与量词同样按来源分派：
-        // 视频走 playableCount，图片走 imagePassing —— 图片路径从不更新 playableCount，
-        // 拿它计数在图片模式下永远是 0。
+        // 模式标签必须带 kind（图片不谈「循环」）；计数与量词同样按来源分派（`SettingsPresentation.libraryCountLine`）。
         return "\(SettingsPresentation.playModeLabel(store.playMode, kind: store.wallpaperKind))"
             + " · \(countText)"
     }
 
-    /// 头部计数文案，按来源分派（量词跟着走：张 / 个视频）。
     private var countText: String {
-        store.wallpaperKind == .image
-            ? "\(session.imagePassing) 张"
-            : "\(session.playableCount) 个视频"
+        SettingsPresentation.libraryCountLine(kind: store.wallpaperKind,
+                                              videoCount: session.playableCount,
+                                              imageCount: session.imagePassing)
     }
 
     /// 倒计时环。与设置窗 hero 环是同族两尺寸（46 vs 78），小而各自内联 —— 不为两处用例起抽象。

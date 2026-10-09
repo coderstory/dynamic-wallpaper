@@ -11,9 +11,10 @@ import XCTest
 /// 2. 断言只用 `exists` 与 identifier，**不断言坐标、颜色、字号** —— 那些是下一次改版就要
 ///    重写的断言，留着只会让人不敢动 UI。这里守的是「控件还在、页面还能到」这种会真伤到用户的回归。
 ///
-/// 导航 / 来源切换的 identifier（`nav-sidebar` / `nav-button-*` / `source-switch-*`）
-/// 以 `.planning/design/ui-redesign-v2-shell.html` 契约为准，已与 SettingsTiles.swift
+/// 导航 / 来源切换的 identifier（`nav-button-*` / `source-switch-*`）以
+/// `.planning/design/ui-redesign-v2-shell.html` 契约为准，已与 SettingsTiles.swift
 /// 的侧栏实现对齐：设置窗是「顶栏 + 侧栏四页导航」版，没有 main-tabs 页签。
+/// 侧栏容器刻意不挂 `nav-sidebar`（AX 桥会把容器标识向下串染，见 SettingsTiles.swift），只用行级 id。
 /// 类级 @MainActor：XCUITest 的 click()/waitForExistence 都是主 actor 隔离的，
 /// 用例方法本就跑在主 actor 上，标上让 Swift 6 并发检查不再告警。
 @MainActor
@@ -104,7 +105,7 @@ final class PicUITests: XCTestCase {
         let app = makeApp()
         openSettings(in: app)
 
-        // 顶栏状态胶囊是设置窗所有页共有的骨架（titleRow 常驻），它出现即代表窗已落地。
+        // 顶栏状态胶囊是设置窗所有页共有的骨架，它出现即代表窗已落地。
         XCTAssertTrue(element("status-paused", in: app).waitForExistence(timeout: 20),
                       "防回归：设置窗必须显示顶栏状态胶囊 status-paused")
         // 侧栏导航是现有导航骨架：恒定三项（队列页在图片来源下隐藏，不在此断言），

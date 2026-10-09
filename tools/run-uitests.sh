@@ -8,7 +8,7 @@
 # 再 test-without-building。若日后迁移 PBXFileSystemSynchronizedRootGroup 或由 Xcode 重建
 # 工程后此解析恢复正常，可直接换回 `xcodebuild test` 并删掉本脚本的 patch 段。
 #
-# 用法：tools/run-uitests.sh            # 全部 5 条
+# 用法：tools/run-uitests.sh            # 全部 8 条
 #       tools/run-uitests.sh <其余参数原样透传给 xcodebuild test-without-building>
 set -euo pipefail
 cd "$(dirname "$0")/.."

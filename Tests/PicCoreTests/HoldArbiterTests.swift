@@ -5,17 +5,6 @@ import XCTest
 @MainActor
 final class HoldArbiterTests: XCTestCase {
 
-    /// 文件内替身，不要与 `HoldArbiterContractTests.swift` 里那份合并 —— 跨文件耦合后失败时分不清是替身坏了还是被测代码坏了。
-    private final class FakeTarget: PlaybackTarget {
-        var position: TimeInterval = 0
-        var seeks: [TimeInterval] = []
-        var applies: [PlaybackDecision] = []
-
-        func arbiterCurrentPosition() -> TimeInterval { position }
-        func arbiterSeek(to seconds: TimeInterval) { seeks.append(seconds) }
-        func arbiterApply(_ decision: PlaybackDecision) { applies.append(decision) }
-    }
-
     private var target: FakeTarget!
     private var arbiter: HoldArbiter!
 

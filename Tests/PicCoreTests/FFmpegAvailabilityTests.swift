@@ -2,21 +2,8 @@ import Foundation
 import XCTest
 @testable import PicCore
 
-/// 不依赖本机 PATH / 文件系统，换台机器也必须照样过：判定经 `ExternalToolLocator` 注入，which 与文件系统都是本文件自带的假件（不跨文件复用）。判定只看「可执行文件」，零执行 —— 这里的 ffmpeg 只是路径串，从不被运行过。
+/// 不依赖本机 PATH / 文件系统，换台机器也必须照样过：判定经 `ExternalToolLocator` 注入假件。判定只看「可执行文件」，零执行 —— 这里的 ffmpeg 只是路径串，从不被运行过。
 final class FFmpegAvailabilityTests: XCTestCase {
-
-    /// which 替身：status 是 terminationStatus 语义，path 是 stdout 去空白（nil = 空串）。
-    private struct FakeWhich: WhichProbing {
-        let status: Int32
-        let path: String?
-        func whichFFmpeg() -> (status: Int32, path: String?) { (status, path) }
-    }
-
-    /// 文件系统替身：集合外的路径 = 不存在**或**存在但不可执行（判定不可区分，故并为一类）。
-    private struct FakeFS: ExecutableFileProbing {
-        let executables: Set<String>
-        func isExecutableFile(atPath path: String) -> Bool { executables.contains(path) }
-    }
 
     private func statusCardSays(
         whichStatus: Int32 = 1,
