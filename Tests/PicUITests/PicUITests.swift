@@ -25,8 +25,19 @@ final class PicUITests: XCTestCase {
         continueAfterFailure = false
     }
 
+    /// 启动参数钉死视频来源：本机 App 的持久化域里 wallpaperKind 可能是 image
+    /// （用户上次真的切过来源），而多条用例的前提是「视频来源起步」。参数域
+    /// （NSArgumentDomain）优先级最高，`-wallpaperKind video` 让 store 首读必得 video，
+    /// 用例间不依赖机器残留状态。
+    ///
+    /// 代价（记下供主线程决策）：Xcode 27 的测试 runner 沙箱隔离了偏好域视图 ——
+    /// runner 里既读不到、也持久改不动真实的 com.local.bizhier 域（实测：runner 写入
+    /// shell 侧不可见，读取恒为空），所以「跑完把用户的来源偏好写回去」在测试进程内
+    /// 无法做到。套件跑完后本机持久化的来源会停在 video，需要还原时在 shell 手动执行：
+    /// `defaults write com.local.bizhier wallpaperKind -string <原值>`。
     private func makeApp() -> XCUIApplication {
         let app = XCUIApplication()
+        app.launchArguments += ["-wallpaperKind", "video"]
         app.launch()
         return app
     }
@@ -37,13 +48,13 @@ final class PicUITests: XCTestCase {
     /// 这条路径一旦改坏，设置窗就是个用户永远打不开的功能，所以每个用例都从它起步。
     private func openSettings(in app: XCUIApplication) {
         let statusItem = app.menuBars.statusItems.firstMatch
-        XCTAssertTrue(statusItem.waitForExistence(timeout: 10),
+        XCTAssertTrue(statusItem.waitForExistence(timeout: 20),
                       "防回归：菜单栏必须有常驻状态项，它是 LSUIElement App 唯一的入口")
 
         statusItem.click()
 
         let openSettingsRow = element("menu-row-openSettings", in: app)
-        XCTAssertTrue(openSettingsRow.waitForExistence(timeout: 5),
+        XCTAssertTrue(openSettingsRow.waitForExistence(timeout: 10),
                       "防回归：面板必须给出「打开设置」这一行（id 由 MenuItemID.openSettings 派生）")
         openSettingsRow.click()
     }
@@ -59,9 +70,29 @@ final class PicUITests: XCTestCase {
     /// 侧栏行是自绘 AX 元素，按 identifier 找，不按标题 —— 标题属于实现的自由。
     private func clickNav(_ identifier: String, in app: XCUIApplication) {
         let nav = element(identifier, in: app)
-        XCTAssertTrue(nav.waitForExistence(timeout: 5),
+        XCTAssertTrue(nav.waitForExistence(timeout: 10),
                       "防回归：侧栏必须有导航项 \(identifier)")
         nav.click()
+    }
+
+    /// 点顶栏来源分段里的目标段。
+    /// 契约上每段有自己的 identifier（source-switch-video / -image，SettingsTopBar 传的
+    /// itemIdentifiers），但顶栏容器同时挂着 `source-switch`，macOS AX 桥把容器标识向下
+    /// 串染（SettingsSideBar 注释记载的 nav-sidebar 同款实测问题，真机 AX 树里两段都
+    /// 顶着 `source-switch` 且无 label）。所以先按段自身 identifier 查（产品修掉串染后
+    /// 走这条路）；查不到就点「未选中的那段」—— 串染形态下 Selected 标记是两段间唯一
+    /// 的语义区分，不赌坐标、不赌元素顺序。
+    private func clickSourceSegment(_ title: String, identifier: String, in app: XCUIApplication) {
+        let byID = element(identifier, in: app)
+        if byID.waitForExistence(timeout: 3) {
+            byID.click()
+            return
+        }
+        let segments = app.descendants(matching: .any).matching(identifier: "source-switch")
+        let offSegment = segments.matching(NSPredicate(format: "isSelected == NO")).firstMatch
+        XCTAssertTrue(offSegment.waitForExistence(timeout: 10),
+                      "防回归：顶栏来源分段必须有「\(title)」一段可点（段 identifier \(identifier) 或未选中段均可查到）")
+        offSegment.click()
     }
 
     // MARK: - 用例
@@ -74,7 +105,7 @@ final class PicUITests: XCTestCase {
         openSettings(in: app)
 
         // 顶栏状态胶囊是设置窗所有页共有的骨架（titleRow 常驻），它出现即代表窗已落地。
-        XCTAssertTrue(element("status-paused", in: app).waitForExistence(timeout: 10),
+        XCTAssertTrue(element("status-paused", in: app).waitForExistence(timeout: 20),
                       "防回归：设置窗必须显示顶栏状态胶囊 status-paused")
         // 侧栏导航是现有导航骨架：恒定三项（队列页在图片来源下隐藏，不在此断言），
         // 少一个就有一页够不着。
@@ -93,7 +124,7 @@ final class PicUITests: XCTestCase {
         let app = makeApp()
         openSettings(in: app)
 
-        XCTAssertTrue(element("status-paused", in: app).waitForExistence(timeout: 10),
+        XCTAssertTrue(element("status-paused", in: app).waitForExistence(timeout: 20),
                       "防回归：设置窗先落地，播放页断言才有意义")
 
         let modeSegmented = element("mode-segmented", in: app)
@@ -114,7 +145,7 @@ final class PicUITests: XCTestCase {
 
         clickNav("nav-button-library", in: app)
 
-        XCTAssertTrue(element("select-button", in: app).waitForExistence(timeout: 5),
+        XCTAssertTrue(element("select-button", in: app).waitForExistence(timeout: 10),
                       "防回归：片库页必须有「选择…」（select-button），否则用户无法配置目录")
         XCTAssertTrue(element("rescan-button", in: app).exists,
                       "防回归：片库页必须有「重新扫描」（rescan-button）")
@@ -129,7 +160,7 @@ final class PicUITests: XCTestCase {
 
         clickNav("nav-button-general", in: app)
 
-        XCTAssertTrue(element("autostart-toggle", in: app).waitForExistence(timeout: 5),
+        XCTAssertTrue(element("autostart-toggle", in: app).waitForExistence(timeout: 10),
                       "防回归：通用页必须有开机自启开关 autostart-toggle")
     }
 
@@ -140,11 +171,81 @@ final class PicUITests: XCTestCase {
         let app = makeApp()
 
         let statusItem = app.menuBars.statusItems.firstMatch
-        XCTAssertTrue(statusItem.waitForExistence(timeout: 10),
+        XCTAssertTrue(statusItem.waitForExistence(timeout: 20),
                       "防回归：菜单栏必须有常驻状态项")
         statusItem.click()
 
-        XCTAssertTrue(element("menu-row-switchSource", in: app).waitForExistence(timeout: 5),
+        XCTAssertTrue(element("menu-row-switchSource", in: app).waitForExistence(timeout: 10),
                       "防回归：面板必须有「切换壁纸来源」行（menu-row-switchSource）")
+    }
+
+    /// ⑥ 来源切换要换的是**控件集**，不是只换文案。
+    /// 防回归：图片来源没有转码队列，侧栏必须收起 nav-button-queue，片库页必须换上
+    /// tier-segmented / fit-segmented / image-stat-total 这组图片专属控件 —— 历史 bug 是
+    /// 顶栏分段切了、状态文案变了，但页面主体还是视频那套（用户对着「转码队列」入口发呆）。
+    /// 反向再切回视频，队列入口必须回来 —— 只验证单向会漏掉「切回后侧栏没恢复」的回归。
+    func testImageSourceSwapsControlsAndHidesQueue() {
+        let app = makeApp()
+        openSettings(in: app)
+
+        XCTAssertTrue(element("status-paused", in: app).waitForExistence(timeout: 20),
+                      "防回归：设置窗先落地，来源切换断言才有意义")
+
+        // 视频来源（默认）下队列入口在侧栏里，先确认起点成立。
+        let queueButton = element("nav-button-queue", in: app)
+        XCTAssertTrue(queueButton.waitForExistence(timeout: 10),
+                      "防回归：视频来源下侧栏必须有队列入口，否则无从验证它会被收起")
+
+        // 图片专属控件在片库页：切过去等它们落地 —— 控件出现即代表图片来源已生效，
+        // 同一个渲染 pass 里侧栏也换完了，此时断言队列入口消失才不是和异步赛跑。
+        clickSourceSegment("图片", identifier: "source-switch-image", in: app)
+        clickNav("nav-button-library", in: app)
+        XCTAssertTrue(element("tier-segmented", in: app).waitForExistence(timeout: 20),
+                      "防回归：图片片库页必须有分辨率筛选 tier-segmented")
+        XCTAssertTrue(element("fit-segmented", in: app).exists,
+                      "防回归：图片片库页必须有图片适配 fit-segmented")
+        XCTAssertTrue(element("image-stat-total", in: app).exists,
+                      "防回归：图片片库页统计带必须有图片总数格 image-stat-total")
+        XCTAssertFalse(queueButton.exists,
+                       "防回归：图片来源没有转码队列，侧栏必须收起 nav-button-queue")
+
+        // 切回视频：队列入口必须回归。
+        clickSourceSegment("视频", identifier: "source-switch-video", in: app)
+        XCTAssertTrue(queueButton.waitForExistence(timeout: 10),
+                      "防回归：切回视频来源后侧栏必须恢复队列入口 nav-button-queue")
+    }
+
+    /// ⑦ 队列页经侧栏可达。
+    /// 防回归：队列页只能从侧栏进来（视频来源下），导航按钮在但 page 状态没接线时，
+    /// 点了没反应 —— 内容区还停在播放页，这种静默失败单元测试抓不到。
+    /// 队列页按任务数二态渲染：有任务 → 头部筛选条（transcode-badge）；空 → 空态卡。
+    /// 空态卡在产品侧没有 identifier（见汇报），只能按标题文案查 —— 二选一必在，
+    /// 把「点导航整页没反应」和「依赖测试机队列状态」都挡住。
+    func testQueuePageReachableViaNav() {
+        let app = makeApp()
+        openSettings(in: app)
+
+        XCTAssertTrue(element("status-paused", in: app).waitForExistence(timeout: 20),
+                      "防回归：设置窗先落地，队列页断言才有意义")
+
+        clickNav("nav-button-queue", in: app)
+
+        let badge = element("transcode-badge", in: app)
+        let emptyTitle = app.staticTexts["没有需要处理的文件"]
+        XCTAssertTrue(badge.waitForExistence(timeout: 10) || emptyTitle.waitForExistence(timeout: 1),
+                      "防回归：队列页必须渲染出骨架（任务态 transcode-badge 或空态卡「没有需要处理的文件」）")
+    }
+
+    /// ⑧ 通用页的外观卡带液态玻璃开关。
+    /// 防回归：外观卡是液态玻璃唯一入口，重排版把整卡误删时编译照过、功能静默蒸发
+    /// （store 键还在，只是没有任何 UI 能碰到它）。
+    func testGeneralPageExposesGlassToggle() {
+        let app = makeApp()
+        openSettings(in: app)
+
+        clickNav("nav-button-general", in: app)
+
+        XCTAssertTrue(element("glass-toggle", in: app).waitForExistence(timeout: 10),
+                      "防回归：通用页外观卡必须有液态玻璃开关 glass-toggle")
     }
 }

@@ -341,7 +341,9 @@ struct SettingsTopBar<Pill: View>: View {
                 SlideSegmented(items: ["视频", "图片"], index: sourceIndex, track: .pSurface3,
                                itemIdentifiers: ["source-switch-video", "source-switch-image"])
                     .frame(width: 132, height: 26)
-                    .accessibilityIdentifier("source-switch")
+                // 刻意**不给**容器挂 accessibilityIdentifier("source-switch")：与侧栏同款
+                // AX 串染——容器标识会向下覆盖 SlideSegmented 的 itemIdentifiers
+                // （source-switch-video/-image 真机实测查不到）。契约 id 在段上，别加回来。
             }
         }
         .padding(.leading, 14)

@@ -13,6 +13,11 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+echo "==> 清场（退出本机正在运行的实例——同 bundle id 双实例会让 AUT 抢不到 AX 注册）"
+osascript -e 'quit app "壁纸儿"' 2>/dev/null || true
+pkill -x 壁纸儿 2>/dev/null || true
+sleep 1
+
 echo "==> build-for-testing"
 xcodebuild -project Pic.xcodeproj -scheme Pic -destination 'platform=macOS' \
   build-for-testing -quiet
