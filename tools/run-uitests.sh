@@ -16,7 +16,8 @@ cd "$(dirname "$0")/.."
 echo "==> 清场（退出本机正在运行的实例——同 bundle id 双实例会让 AUT 抢不到 AX 注册）"
 osascript -e 'quit app "壁纸儿"' 2>/dev/null || true
 pkill -x 壁纸儿 2>/dev/null || true
-sleep 1
+# 静置：退出后立刻连发启动，前两个 AUT 实例的 AX 注册最容易抖（实测 70s 级超时）
+sleep 3
 
 echo "==> build-for-testing"
 xcodebuild -project Pic.xcodeproj -scheme Pic -destination 'platform=macOS' \

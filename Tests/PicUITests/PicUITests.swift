@@ -39,7 +39,17 @@ final class PicUITests: XCTestCase {
     private func makeApp() -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments += ["-wallpaperKind", "video"]
-        app.launch()
+        // LSUIElement 应用连发启动偶发 AX 注册未就绪（实测窗口 ~70s，套件里最先
+        // 启动的两个实例最容易中招，表现为 "has not loaded accessibility" 级超时）。
+        // 最多重启 3 次、每次等状态项就绪；三次都失败才交出去，让断言展示真实现场。
+        for _ in 0..<3 {
+            app.launch()
+            if app.menuBars.statusItems.firstMatch.waitForExistence(timeout: 20) {
+                return app
+            }
+            app.terminate()
+            Thread.sleep(forTimeInterval: 10)
+        }
         return app
     }
 
