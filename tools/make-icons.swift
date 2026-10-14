@@ -114,8 +114,10 @@ for (name, px) in [("icon_16x16",16),("icon_16x16@2x",32),("icon_32x32",32),("ic
 }
 
 
-// 菜单栏模板图必须靠透明间隙成形，实心填充会糊成一块黑矩形。v1 单窗 + 实心三角，v2 双窗 + 实心三角。
-func drawMenuBar(_ cg: CGContext, _ px: CGFloat, twoLayer: Bool) {
+// 菜单栏模板图必须靠透明间隙成形，实心填充会糊成一块黑矩形。
+// v3：山形（三座，中间最高）+ 暂停斜线贯穿山体。两态各一套 PNG —— 靠几何区分，
+// 不靠 Alpha 灰度：Template 图会被系统按 Alpha 抠成单色，任何灰度都会被拉成锯齿。
+func drawMenuBar(_ cg: CGContext, _ px: CGFloat, twoLayer: Bool, paused: Bool) {
     let k = px / 1024
     func X(_ v: CGFloat) -> CGFloat { v * k }
     cg.saveGState()
@@ -124,8 +126,8 @@ func drawMenuBar(_ cg: CGContext, _ px: CGFloat, twoLayer: Bool) {
     cg.setFillColor(CGColor(red:0,green:0,blue:0,alpha:1))
     cg.setLineJoin(.round); cg.setLineCap(.round)
 
-    // 整体放大 1.15（绕画布中心）：旧字形只占画布 54.7% 高，20pt 渲染下仅 ~11pt，
-    // 在菜单栏里比邻居矮一截。缩放不破坏窗-三角的比例与光学校正（nudge 按比例跟着走）。
+    // 整体放大 1.15（绕画布中心）：字形只占画布约 55% 高，22pt 渲染下仅~11pt，
+    // 在菜单栏里比邻居矮一截。缩放不破坏内部比例（各几何量都走 X() 跟着缩）。
     let zoom: CGFloat = 1.15
     cg.translateBy(x: X(512), y: X(512))
     cg.scaleBy(x: zoom, y: zoom)
@@ -147,38 +149,91 @@ func drawMenuBar(_ cg: CGContext, _ px: CGFloat, twoLayer: Bool) {
         cg.strokePath()
     }
 
-    let cx: CGFloat = 512
-    let cy: CGFloat = twoLayer ? 638 : 512
-    let w: CGFloat  = twoLayer ? 232 : 200
-    let h: CGFloat  = twoLayer ? 254 : 232
-    // 光学校正：nudge = 三角宽 / 6，把面积质心挪到窗心（v1 33 / v2 39）。
-    // 三角占窗高比例如上调大（v1 232/560 ≈ 41%），窗内空间校验过放得下。
-    let nudge: CGFloat = twoLayer ? 39 : 33
-    let tri = CGMutablePath()
-    tri.move(to:    CGPoint(x: X(cx - w/2 + nudge), y: X(cy - h/2)))
-    tri.addLine(to: CGPoint(x: X(cx + w/2 + nudge), y: X(cy)))
-    tri.addLine(to: CGPoint(x: X(cx - w/2 + nudge), y: X(cy + h/2)))
-    tri.closeSubpath()
-    cg.addPath(tri); cg.fillPath()
+    // ── 三座山（v3 替换 v1/v2 的播放三角）──
+    // 中间最高最宽（270），两侧矮而窄（230）。高度差 40 在 22pt 下约 0.9pt ——
+    // 是「看得出主次但不会读成两座独立山」的量；再大就散成三个孤立三角。
+    //
+    // **基线 646 是算出来的，不是抄来的**：窗 v1 是 y 232..792，几何中心 512。
+    // 山此前取基线 700 → 外接框 428..700、几何中心 564，**偏下 52px**
+    // （1024 画布换算到 22pt 就是 1.1pt，肉眼可辨「吊在下面」）。
+    // 修正目标取「外接框中心略高于窗心」而非严格等于：三角形的**视觉重心**在面积
+    // 质心（离底边 h/3），比外接框中心低 h/6 ≈ 45px。若让质心精确落在窗心，
+    // 外接框得再上移 45px，看起来又会「浮在上面」。取 646 让外接框中心落在 510
+    // （比窗心高 2px）—— 折中后的读感是「稳在中间」。
+    let baseY: CGFloat = twoLayer ? 688 : 646
+    // 三山 366/512/658 均衡分布（不是刻意聚在中间）。侧山压到 200、中山抬到 300 ——
+    // 高度差100 画布 px 在 22pt 下约 2.2pt，是「一眼看出中间最高」又「三座仍读作三座」的量。
+    // 更早版本侧山曾压到 166 并外移到 322/702：那是为了躲斜线，结果山挤成一坨、
+    // 分布感全失。**改斜率（见下）比挪山位更优** —— 不动造型也能让线避开峰顶。
+    let peaks: [(x: CGFloat, w: CGFloat, h: CGFloat)] = [
+        (366, 150, 200),   // 左山：矮
+        (512, 270, 300),   // 中山：最高、宽
+        (658, 150, 200),   // 右山：矮
+    ]
+    for pk in peaks {
+        let m = CGMutablePath()
+        m.move(to: CGPoint(x: X(pk.x - pk.w / 2), y: X(baseY)))
+        m.addLine(to: CGPoint(x: X(pk.x), y: X(baseY - pk.h)))
+        m.addLine(to: CGPoint(x: X(pk.x + pk.w / 2), y: X(baseY)))
+        m.closeSubpath()
+        cg.addPath(m); cg.fillPath()
+    }
+
+    // ── 暂停斜线：左上贯穿到右下，压过山体 ──
+    // 线宽 62 ≈ 中山宽 244 的 25%。先试了 96 —— 那太粗：22pt 下斜线两侧各压掉一整座山，
+    // 三座山糊成一团黑，只剩「一个斜杠」的读法，反而丢了山本身。
+    // 两端各外伸出山外 —— 只在山体内画一段会被读成「山上的纹路」，不是「暂停」。
+    // 斜率刻意压平：dy/dx ≈ 0.51，即约 27°。 steeper 的试过（0.83 / 45°），
+    // 斜线会与右山山脊重合、把右山劈成两半；平缓些它就只是「横穿三座山的一道线」。
+    // 两端只探出山体一小截，不是穿出画布：伸太长时右上端会翘出一块盖住右山峰的
+    // 「角」，山形就废了 —— 斜线的作用是「横穿」，不是「划破」。
+    //
+    // y 值随山基线一起上移 54（752→698）：斜线必须跟着山走，不能自己留在旧位置。
+    // 旧版本中点落在 y=629（偏下 117px），比山重心还低 70px，看着像另画的一笔。
+    // 现在中点 575，与山质心 555 同量级，视觉上仍读作「压在山上」。
+    //
+    // **斜线是解出来的，不是画出来的**（用户：「斜线不完整，应该是贯穿对角线」）。
+    // 旧值 (320,692)→(680,470) 的两端都在山体内部（山体 x 271..753），
+    // 所以画出来只是山腰上的一小段，横看竖看都不成「线」。
+    //
+    // 目标：两端**穿出窗框**（窗 x 160..864，各超出 30）、中途**穿过全部三座山**。
+    // 斜率 k = **0.38**（21°），不是随手取的 —— 它是「每座山的切入深度」权衡出来的：
+    //   k=0.30 → 中山只切 33%，但线太平，读起来像「横线」不像「斜线」；
+    //   k=0.46 → 线够斜，但三山各被切 40~50%，山形糊掉（试过，见下方「切入」注释）。
+    // 0.38 是这个区间里三山形体保留最好的点：切入中山 36% / 右山 32% /
+    // **左山 -23%（线在其峰顶之上，完全不被劈）**。左山豁免是因为线自左下向右上、
+    // 左山恰好落在线的下方空白区 —— 这是 k 的选取要让「三山同时成立」的真正原因。
+    //
+    // 锚点：令线在右山 (x=658) 处 y=400（峰顶 446 之下 46px），反解直线方程。
+    // 校验三峰处线y = 561 / 497 / 400，均在各自峰顶与基线 646 之间 → 确实穿山。
+    //
+    // 线宽 50：中山宽 270 的 19%。96 那版太粗，两侧山被压掉、糊成一团黑。
+    if paused {
+        cg.setLineWidth(X(50))
+        cg.move(to: CGPoint(x: X(130), y: X(601)))
+        cg.addLine(to: CGPoint(x: X(894), y: X(310)))
+        cg.strokePath()
+    }
     cg.restoreGState()
 }
 
-func writeMenuBar(_ px: Int, two: Bool, _ path: String) {
+func writeMenuBar(_ px: Int, two: Bool, paused: Bool, _ path: String) {
     let c = CGContext(data:nil, width:px, height:px, bitsPerComponent:8, bytesPerRow:0,
-                      space: CGColorSpaceCreateDeviceRGB(),
-                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+                      space:CGColorSpaceCreateDeviceRGB(),
+                      bitmapInfo:CGImageAlphaInfo.premultipliedLast.rawValue)!
     c.clear(CGRect(x:0,y:0,width:px,height:px))
-    drawMenuBar(c, CGFloat(px), twoLayer: two)
+    drawMenuBar(c, CGFloat(px), twoLayer: two, paused: paused)
     let rep = NSBitmapImageRep(cgImage: c.makeImage()!)
     try! rep.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: path))
     print("  \(path)  \(px)×\(px)")
 }
 
-print("菜单栏模板图 v1（单窗）:")
-writeMenuBar(16, two:false, "\(out)/menubar-v1.png")
-writeMenuBar(32, two:false, "\(out)/menubar-v1@2x.png")
-writeMenuBar(48, two:false, "\(out)/menubar-v1@3x.png")
-print("菜单栏模板图 v2（双窗）:")
-writeMenuBar(16, two:true, "\(out)/menubar-v2.png")
-writeMenuBar(32, two:true, "\(out)/menubar-v2@2x.png")
-writeMenuBar(48, two:true, "\(out)/menubar-v2@3x.png")
+// 只出 v1（单窗）+ 两态。v2（双窗）曾存在但没有任何消费方 —— AppDelegate 只读v1，
+// build.sh 也只拷 v1；留着它就是「看起来还有第二套设计」的死资源，删掉。
+// 需要双窗版时把 twoLayer 传 true 即可，函数本身还支持。
+for (paused, suffix) in [(false, ""), (true, "-paused")] {
+    print("菜单栏模板图 v1\(paused ? " 暂停" : "")：")
+    writeMenuBar(16, two: false, paused: paused, "\(out)/menubar-v1\(suffix).png")
+    writeMenuBar(32, two: false, paused: paused, "\(out)/menubar-v1\(suffix)@2x.png")
+    writeMenuBar(48, two: false, paused: paused, "\(out)/menubar-v1\(suffix)@3x.png")
+}

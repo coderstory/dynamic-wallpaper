@@ -67,7 +67,7 @@ struct MenuPanelView: View {
                     MenuRow(glyph: glyph(for: id),
                             label: MenuBarModel.label(for: id, isPaused: isPaused,
                                                       kind: store.wallpaperKind),
-                            shortcut: shortcutHint(for: id), style: rowStyle(for: id)) {
+                            style: rowStyle(for: id)) {
                         activate(id)
                     }
                     .padding(.top, startsGroup(id) ? 7 : 0)
@@ -99,7 +99,7 @@ struct MenuPanelView: View {
     private var header: some View {
         HStack(spacing: 11) {
             VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 10) {
+                HStack(alignment: .center, spacing: 10) {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .fill(Color.pBrand)
                         .frame(width: 28, height: 28)
@@ -116,6 +116,7 @@ struct MenuPanelView: View {
                             .font(mono(10))
                             .foregroundStyle(Color.pInk3)
                     }
+                    .fixedSize(horizontal: true, vertical: true)
                 }
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 7) {
@@ -134,6 +135,9 @@ struct MenuPanelView: View {
             countdownRing
         }
         .cardSurface()
+        // 状态点/标题随播放态切换（正在播放↔已暂停）不该硬切。
+        .animation(Motion.state, value: isHeld)
+        .animation(Motion.state, value: isEmpty)
     }
 
     private var headerTint: Color { isEmpty ? .pBad : (isHeld ? .pHold : .pOk) }
@@ -239,17 +243,12 @@ struct MenuPanelView: View {
         session.lastLibraryState == .noPlayableVideos ? "film" : "folder"
     }
 
-    private func shortcutHint(for id: MenuItemID) -> String? {
-        switch id {
-        case .openSettings: return "⌘,"
-        case .quit: return "⌘Q"
-        default: return nil
-        }
-    }
-
+    /// primary 只留给「暂停/继续」—— 那是当前播放会话的开关。
+    /// `.switchSource`（改用图片/视频壁纸）刻意走 normal：它是常态化的来源选择，
+    /// 给它品牌橙实底会和暂停抢注意力，还让用户误以为点了会立刻开始播放。
     private func rowStyle(for id: MenuItemID) -> MenuRowStyle {
         switch id {
-        case .pauseResume, .switchSource: return .primary
+        case .pauseResume: return .primary
         case .deleteCurrent: return .danger
         default: return .normal
         }
@@ -276,14 +275,13 @@ private struct MenuRowButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+            .animation(Motion.press, value: configuration.isPressed)
     }
 }
 
 private struct MenuRow: View {
     let glyph: String
     let label: String
-    var shortcut: String? = nil
     var style: MenuRowStyle = .normal
     let action: () -> Void
 
@@ -296,11 +294,6 @@ private struct MenuRow: View {
                 Text(label)
                     .font(.system(size: 13, weight: style == .primary ? .semibold : .regular))
                 Spacer(minLength: 0)
-                if let shortcut {
-                    Text(shortcut)
-                        .font(mono(10))
-                        .foregroundStyle(shortcutColor)
-                }
             }
             .padding(.horizontal, 10)
             .frame(height: 34)
@@ -314,7 +307,7 @@ private struct MenuRow: View {
         }
         .buttonStyle(MenuRowButtonStyle())
         .onHover { hovering = $0 }
-        .animation(.easeOut(duration: 0.12), value: hovering)
+        .animation(Motion.fade, value: hovering)
     }
 
     /// 图标槽：normal / primary 走 24pt 圆角 8 的图标盒（侧栏 navi 同语言，
@@ -357,10 +350,6 @@ private struct MenuRow: View {
 
     private var boxGlyphColor: Color {
         style == .primary ? .pBrandInk : .pInk3
-    }
-
-    private var shortcutColor: Color {
-        style == .primary ? .pBrandInk.opacity(0.65) : .pInk3
     }
 
     /// hover 态：normal 白底（v2 navi:hover），danger 红软底，primary 恒为品牌实底。

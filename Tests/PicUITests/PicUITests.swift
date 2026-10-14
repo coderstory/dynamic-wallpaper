@@ -41,14 +41,19 @@ final class PicUITests: XCTestCase {
         app.launchArguments += ["-wallpaperKind", "video"]
         // LSUIElement 应用连发启动偶发 AX 注册未就绪（实测窗口 ~70s，套件里最先
         // 启动的两个实例最容易中招，表现为 "has not loaded accessibility" 级超时）。
-        // 最多重启 3 次、每次等状态项就绪；三次都失败才交出去，让断言展示真实现场。
-        for _ in 0..<3 {
+        //
+        // **失败现场截图证实 AUT 压根没起来**（设置窗与菜单栏状态项都不存在，系统日志里
+        // 也没有崩溃记录）—— 不是「起来了但 AX 树空」，是根本没进到菜单栏那一步。
+        // 所以重试之间必须留静置期：上一次的实例还在退出中时立刻 launch，同 bundle id
+        // 的新实例抢不到 NSStatusBar 槽位（菜单栏图标是单例资源），会静默失败。
+        // 3 次 ×（20s 等 + 12s 静置）≈ 96s 覆盖已观测到的最长抖动。
+        for attempt in 0..<3 {
+            if attempt > 0 { Thread.sleep(forTimeInterval: 12) }
             app.launch()
             if app.menuBars.statusItems.firstMatch.waitForExistence(timeout: 20) {
                 return app
             }
             app.terminate()
-            Thread.sleep(forTimeInterval: 10)
         }
         return app
     }
@@ -68,6 +73,12 @@ final class PicUITests: XCTestCase {
         XCTAssertTrue(openSettingsRow.waitForExistence(timeout: 10),
                       "防回归：面板必须给出「打开设置」这一行（id 由 MenuItemID.openSettings 派生）")
         openSettingsRow.click()
+
+        // 等设置窗真的落到能查元素的状态。`menu-row-openSettings` 存在 ≠ 窗口已开 ——
+        // 点完这一行后有异步开销（activate + 建窗 + 读 fittingSize），AX 树是随后才长出来的。
+        // 各用例第一条断言就是查窗内元素，所以把「窗开了」这个等待放在这里统一收口。
+        XCTAssertTrue(element("status-paused", in: app).waitForExistence(timeout: 20),
+                      "防回归：点「打开设置」后设置窗必须真的出现（顶栏状态胶囊 status-paused）")
     }
 
     /// 按 identifier 取元素，不限定元素类型。

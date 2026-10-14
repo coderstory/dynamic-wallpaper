@@ -33,11 +33,15 @@ assemble_app() {
   # 拷进 bundle 后必须被覆写。CFBundleShortVersionString 与 CFBundleVersion 同步成同一值，避免两处不一致。
   plutil -replace CFBundleShortVersionString -string "$VERSION" "$app/Contents/Info.plist"
   plutil -replace CFBundleVersion        -string "$VERSION" "$app/Contents/Info.plist"
-  # 菜单栏只拷 menubar-v1 的 Template 三档。
+  # 菜单栏只拷 menubar-v1 的 Template 三档 ×两态（正常 / 暂停带斜线）。
+  # 两态都要拷：漏了 -paused 那套，暂停时 `Bundle.image(forResource:)` 返回空图，
+  # 菜单栏位置会留一个透明空槽（不是「显示旧图」，是「什么都不显示」）。
   cp "$OUT/${APP_NAME}.icns" "$app/Contents/Resources/${APP_NAME}.icns"
-  cp "$ASSETS/menubar-v1.png"     "$app/Contents/Resources/menubar-v1Template.png"
-  cp "$ASSETS/menubar-v1@2x.png"  "$app/Contents/Resources/menubar-v1Template@2x.png"
-  cp "$ASSETS/menubar-v1@3x.png"  "$app/Contents/Resources/menubar-v1Template@3x.png"
+  for variant in "" "-paused"; do
+    cp "$ASSETS/menubar-v1${variant}.png"     "$app/Contents/Resources/menubar-v1${variant}Template.png"
+    cp "$ASSETS/menubar-v1${variant}@2x.png"  "$app/Contents/Resources/menubar-v1${variant}Template@2x.png"
+    cp "$ASSETS/menubar-v1${variant}@3x.png"  "$app/Contents/Resources/menubar-v1${variant}Template@3x.png"
+  done
   codesign --force --deep -s - "$app"
 }
 
