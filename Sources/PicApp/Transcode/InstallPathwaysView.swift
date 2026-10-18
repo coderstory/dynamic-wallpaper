@@ -30,7 +30,7 @@ struct InstallPathwaysView: View {
                 .accessibilityLabel(Text("关闭"))
                 .accessibilityIdentifier("pathways-close")
             }
-            Text("动态壁纸不内置、也不联网下载 ffmpeg —— 安装是你自己的动作，装好后回到本窗口点重新检测即可。")
+            Text("壁纸儿不内置、也不联网下载 ffmpeg —— 安装是你自己的动作，装好后回到本窗口点重新检测即可。")
                 .font(.system(size: 11))
                 .foregroundStyle(Color.pInk2)
                 .fixedSize(horizontal: false, vertical: true)

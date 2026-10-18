@@ -337,6 +337,18 @@ public enum SettingsPresentation {
         ]
     }
 
+    /// 头部计数的取数口径，唯一一份：图片走 imagePassing、视频走 playableCount ——
+    /// 图片路径从不更新 playableCount，拿它计数在图片模式下永远是 0。
+    public static func libraryCount(kind: WallpaperKind, videoCount: Int, imageCount: Int) -> Int {
+        kind == .image ? imageCount : videoCount
+    }
+
+    /// 头部计数整段文案（量词跟着口径走：张 / 个视频）。
+    public static func libraryCountLine(kind: WallpaperKind, videoCount: Int, imageCount: Int) -> String {
+        let count = libraryCount(kind: kind, videoCount: videoCount, imageCount: imageCount)
+        return kind == .image ? "\(count) 张" : "\(count) 个视频"
+    }
+
     /// hero 主标。图片的「单张不变」是显示而不是轮播 —— 同一个 mode 在视频那侧叫单循环，
     /// 写成「正在轮播 · 单张不变」会自相矛盾。
     public static func heroHeadline(kind: WallpaperKind, mode: PlayMode) -> String {

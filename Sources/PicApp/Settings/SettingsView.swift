@@ -49,13 +49,19 @@ struct SettingsView: View {
             }
             HStack(spacing: 0) {
                 SettingsSideBar(kind: store.wallpaperKind, page: $page,
-                                queueCount: rows.count,
-                                statusTint: statusTint, statusText: sidebarStatusText)
+                                queueCount: rows.count)
                 // 唯一允许滚动的是队列页（任务数天然不定），其余页一屏看全。
-                ScrollView {
+                //
+                // **滚动条默认藏起来**（用户：「切换菜单过程中，不要出现滚动条」）：
+                // `.automatic` 会在内容**刚好**等于视口高度时就翻出滚动条 —— 而切页时
+                // 内容高度是动画过渡的，中间帧反复越过阈值，滚动条就闪一下。
+                // 这里让它是「真溢出才出现」，宽度 0 表示不占布局，溢出与否的判断交给
+                // 系统；`.hidden` 则连溢出时也不给滚动条，那会让长队列页无法滚动，弃用。
+                ScrollView(.vertical) {
                     contentColumn
                         .padding(Metrics.contentPadding)
                 }
+                .scrollIndicators(.hidden)
             }
         }
         .frame(minWidth: SettingsPresentation.windowMinWidth,
@@ -71,7 +77,7 @@ struct SettingsView: View {
                 .ignoresSafeArea()
         }
         // 卡片面是否走液态玻璃只在根视图读一次 store，卡片调用点经环境量继承。
-        .environment(\.cardSurfaceGlass, store.liquidGlassEnabled)
+        .environment(\.liquidGlassActive, store.liquidGlassEnabled)
         .preferredColorScheme(.light)
         .onAppear(perform: seedAndObserve)
         // 窗已开时面板再发落地页请求（典型：设置开着，菜单里点「去片库转码」）。
@@ -104,6 +110,11 @@ struct SettingsView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        // 换页时整列内容淡入上移一点。做在容器而不是每个 switch 分支上：
+        // 一次写对，四页都覆盖，且新加的页不用记得补动画。
+        .transition(.opacity.combined(with: .offset(y: 6)))
+        .id(page)
+        .animation(Motion.enter, value: page)
     }
 
     // ── 状态（顶栏胶囊与侧栏页脚同一套判定，文案只在这里派生一份） ──
@@ -215,7 +226,9 @@ struct SettingsView: View {
         }
         let every = SettingsPresentation.rotationLabel(
             minutes: SettingsPresentation.rotationMinutes(seconds: store.rotationInterval))
-        let count = store.wallpaperKind == .image ? session.imagePassing : session.playableCount
+        let count = SettingsPresentation.libraryCount(kind: store.wallpaperKind,
+                                                      videoCount: session.playableCount,
+                                                      imageCount: session.imagePassing)
         return SettingsPresentation.heroSummary(kind: store.wallpaperKind, mode: store.playMode,
                                                 count: count, every: every)
     }
@@ -394,11 +407,15 @@ struct SettingsView: View {
                     .accessibilityIdentifier("rotation-stepper")
                     .disabled(!rotationEnabled)
                     .opacity(rotationEnabled ? 1 : 0.42)
-                if !rotationEnabled {
-                    Text(SettingsPresentation.rotationDisabledNote(kind: store.wallpaperKind))
-                        .font(.system(size: 11))
-                        .foregroundStyle(Color.pInk3)
-                }
+                // 说明文字**常驻**、只换文案。刻意不用 `if !rotationEnabled` 条件渲染：
+                // 那样切到单循环时卡片会凭空多出一行 → 内容变高 → `fitSettingsWindow`
+                // 跟着把窗体拉高，切个模式窗体就跳一下（用户实测「高度干嘛变了」）。
+                // 常驻 + 换文案让卡片高度恒定，切换只有颜色变化。
+                // 空态不占位：轮换始终有一个有效状态（单循环时这句就是解释）。
+                Text(rotationEnabled ? "按这个间隔自动换片。" : SettingsPresentation.rotationDisabledNote(kind: store.wallpaperKind))
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.pInk3)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -455,7 +472,7 @@ struct SettingsView: View {
                 Toggle("", isOn: soundOn).toggleStyle(GlowToggle()).labelsHidden()
                     .accessibilityIdentifier("sound-toggle")
             }
-            .animation(.easeOut(duration: 0.15), value: store.isMuted)
+            .animation(Motion.state, value: store.isMuted)
         }
     }
 
@@ -779,10 +796,15 @@ struct SettingsView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .cardSurface()
             // 选中描边用队列区的身份色：v2 卡片选中态走 2px 区色描边。
+            // 走 `opacity`/`scale` 过渡：选中态在 2 列网格里是「点开哪张」的唯一线索，
+            // 硬切的话眼睛要在两列之间重新搜一遍。
             .overlay(
                 RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous)
                     .strokeBorder(Color.pQueue, lineWidth: selectedJobID == row.id ? 2 : 0)
+                    .opacity(selectedJobID == row.id ? 1 : 0)
             )
+            .scaleEffect(selectedJobID == row.id ? 1.0 : 0.985)
+            .animation(Motion.state, value: selectedJobID)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -847,11 +869,18 @@ struct SettingsView: View {
     }
 
     // ── 通用页 ──
+    // 「关于」**通栏置顶**，不进两列网格（用户：「三个卡片太不对称，要么改成品字形，
+    // 关于在最上面」）。理由是内容量的硬约束：关于卡有 58pt 图标 + 三行文字，
+    // 是三张卡里唯一需要横向空间的；塞进半列宽会把图标和文字挤成两行，
+    // 而另两张卡（开关型）只有一行 —— 半列里一张两行一张一行，怎么排都不对称。
+    // 通栏 + 下面两卡并排是唯一能让三者都读得舒服的排法。
     private var generalPage: some View {
-        TileGrid {
+        VStack(spacing: Metrics.gridGap) {
             aboutCard
-            autostartCard
-            appearanceCard
+            TileGrid {
+                autostartCard
+                appearanceCard
+            }
         }
     }
 
@@ -860,14 +889,14 @@ struct SettingsView: View {
             HStack(spacing: 15) {
                 AboutIcon()
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("动态壁纸")
+                    Text("壁纸儿")
                         .font(display(15))
                         .foregroundStyle(Color.pInk)
                     Text("版本 \(appVersion()) · arm64 · GPL v2")
                         .font(mono(11))
                         .foregroundStyle(Color.pInk3)
                         .padding(.top, 4)
-                    Text("用视频（或图片）当动态壁纸。菜单栏常驻，全屏 / 锁屏 / 熄屏 / 睡眠时自动让路。")
+                    Text("用视频（或图片）当壁纸。菜单栏常驻，全屏 / 锁屏 / 熄屏 / 睡眠时自动让路。")
                         .font(.system(size: 13))
                         .foregroundStyle(Color.pInk2)
                         .fixedSize(horizontal: false, vertical: true)
@@ -1116,15 +1145,14 @@ enum QueueFilter: Int {
 /// 只读的规则标签。
 private struct TagChip: View {
     let text: String
-    var accent = false
 
     var body: some View {
         Text(text)
             .font(mono(10))
-            .foregroundStyle(accent ? Color.pBrandText : Color.pInk2)
+            .foregroundStyle(Color.pInk2)
             .padding(.horizontal, 9)
             .padding(.vertical, 3)
-            .background(Capsule().fill(accent ? Color.pBrandSoft : Color.pSurface2))
+            .background(Capsule().fill(Color.pSurface2))
     }
 }
 
@@ -1167,6 +1195,9 @@ private struct ProgressBar: View {
                         .frame(width: geo.size.width * max(0, min(1, percent)))
                 }
             }
+            // 进度推进走过渡：转码进度每秒都在动，动画让「在走」这件事可读；
+            // 不加的话进度条是跳的，看着像卡住了。
+            .animation(Motion.state, value: percent)
         }
         .frame(height: 5)
     }

@@ -46,8 +46,8 @@ jobs:
       - name: 校验制品
         run: |
           ls -lh dist/
-          test -f dist/Pic-*.dmg
-          ls -d build/Pic.app
+          test -f dist/壁纸儿-*.dmg
+          ls -d build/壁纸儿.app
 
       - uses: actions/upload-artifact@v7
         with:
@@ -106,7 +106,7 @@ jobs:
           ls -la artifacts/
           # build.sh 未注入 PIC_VERSION 时 DMG 名用缺省 0.1.0，跨版本会一直显示同一个名字；
           # 带上 tag 重命名，下载下来的文件才分得清是哪一版（bundle 内版本仍为缺省，可接受）
-          for f in artifacts/*.dmg; do mv "$f" "artifacts/Pic-${TAG}.dmg"; done
+          for f in artifacts/*.dmg; do mv "$f" "artifacts/壁纸儿-${TAG}.dmg"; done
           gh release create "$TAG" artifacts/*.dmg \
             --repo "$GITHUB_REPOSITORY" \
             --title "$TAG" \

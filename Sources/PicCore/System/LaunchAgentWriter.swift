@@ -8,7 +8,8 @@ import Foundation
 /// 目录可注入：单测指临时目录，产品指用户真实目录，两条路径共用同一份实现。
 public final class LaunchAgentWriter {
     /// 路线 B 独占的 launchd 命名空间（BTM 会把它收编进「登录项与扩展」）。
-    public static let defaultLabel = "com.local.pic"
+    /// 改名后 label 换成新 bundle id；改名前的旧 label 残留由用户侧一次性清理，App 自己不管旧 label。
+    public static let defaultLabel = "com.local.bizhier"
 
     private let label: String
     private let directory: URL

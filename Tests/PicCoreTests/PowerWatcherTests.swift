@@ -1,26 +1,13 @@
 // 拔电源是硬件动作，本组用例守的是不依赖那次动作的部分：判定是纯函数
 // `isOnBattery && pauseOnBatteryEnabled`（两个 `Bool` 谁都能注入，判定逻辑因此全可测）；
 // 判定函数的输入必须真的是 `SettingsStore.pauseOnBattery` —— 默认值关（设置层）与判定层
-// 少任何一半，用户侧的开关就不起作用。
-// `System/` 与 `State/` 零 AVFoundation。`FakeTarget` 是本文件本地的等价实现，
-// 不要跨文件复用 `HoldArbiterTests` 里那一个 —— 测试替身跨文件耦合后，
-// 失败时分不清是替身坏了还是被测代码坏了。
+// 少任何一半，用户侧的开关就不起作用。`System/` 与 `State/` 零 AVFoundation。
 
 import XCTest
 @testable import PicCore
 
 @MainActor
 final class PowerWatcherTests: XCTestCase {
-
-    private final class FakeTarget: PlaybackTarget {
-        var position: TimeInterval = 0
-        var seeks: [TimeInterval] = []
-        var applies: [PlaybackDecision] = []
-
-        func arbiterCurrentPosition() -> TimeInterval { position }
-        func arbiterSeek(to seconds: TimeInterval) { seeks.append(seconds) }
-        func arbiterApply(_ decision: PlaybackDecision) { applies.append(decision) }
-    }
 
     private var suiteName: String!
     private var defaults: UserDefaults!

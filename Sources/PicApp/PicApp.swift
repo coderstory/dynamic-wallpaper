@@ -8,7 +8,7 @@ import PicCore
 /// 两层就都迁到了 AppKit。
 ///
 /// 本文件只留一个永不出现的 `Settings` 空场景满足 App 协议的 Scene 要求；
-/// `.appSettings` 命令组被替换成空 —— 不替换的话 ⌘, 会叫出这个空窗。
+/// `.appSettings` 命令组被替换成空 —— 不替换的话系统默认的「设置…」会叫出这个空窗。
 @main
 struct PicApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate

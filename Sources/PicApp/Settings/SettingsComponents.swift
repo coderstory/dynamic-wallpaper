@@ -67,6 +67,20 @@ extension Color {
 /// 字阶：正文/行 13 · 辅助 11 · 小徽标/chip 10 · 页标题 17 · hero 15 · 统计数字 21（mono）。
 /// 数值一律 mono。例外：26 只用于 AboutIcon 占位图标的字形高，不是文字。
 
+/// 动效令牌。**全站唯一一份时长/曲线出处** —— 之前各控件自带 `.easeOut(0.12)` 之类的字面量，
+/// 同一个交互在按钮里是 0.12、在开关里是 0.15，攒多了就成了「动效很乱」的观感。
+/// 三档语义：press 按压反馈（最快）／state 状态切换（默认）／enter 出入场。
+enum Motion {
+    /// 按压反馈。必须快：慢于 ~0.15s 手感就变成「卡了一下」。
+    static let press = Animation.easeOut(duration: 0.12)
+    /// 状态切换（选中态、开关、滑块位置）。用带轻微回弹的曲线，手感「有实体」。
+    static let state = Animation.spring(response: 0.26, dampingFraction: 0.82)
+    /// 出入场（页签内容、警示条、条件渲染的卡）。
+    static let enter = Animation.easeOut(duration: 0.22)
+    /// 悬停底色这类纯装饰变化：淡入即可，不需要弹簧。
+    static let fade = Animation.easeOut(duration: 0.14)
+}
+
 /// 等宽字体：数值 / 副标签 / 版本号 / 命令。字体切换的唯一入口。
 func mono(_ size: CGFloat, _ w: Font.Weight = .regular) -> Font {
     .system(size: size, weight: w, design: .monospaced)
@@ -88,6 +102,12 @@ enum Metrics {
     // SettingsPresentation.windowWidth，这里不再存第二份拷贝。
     static let sidebarWidth: CGFloat = 216
     static let topbarHeight: CGFloat = 44
+    /// 顶栏左端让开系统红绿灯的宽度。
+    /// hiddenTitleBar（`titleVisibility=.hidden` + `titlebarAppearsTransparent`）下红绿灯
+    /// 由系统单独绘制，**不进视图树**（实测：ThemeFrame 子视图里找不到它们），所以这个值
+    /// 只能按系统约定推：13 左 + 3×12 灯 + 2×8 间距 + 13 右 ≈ 72。
+    /// 再加16pt 呼吸间距 → 88。上一版取 78 是猜的，红绿灯与品牌块几乎顶在一起。
+    static let trafficLightInset: CGFloat = 88
     static let cardRadius: CGFloat = 14
     static let contentPadding: CGFloat = 18
 
@@ -178,11 +198,14 @@ struct GlowToggle: ToggleStyle {
                     Circle()
                         .fill(.white)
                         .frame(width: Metrics.toggleKnob, height: Metrics.toggleKnob)
+                        // 这里**保留** y: 1 的向下阴影（全站唯一例外）：旋钮是「压在轨道上」
+                        // 的语义，向下投影就是接触感。与 SlideSegmented 那个不同 ——
+                        // 滑块的阴影没有任何语义，只有视觉重心偏移的副作用。
                         .shadow(color: .black.opacity(0.35), radius: 1, y: 1)
                         .offset(x: configuration.isOn
                                 ? (Metrics.toggleW - Metrics.toggleKnob) / 2 - 2.5
                                 : -(Metrics.toggleW - Metrics.toggleKnob) / 2 + 2.5)
-                        .animation(.easeInOut(duration: 0.15), value: configuration.isOn)
+                        .animation(Motion.state, value: configuration.isOn)
                 )
         }
         .buttonStyle(.plain)
@@ -219,8 +242,11 @@ struct GlowSlider: View {
                     .frame(width: max(0, w * pct), height: Metrics.sliderTrack)
                 Circle().fill(.white)
                     .frame(width: Metrics.sliderKnob, height: Metrics.sliderKnob)
-                    .shadow(color: .black.opacity(0.22), radius: 2, y: 1)
+                    .shadow(color: .black.opacity(0.22), radius: dragging ? 3 : 2, y: 0)
                     .overlay(Circle().strokeBorder(Color.pBrand, lineWidth: 2))
+                    // 按下时放大一点：滑杆是连续量控件，用户的手指会挡住滑块，
+                    // 放大是「我抓到了」的触觉替代反馈。
+                    .scaleEffect(dragging ? 1.15 : 1)
                     .offset(x: max(0, min(w - Metrics.sliderKnob, w * pct - Metrics.sliderKnob / 2)))
             }
             .frame(height: Metrics.sliderHeight)
@@ -239,6 +265,10 @@ struct GlowSlider: View {
         }
         // 不给定宽：滑杆铺满所在卡片。
         .frame(height: Metrics.sliderHeight)
+        // 拖动中**不**加动画 —— 手指驱动的东西加了动画会变成「跟手延迟」，
+        // 反而更难停到目标值。只有非拖动的跳变（VoiceOver 调节、设置写回）才过渡。
+        .animation(dragging ? nil : Motion.state, value: value)
+        .animation(Motion.press, value: dragging)
         .accessibilityElement()
         .accessibilityLabel(Text(label))
         .accessibilityValue(Text(valueText))
@@ -273,6 +303,9 @@ struct GlowSegmented: View {
                     Text(items[i])
                         .font(.system(size: 11, weight: on ? .semibold : .regular))
                         .foregroundStyle(fg)
+                        // 垂直居中靠「铺满段高 + 内容自身居中」两件事一起成立：只写
+                        // frame(height:) 时 Text 在该框内居中，但 Button 的命中区仍按
+                        // 文字固有高度算 —— 两者不一致就会出现视觉偏上。两行都给足。
                         .frame(maxWidth: .infinity)
                         .frame(height: Metrics.segMinHeight - 6)
                         .background(RoundedRectangle(cornerRadius: Metrics.ctlRadius - 3,
@@ -280,9 +313,11 @@ struct GlowSegmented: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .frame(maxHeight: .infinity)
                 .accessibilityElement()
             }
         }
+        .frame(height: Metrics.segMinHeight - Metrics.segPadding * 2)
         .padding(Metrics.segPadding)
         .background(
             RoundedRectangle(cornerRadius: Metrics.ctlRadius, style: .continuous)
@@ -306,12 +341,24 @@ struct SlideSegmented: View {
     var body: some View {
         GeometryReader { geo in
             let segmentWidth = geo.size.width / CGFloat(items.count)
+            // 轨道高 = geo 高 - 上下各2 内缩。**滑块与文字共用这一个值**：
+            // 之前滑块走绝对 offset(x) 定位、段文字走 HStack 布局，两者在
+            // `ZStack(alignment: .leading)` 里的垂直基准不同（leading 只管水平），
+            // 于是文字比滑块高一点 —— 选中段看起来「没垂直居中」。
+            // 现在两层都用同一个 `segHeight` 且都用 .frame 定位，基准必然一致。
+            let segHeight = geo.size.height - 4
             ZStack(alignment: .leading) {
                 // 白滑块：位置随 index 弹簧滑移，不逐段淡入淡出。圆角 6 与 HTML .seg .knob 一致。
+                //
+                // **阴影刻意不给 y 偏移**（y: 1 → y: 0）。实测截图量化：几何上白块与轨道
+                // 中心完全一致（都是 36px），但 `y: 1` 的阴影把视觉重心往下拽了 1pt，
+                // 于是看着「沉在下面」。**这是阴影造成的错觉，不是布局 bug** ——
+                // 但用户看到的是真实观感，所以修阴影而不是动 frame（后者会真的错位）。
+                // 半径也收一点：2 → 1.5，避免白块下缘透出灰底像有双层边。
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .fill(Color.pSurface)
-                    .shadow(color: .black.opacity(0.10), radius: 2, y: 1)
-                    .frame(width: segmentWidth - 4, height: geo.size.height - 4)
+                    .shadow(color: .black.opacity(0.13), radius: 1.5, y: 0)
+                    .frame(width: segmentWidth - 4, height: segHeight)
                     .offset(x: CGFloat(index) * segmentWidth + 2)
                 HStack(spacing: 0) {
                     ForEach(items.indices, id: \.self) { i in
@@ -320,6 +367,7 @@ struct SlideSegmented: View {
                                 .font(.system(size: 11, weight: index == i ? .semibold : .regular))
                                 .foregroundStyle(index == i ? Color.pInk : Color.pInk2)
                                 .frame(maxWidth: .infinity)
+                                .frame(height: segHeight)
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
@@ -329,6 +377,7 @@ struct SlideSegmented: View {
                         .modifier(OptionalSegmentID(id: itemIdentifiers.flatMap { i < $0.count ? $0[i] : nil }))
                     }
                 }
+                .frame(height: segHeight)
             }
         }
         .padding(2)
@@ -336,7 +385,7 @@ struct SlideSegmented: View {
             RoundedRectangle(cornerRadius: Metrics.ctlRadius - 3, style: .continuous)
                 .fill(track)
         )
-        .animation(.spring(response: 0.22, dampingFraction: 0.85), value: index)
+        .animation(Motion.state, value: index)
     }
 }
 
@@ -366,7 +415,7 @@ struct GlowButton: ButtonStyle {
             )
             // 统一按压语言：缩放代替透明度。
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+            .animation(Motion.press, value: configuration.isPressed)
     }
 
     private var bg: Color {
@@ -395,6 +444,6 @@ struct GlowSmallButton: ButtonStyle {
                     .fill(Color.pSurface2)
             )
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
-            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+            .animation(Motion.press, value: configuration.isPressed)
     }
 }

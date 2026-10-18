@@ -6,10 +6,13 @@ import PicCore
 /// 唯一装配点：全仓唯一把系统信号变成 `HoldReason` 的地方（单向流 `Watcher → HoldArbiter → PlayerController`）。
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSWindowDelegate {
-    let store = SettingsStore(
-        defaults: .standard,
-        seed: SettingsStore.Seed()
-    )
+    /// 改名迁移必须赶在 store 读偏好**之前**：bundle id 换域后新域是空的，store 的 init
+    /// 一旦先跑就会拿种子值定终身。store 是存储属性，属性初始化先于一切方法体，所以迁移
+    /// 挤在同一个立即求值的初始化表达式里、先于 SettingsStore 构造执行。
+    let store: SettingsStore = {
+        SettingsStore.migrateLegacyPreferencesIfNeeded(defaults: .standard)
+        return SettingsStore(defaults: .standard, seed: SettingsStore.Seed())
+    }()
     let player = PlayerController()
     let arbiter = HoldArbiter()
     let wallpaper = WallpaperWindowController()
@@ -22,6 +25,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     let powerWatcher = PowerWatcher()
     /// 屏幕参数变更的订阅。与四个 Watcher 同一条纪律：谁创建谁注销。
     private var screenObserver: NSObjectProtocol?
+    /// 设置窗是否已经贴合过一次。首次开窗不动画：从占位尺寸长出来像加载中。
+    private var hasFittedSettingsWindow = false
+    /// 果冻动画在飞。动画期间到来的贴合请求只更新 pending 目标。
+    private var settingsWindowIsAnimating = false
+    private var pendingSettingsWindowSize: NSSize?
     // rotation 必须强持有，它持 onAdvance 闭包与 Timer 调度器
     let library = MediaLibrary()
     /// 拔盘 / 目录消失后的重生看护。只在 `folderMissing` 期间活着（见 `updateFolderWatch`）。
@@ -125,8 +133,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     // （图标行 / 危险色 / 倒计时环全画不了），设计稿的面板只能 AppKit 这条路走。
     private var statusItem: NSStatusItem?
     private var menuPopover: NSPopover?
-    /// 面板打开期间的 ⌘, / ⌘Q 监听。popoverDidClose 必拆 —— 留着会全局截键。
-    private var menuKeyMonitor: Any?
     /// 面板兜底关闭的观察者。popoverDidClose 必拆。
     /// 每条自带投递中心：`NSWorkspace` 的通知只走它自己的中心，
     /// 拿 `default` 去 removeObserver 是拆不掉的（也收不到）。
@@ -168,6 +174,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         // 任何让路（手动暂停 / 锁屏 / 全屏 / 睡眠 / 电池）都冻结轮换定时器：壁纸看不见时
         // 换片没有意义，倒计时也应静止。恢复按冻结的剩余时间续跑。
         // 进入让路的同时把当前视频与进度写进持久化 —— 单循环重启续播的写点之一。
+        //
+        // 菜单栏图标的暂停态刷新也挂在这里（`refreshMenuBarIcon`）。**这是该回调在本文件里
+        // 唯一的赋值点** —— 它是单槽闭包（`var onShouldPlayChange: ((Bool) -> Void)?`），
+        // 任何第二处赋值都会静默顶掉这一段。setupMenuBar() 里因此**不**再碰它。
         arbiter.onShouldPlayChange = { [weak self, rotation] playing in
             guard let self else { return }
             if playing {
@@ -176,6 +186,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
                 self.recordCurrentForResume(position: self.player.arbiterCurrentPosition())
                 rotation.pauseRotation()
             }
+            // 让路原因（锁屏 / 全屏 / 熄屏…）**不该**画成「手动暂停」：那是两件事，
+            // 图标只反映 `isManuallyPaused`，所以读派生量而不是回调的 playing 参数。
+            self.refreshMenuBarIcon()
         }
 
         fullscreenDetector.start { [arbiter] isFullscreen in
@@ -236,7 +249,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     /// 让「开关拨了但没生效」在日志里有迹可循。不改 UI 契约（返回值被 UI 忽略）。
     func setLaunchAtLogin(_ enabled: Bool) {
         if enabled, !autostart.setEnabled(true) {
-            FileHandle.standardError.write(Data("Pic: 开机自启开启失败（原因见上一行）\n".utf8))
+            FileHandle.standardError.write(Data("壁纸儿: 开机自启开启失败（原因见上一行）\n".utf8))
         }
     }
 
@@ -299,18 +312,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         if let button = item.button {
             // 与 MenuBarExtra 时代同一加载纪律：显式 NSImage + isTemplate ——
             // 字符串名 Image("…") 解析不到散装 PNG，会渲染成全透明空槽。
-            let img = Bundle.main.image(forResource: "menubar-v1Template") ?? NSImage()
-            // 散装 PNG 的点尺寸不可靠（rep 选中哪档就按哪档像素当点用），显式定 22pt：
-            // 画布字形放大 1.15 后占画布 ~65% 高，22pt 渲染 ≈ 14pt 字形高，与邻居看齐。
-            img.size = NSSize(width: 22, height: 22)
-            img.isTemplate = true
-            button.image = img
+            // 尺寸在 menuBarIcon 里显式定22pt：散装 PNG 的点尺寸不可靠
+            // （rep 选中哪档就按哪档像素当点用）。
+            button.image = menuBarIcon(paused: arbiter.isManuallyPaused)
+            // 初始态必须在这里落定：`refreshMenuBarIcon` 用它做幂等判断，
+            // 不同步的话「启动时就是暂停态」会被误判成「没变化」而永远不换图标。
+            menuBarShowsPaused = arbiter.isManuallyPaused
             button.action = #selector(toggleMenuPanel(_:))
             button.target = self
             // 左右键弹同一面板：右击菜单栏图标是用户肌肉记忆，不能没反应。
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
         statusItem = item
+        // 暂停态的图标刷新**刻意不在这里接线**：`arbiter.onShouldPlayChange` 是单槽闭包，
+        // wiring() 已经用它做轮换冻结，此处再赋一次会静默顶掉那段逻辑。接线在 wiring()。
+    }
+
+    /// 当前暂停态对应的菜单栏图。资源名按 `paused` 后缀分两套 PNG（山形 / 山形+斜线）。
+    /// 加载失败返回空 NSImage：图标空槽是外观问题，不该让整个 app 起不来。
+    private func menuBarIcon(paused: Bool) -> NSImage {
+        let name = paused ? "menubar-v1-pausedTemplate" : "menubar-v1Template"
+        let img = Bundle.main.image(forResource: name) ?? NSImage()
+        img.size = NSSize(width: 22, height: 22)
+        img.isTemplate = true
+        return img
+    }
+
+    /// 当前图标对应的资源名（幂等比较用）。`NSImage.name` 在当前 SDK 是**闭包**
+    /// `(@Sendable () -> NSImage.Name?)?`，不是 String —— 拿它做比较编译不过。
+    /// 所以当前态自己存一份，不去问 image 对象。
+    private var menuBarShowsPaused = false
+
+    /// 换图标。22pt 的小图硬换会「啪」一下，这里让系统交叉淡入。
+    /// 幂等：状态没变就不动 —— 无条件 `setImage` 会打断正在进行的淡入动画。
+    private func refreshMenuBarIcon() {
+        guard let button = statusItem?.button else { return }
+        let paused = arbiter.isManuallyPaused
+        guard paused != menuBarShowsPaused else { return }
+        menuBarShowsPaused = paused
+        button.image = menuBarIcon(paused: paused)
     }
 
     /// 面板兜底关闭：`.transient` 只覆盖「点击面板外」这一种失去方式，Cmd-Tab 切走、
@@ -349,14 +389,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     /// 面板打开期间装两条鼠标监听（成对拆在 `popoverDidClose`）。
     /// 存在的理由：设置窗开着时 `toggleMenuPanel` 不借激活，`.transient` 那套就失效了
     /// —— AppKit 只在 app 活跃时才把「点了面板外」递进来，面板会一直悬着（用户实测）。
-    /// 全局监听只收别的 app 的事件，所以本 app 自己的窗口必须再补一条本地监听。
+    /// 全局监听会连本 app popover 的事件副本一起收到（守卫见闭包内），本 app 其余窗口
+    /// （设置窗等）的点击则只有本地监听能收到 —— 两条缺一，各自漏一半。
     private func installMenuDismissMonitors() {
         // 幂等：关闭动画未完成时重开面板会再进这里 —— 先拆掉旧引用再装，
         // 否则旧引用被覆盖后再也拆不掉（全局监听永久截事件）。
         removeMenuMonitors()
         let panelWindow = { [weak self] in self?.menuPopover?.contentViewController?.view.window }
-        let global = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
-            MainActor.assumeIsolated { self?.closeMenuPanelIfShown() }
+        let global = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
+            MainActor.assumeIsolated {
+                // 全局监听会收到发给我们自己 popover / 状态按钮窗口的事件副本（实测与本地
+                // 分发同一 eventNumber）——这两种必须放过，否则 mouseDown 就把面板关了，
+                // mouseUp 落空，行的动作永远不跑。其余（别的 app / 桌面）才收面板。
+                if event.window === panelWindow() || event.window === self?.statusItem?.button?.window {
+                    return
+                }
+                self?.closeMenuPanelIfShown()
+            }
         }
         let local = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] event in
             MainActor.assumeIsolated {
@@ -385,14 +434,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         popover.contentViewController = NSHostingController(rootView: makeMenuPanel())
         menuPopover = popover
         popover.show(relativeTo: sender.bounds, of: sender, preferredEdge: .minY)
-        // 借激活只为面板本身（⌘, / ⌘Q 的本地键监听、hover）。但 AppKit 的激活语义是
+        // 借激活只为面板本身（hover / 面板的键盘可达性）。但 AppKit 的激活语义是
         // 「把本 app 的 main/key 窗口一并抬到最前」—— 设置窗开着时用户只是看面板，
-        // 背后那个窗不该跳到最前。所以**只有屏幕上没有本 app 的窗口时才借激活**；
-        // 代价是那一档里 ⌘, / ⌘Q 要等用户点进面板（系统激活）之后才递送。
+        // 背后那个窗不该跳到最前。所以**只有屏幕上没有本 app 的窗口时才借激活**。
         if settingsWindow?.isVisible != true {
             NSApp.activate(ignoringOtherApps: true)
         }
-        installMenuKeyMonitor()
         installMenuDismissMonitors()
     }
 
@@ -416,35 +463,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         .environment(sessionState)
     }
 
-    /// 面板上展示的快捷键必须是真的：⌘, 开设置、⌘Q 退出。监听只在面板打开期间活着。
-    private func installMenuKeyMonitor() {
-        // 幂等：同 installMenuDismissMonitors —— 动画期重开时旧 monitor 还挂在属性上，
-        // 不先拆就覆盖，旧 popover 的 didClose 会把**新** monitor 一并清掉。
-        removeMenuMonitors()
-        menuKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self,
-                  event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
-                  let key = event.charactersIgnoringModifiers else { return event }
-            switch key {
-            case ",":
-                self.menuPopover?.close()
-                self.showSettings(tab: 0)
-                return nil
-            case "q":
-                self.terminateApp()
-                return nil
-            default:
-                return event
-            }
-        }
-    }
-
     /// 拆面板期监听。安装（幂等前置）与 `popoverDidClose`（正常 teardown）共用同一份。
     private func removeMenuMonitors() {
-        if let menuKeyMonitor {
-            NSEvent.removeMonitor(menuKeyMonitor)
-            self.menuKeyMonitor = nil
-        }
         for monitor in menuDismissMonitors {
             NSEvent.removeMonitor(monitor)
         }
@@ -454,8 +474,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     func popoverDidClose(_ notification: Notification) {
         // 竞态防护：close() 动画未完成时用户再点图标会建出**新** popover 并覆盖 menuPopover。
         // 随后旧 popover 的 didClose 才回调 —— object 是旧的，此刻清状态会把新 monitor 与
-        // 新 popover 一并清掉（新面板点外面收不起来、旧 monitor 永久泄漏全局截 ⌘,/⌘Q）。
-        // 只清「object 就是当前面板」的那一次。
+        // 新 popover 一并清掉（新面板点外面收不起来）。只清「object 就是当前面板」的那一次。
         guard (notification.object as? NSPopover) === menuPopover else { return }
         removeMenuMonitors()
         menuPopover = nil
@@ -484,17 +503,59 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     /// 刻意手写而不用 NSHostingController.sizingOptions = .preferredContentSize ——
     /// 那个机制在倒计时环每秒刷新时会在 sizeThatFits 里重入约束更新，AppKit 直接抛异常
     /// （实测崩溃 Pic-2026-10-07-102958.ips）。这里改在布局周期外异步读 fittingSize，没有重入。
+    /// 尺寸变化走「果冻」动画（见 animateSettingsWindow）：硬切会让人以为窗口失控了。
     private func fitSettingsWindow() {
         DispatchQueue.main.async { [weak self] in
-            guard let win = self?.settingsWindow, let view = win.contentView else { return }
+            guard let self, let win = self.settingsWindow, let view = win.contentView else { return }
             let fit = view.fittingSize
             // 布局未完成时 fittingSize 是假小值，不采纳。
             guard fit.height > 100 else { return }
             let maxH = (NSScreen.main?.visibleFrame.height ?? 900) - 60
-            win.setContentSize(NSSize(
+            let target = NSSize(
                 // 新 shell 侧栏 216 + 内容区，理想宽超过旧 900 上限，钳制放宽到 1120。
                 width: max(SettingsPresentation.windowMinWidth, min(fit.width, 1120)),
-                height: max(320, min(fit.height, maxH))))
+                height: max(320, min(fit.height, maxH)))
+            // 首次开窗直接落位：从占位尺寸「长」出来反而像加载中，用户以为没点开。
+            guard self.hasFittedSettingsWindow else {
+                self.hasFittedSettingsWindow = true
+                win.setContentSize(target)
+                return
+            }
+            self.animateSettingsWindow(win, to: target)
+        }
+    }
+
+    /// 果冻式改窗：锚定左上角 + 轻微过冲的缓动。
+    /// 刻意不做「缩放整个 contentView」—— 那会把卡片文字一起拉变形；改frame 时
+    /// SwiftUI 内容按新尺寸重新布局，只动窗框，看起来是窗在呼吸而不是内容在拉伸。
+    private func animateSettingsWindow(_ win: NSWindow, to size: NSSize) {
+        guard abs(win.frame.width - size.width) > 0.5
+                || abs(win.frame.height - size.height) > 0.5 else { return }
+        // 动画中再来请求（连续点侧栏）：只记下最新目标，不排队 ——
+        // 中途改目标会让弹簧曲线断成一串抖动，比不动画还糟。
+        guard !settingsWindowIsAnimating else {
+            pendingSettingsWindowSize = size
+            return
+        }
+        settingsWindowIsAnimating = true
+        // 左上角锚定：屏幕坐标 y 向上增长，锚住 maxY 就等于锁住视觉上的顶边。
+        let current = win.frame
+        var next = current
+        next.size = size
+        next.origin.y = current.maxY - size.height
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.42
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            ctx.allowsImplicitAnimation = true
+            win.animator().setFrame(next, display: true)
+            ctx.completionHandler = { [weak self] in
+                guard let self else { return }
+                self.settingsWindowIsAnimating = false
+                if let pending = self.pendingSettingsWindowSize {
+                    self.pendingSettingsWindowSize = nil
+                    self.animateSettingsWindow(win, to: pending)
+                }
+            }
         }
     }
 
@@ -520,9 +581,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
             .environment(settingsApplier)
             .environment(sessionState)
         let win = NSWindow(contentViewController: NSHostingController(rootView: root))
-        win.title = "动态壁纸"
-        // hiddenTitleBar 的 AppKit 写法：标题栏透明 + contentView 占满，红绿灯仍在原位 ——
-        // SettingsView.titleRow 的 76pt 左内边距就是给它们留的。
+        win.title = "壁纸儿"
+        // hiddenTitleBar 的 AppKit 写法：标题栏透明 + contentView 占满，红绿灯仍在原位。
         win.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
         win.titleVisibility = .hidden
         win.titlebarAppearsTransparent = true
@@ -543,6 +603,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     func windowWillClose(_ notification: Notification) {
         guard (notification.object as? NSWindow) === settingsWindow else { return }
         settingsWindow = nil
+        // 关窗即重置贴合状态：下次开窗仍走「首次直接落位」，不该从上次尺寸长出来。
+        hasFittedSettingsWindow = false
+        settingsWindowIsAnimating = false
+        pendingSettingsWindowSize = nil
         // 与旧 onDisappear 同一个落点：关窗即回 .accessory，不留 Dock 图标。
         hideSettingsAndRestorePolicy()
     }
@@ -974,7 +1038,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         Task { await rescanAndApply() }
     }
 
-    /// 删除前的二次确认。`NSAlert` 而非 SwiftUI sheet：菜单是 `MenuBarExtra`，弹层挂不上去，
+    /// 删除前的二次确认。`NSAlert` 而非 SwiftUI sheet：菜单面板是 NSPopover，弹层挂不上去，
     /// 所以临时提策略、弹完恢复，与 `presentSettingsWindow` 同一套做法。
     /// 「移到废纸篓」刻意不做默认按钮（`alertStyle = .warning` 时首按钮才是默认），
     /// 回车 = 取消：误按回车不该删文件。
@@ -983,11 +1047,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         NSApp.activate(ignoringOtherApps: true)
         defer { NSApp.setActivationPolicy(.accessory) }
 
+        // 按**被删文件自己的扩展名**判断来源，而不是读 store 的当前来源。
+        // 两者在正常流程下一致，但判定放在这里有个实在的好处：文案与「实际会删掉什么」
+        // 绑死 —— 纵使来源中途被切过、或两库混了扩展名，用户看到的仍然是他将要删的那个。
+        let kind: WallpaperKind = ImageLibrary.allowedExtensions.contains(url.pathExtension.lowercased())
+            ? .image : .video
+        let noun = kind == .image ? "图片" : "视频"
+
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "删除当前壁纸？"
+        alert.messageText = "删除当前\(noun)？"
         // 不显示文件名：与菜单同一隐私纪律 —— 片库文件名多为无语义串，显示出来只有噪音。
-        alert.informativeText = "当前壁纸将移入废纸篓，播放会切到下一个。可在废纸篓中找回。"
+        alert.informativeText = "当前\(noun)将移入废纸篓，播放会切到下一个。可在废纸篓中找回。"
         alert.addButton(withTitle: "移到废纸篓")
         alert.addButton(withTitle: "取消")
         return alert.runModal() == .alertFirstButtonReturn

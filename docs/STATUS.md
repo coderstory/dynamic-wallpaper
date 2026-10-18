@@ -1,16 +1,23 @@
-# Pic 现状与未修问题
+# 壁纸儿现状与未修问题
 
 > **唯一一份活文档。** 历史过程报告已整体删除 —— 报告是快照，写完其中的结论就陆续失效，留着只会误导。
 > 改动过程看 `git log`，逐轮「为什么这么改」看 `.workbuddy/memory/`。
 
 ## 现状快照
 
+- 产品名**壁纸儿**（历史代号 Pic）；`PicCore` / `PicApp` 等为内部模块标识符，保留不改
+
 - 产品代码 **8873 行**（`PicCore` 纯逻辑 + `PicApp` 装配与 UI），零第三方依赖，仅 macOS 27
 - 测试 **6980 行 / 全量 406 用例**：本机沙箱 396 绿（5 个进程类 10 例会挂起，见下）；CI 全量 406
-- 验收两条路：`swift test`（PicCoreTests）+ `xcodebuild test`（PicUITests，XCUITest 由
-  Pic.xcodeproj 承载；**无 GUI 会话跑不了**——系统自动化认证被拒，需真机跑一次）
+- 验收两条路：`swift test`（PicCoreTests）+ **PicUITests（XCUITest）真机 5/5 绿**
+  （跑法 = `tools/run-uitests.sh`；Xcode 27 对手写 pbxproj 的 UITargetAppPath 解析有缺陷，
+  脚本内改写 xctestrun 规避——直接 `xcodebuild test` 会报 "bundle identifier for PicApp
+  couldn't be read"，见脚本头注释）
 - 构建：`swift build` 编译交付；`./build.sh` 出 .app + DMG（不签名）；版本经 `PIC_VERSION`
   注入并同步进 bundle（Info.plist 里的 0.1.0 只是开发期缺省）
+- **语言模式刻意是 6.0，别改 6.4**：编译器本身是 Swift 6.4（swiftlang-6.4.0.34.1），
+  但语言模式合法值只有 4/4.2/5/6（`swiftc -swift-version 6.4` 实测报 invalid）——
+  「升 6.4」的正确形态就是「6.4 编译器 + 语言模式 6（严格并发）」，现状已达标
 
 ## 未修问题（2026-10-09 全量审查后用户拍板：P0×1 + P1×11 已修，以下 P2 暂不修）
 
@@ -24,7 +31,6 @@
 8. **SettingsView 音量滑杆 onChanged 是无效往返换算**（死代码）；QueueRow 在 body 里逐任务 stat 盘。
 9. **ExternalToolLocator 探测表缺 MacPorts 路径**（/opt/local/bin/ffmpeg）。
 10. **FFmpegAvailabilityTests 与 ExternalToolLocatorTests 覆盖高度重复**（两套同形 Fake）。
-11. **PicUITests 5 用例从未真正执行过**（沙箱无 GUI 会话；断言本身未经验证）——真机首跑前别当成已验收。
 
 ## 明确不动（复核过，别再「顺手优化」）
 
@@ -56,10 +62,11 @@
    三条都要：设置窗开着时本 app 从不激活，`didResignActive` 永远不来。
 8. **面板还挂着两条鼠标监听（全局 + 本地），是第 6 条的承重补偿，不是过度防御**。
    `.transient` 只在 app 活跃时才收到「点了面板外」；第 6 条让 app 不再激活，那套就失效，
-   面板会一直悬着（用户实测）。全局监听**收不到发给本 app 的事件**（`NSEvent.h` 原文），
-   所以点自己那扇没激活的设置窗要靠本地监听 —— 两条缺一，各自漏一半。
-   本地监听里「面板内」与「状态栏图标」两种点击必须放过：前者归 SwiftUI，后者若要关掉，
-   随后的 mouseUp 会把面板判成「没有面板」再重开一次。
+   面板会一直悬着（用户实测）。`NSEvent.h` 说全局监听收不到发给本 app 的事件，**只对常规窗口成立**：
+   实测 `_NSPopoverWindow` 与状态按钮窗的事件副本照样进全局监听（与本地分发同一 eventNumber）。
+   所以两条监听都带「面板内 + 状态栏图标」豁免 —— 全局监听少了豁免的表现是 mouseDown 即关面板、
+   mouseUp 落空、菜单行动作永远不跑（2026-10-14 修复）。本 app 其余窗口（设置窗）只有本地监听
+   收得到，两条缺一，各自漏一半。
 9. **EXIF 口径成对契约**：显示用**摆正后**像素（`ImageDecoder` 经 `WithTransform` 摆正），
    档位判定用**存储**像素（宽高互换乘积不变）。两处成对注释在 decode 与 probe——只改一边
    就会出现「显示横躺」或「档位误判」，别当 bug 修回单边。
@@ -79,7 +86,7 @@
 | `Tests/PicUITests/` | ✅ | XCUITest 5 用例；target 由 `Pic.xcodeproj` 手写承载，SwiftPM 不支持 macOS UI 测试 | xcodebuild test 少一条验收路 |
 | `build/` `dist/` | ❌ | 构建产物（`.app` / `.dmg`） | `./build.sh` 重建 |
 | `.build/` | ❌ | SwiftPM 构建缓存（本仓最大的本地目录） | 下次 `swift build/test` 从零编 |
-| `cpp-singleton-logger/` | ❌ | 某轮会话交付的 C++ 单例日志器示例，刻意不纳入本仓库 | 与 Pic 无关 |
+| `cpp-singleton-logger/` | ❌ | 某轮会话交付的 C++ 单例日志器示例，刻意不纳入本仓库 | 与壁纸儿无关 |
 
 夹具重造（需要系统 `ffmpeg`）：
 

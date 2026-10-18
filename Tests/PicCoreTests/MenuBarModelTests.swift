@@ -43,6 +43,22 @@ final class MenuBarModelTests: XCTestCase {
         }
     }
 
+    /// 删除项文案必须说清删的是**视频还是图片**。
+    /// 防回归：曾统一写成「把当前壁纸移到废纸篓」——「壁纸」在这个 app 里既是产品名、
+    /// 又是目录里图片与视频的统称，用户读到「删壁纸」会问「到底删哪个」。
+    /// 两态必须不同名，否则等于没分派。
+    func testDeleteCurrentLabelNamesTheActualMediaKind() {
+        let video = MenuBarModel.label(for: .deleteCurrent, isPaused: false, kind: .video)
+        let image = MenuBarModel.label(for: .deleteCurrent, isPaused: false, kind: .image)
+
+        XCTAssertTrue(video.contains("视频"),
+                      "播视频时删除项必须说「视频」，而不是含糊的「壁纸」：\(video)")
+        XCTAssertTrue(image.contains("图片"),
+                      "播图片时删除项必须说「图片」：\(image)")
+        XCTAssertFalse(video.contains("图片"), "视频态文案不该出现「图片」：\(video)")
+        XCTAssertFalse(image.contains("视频"), "图片态文案不该出现「视频」：\(image)")
+    }
+
     func testLabelsNeverContainAnyMediaFileName() {
         for isPaused in [false, true] {
             let labels = MenuItemID.allCases.map { MenuBarModel.label(for: $0, isPaused: isPaused, kind: .video) }
