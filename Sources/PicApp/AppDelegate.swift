@@ -1,11 +1,15 @@
 import AppKit
 import AVFoundation
 import SwiftUI
+import os
 import PicCore
 
 /// 唯一装配点：全仓唯一把系统信号变成 `HoldReason` 的地方（单向流 `Watcher → HoldArbiter → PlayerController`）。
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSWindowDelegate {
+    // TEMP-DEBUG: 撤 —— 选完图片文件夹后设置窗消失的一次性排查日志
+    private let winDebugLog = Logger(subsystem: "com.local.bizhier", category: "windebug")
+    private static let pre = "[windebug] "
     /// 改名迁移必须赶在 store 读偏好**之前**：bundle id 换域后新域是空的，store 的 init
     /// 一旦先跑就会拿种子值定终身。store 是存储属性，属性初始化先于一切方法体，所以迁移
     /// 挤在同一个立即求值的初始化表达式里、先于 SettingsStore 构造执行。
@@ -30,6 +34,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     /// 果冻动画在飞。动画期间到来的贴合请求只更新 pending 目标。
     private var settingsWindowIsAnimating = false
     private var pendingSettingsWindowSize: NSSize?
+    /// 绿灯 zoom 状态跟踪：只在「zoom → 还原」边沿动作。进 zoom 尊重用户最大化，不动窗。
+    private var settingsWindowWasZoomed = false
+    /// 红绿灯左移的重臂状态：defaultX 是「系统默认位」实测值，在首见 resize tick 采集 ——
+    /// 采集前本方没动过灯位，见到的必是默认。判据用 x == default 而非 x != target：
+    /// 只把「被系统重排回默认」的灯拉回左移位，动画过渡帧等别的中间态不碰，减法才不会漂移。
+    /// 不在 make 期采基准：make 时点早于 titlebar 首布局，那时改的 frame 会被首布局覆盖，
+    /// rearm 再按它重臂就在覆盖值上叠加位移（实测灯组被推到贴死窗缘）。
+    private var trafficLightDefaultX: [NSWindow.ButtonType: CGFloat] = [:]
+    private static let trafficLightOffset: CGFloat = 10
     // rotation 必须强持有，它持 onAdvance 闭包与 Timer 调度器
     let library = MediaLibrary()
     /// 拔盘 / 目录消失后的重生看护。只在 `folderMissing` 期间活着（见 `updateFolderWatch`）。
@@ -47,11 +60,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     )
     /// 图片侧扫描内核。与 `library`（视频）并存且各自缓存 —— 切换来源不重扫对方的目录。
     let imageLibrary = ImageLibrary()
+    let hanamiLedger = HanamiVideoLedger()
     /// 图片侧装载端：后台解码 → 主线程上屏，并写续播键。
     private lazy var imageLoader = ImageWallpaperLoader(controller: wallpaper, store: store)
     /// 图片侧路由器。**与 `router` 共用同一个 `rotation`**，间隔 / 模式 / 让路暂停两边因此完全一致。
     /// 切来源时必须先停掉旧的再起新的 —— 两个装载端会争抢同一个 `onAdvance`。
     lazy var imageRouter = ImagePlaybackRouter(rotation: rotation, loader: imageLoader)
+    /// 分派代次：切来源 / 换目录自增。掉队的图片扫描 Task 会在视频重启后抢走共享 rotation
+    /// （重绑图片列表 → 图片经筛选只剩 ≤1 条时倒计时环永不轮换），分派入口必须比对代次。
+    private var mediaApplyEpoch = 0
     /// 设置窗的会话态读数（计数 / 空态 / 扫描时间）。不进 store —— 不是用户设过的偏好。
     let sessionState = SettingsSessionState()
     /// ffmpeg 判定的单一真相源：设置窗状态卡、维护行置灰态、徽章读的都是它。
@@ -481,6 +498,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         // 归还为面板借的激活。close() 动画完成才回调 —— 此刻设置窗可能已被行动作打开，
         // 它在台前时不能 deactivate（会把用户刚叫出来的窗又压下去）。
         if settingsWindow?.isVisible != true {
+            winDebugLog.notice("\(Self.pre, privacy: .public)panel-close deactivate settingsVisible=\(self.settingsWindow?.isVisible ?? false, privacy: .public)")
             NSApp.deactivate()
         }
     }
@@ -507,6 +525,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     private func fitSettingsWindow() {
         DispatchQueue.main.async { [weak self] in
             guard let self, let win = self.settingsWindow, let view = win.contentView else { return }
+            // zoom 期间窗归用户管：setFrame 会把系统记的还原 frame 顶掉，还原就落错位。
+            // zoom 中错过的贴合由 windowDidResize 的还原边沿补上。
+            guard !win.isZoomed else { return }
             let fit = view.fittingSize
             // 布局未完成时 fittingSize 是假小值，不采纳。
             guard fit.height > 100 else { return }
@@ -515,6 +536,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
                 // 新 shell 侧栏 216 + 内容区，理想宽超过旧 900 上限，钳制放宽到 1120。
                 width: max(SettingsPresentation.windowMinWidth, min(fit.width, 1120)),
                 height: max(320, min(fit.height, maxH)))
+            winDebugLog.notice("\(Self.pre, privacy: .public)fit \(String(describing: target), privacy: .public) from \(String(describing: win.frame), privacy: .public)")
             // 首次开窗直接落位：从占位尺寸「长」出来反而像加载中，用户以为没点开。
             guard self.hasFittedSettingsWindow else {
                 self.hasFittedSettingsWindow = true
@@ -551,6 +573,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
             ctx.completionHandler = { [weak self] in
                 guard let self else { return }
                 self.settingsWindowIsAnimating = false
+                winDebugLog.notice("\(Self.pre, privacy: .public)fit-done \(String(describing: win.frame), privacy: .public) pending=\(self.pendingSettingsWindowSize != nil, privacy: .public)")
                 if let pending = self.pendingSettingsWindowSize {
                     self.pendingSettingsWindowSize = nil
                     self.animateSettingsWindow(win, to: pending)
@@ -575,7 +598,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
             // 当前图换铺法：不重解码不重扫，把新 fit 直接送渲染层。
             applyImageFit: { [weak self] in self?.wallpaper.applyImageFit(self?.store.imageFit ?? .fill) },
             // 分辨率档位改后重扫：ImageLibrary 缓存键含 minPixels，走既有重扫路径即可。
-            applyImageFilter: { [weak self] in Task { self?.rescanLibrary() } })
+            applyImageFilter: { [weak self] in Task { self?.rescanLibrary() } },
+            importHanami: { [weak self] in self?.importFromHanami() })
             .environment(store)
             .environment(arbiter)
             .environment(settingsApplier)
@@ -586,6 +610,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         win.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
         win.titleVisibility = .hidden
         win.titlebarAppearsTransparent = true
+        // 品牌块整体左移（用户拍板）的配套：三个红绿灯整体左移 10pt，腾出 trafficLightInset
+        // 88→70 的空间。只挪标准按钮 frame、无私有 API。左移动作本身不在这里做 —— make 时点
+        // 早于 titlebar 首布局，此处改的 frame 会被首布局覆盖；由 windowDidResize 首见 tick
+        // 采系统默认位后统一左移（rearmTrafficLights），之后系统每次重排回默认都再拉回来。
+        // 这里只确保按钮存在。
+        for kind: NSWindow.ButtonType in [.closeButton, .miniaturizeButton, .zoomButton] {
+            _ = win.standardWindowButton(kind)
+        }
         // 替代 SettingsView.applyWindowChrome 的 0.5s 延时 hack：窗在自家手里，创建时直接设。
         win.isMovableByWindowBackground = true
         // 初始高度只是占位：showSettings 紧接着会 fitSettingsWindow 贴到内容真实高度。
@@ -600,11 +632,53 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         return win
     }
 
+    /// 设置窗 resize 钩子：红绿灯按基准重臂 + zoom 还原边沿重贴内容尺寸。
+    func windowDidResize(_ notification: Notification) {
+        guard let win = notification.object as? NSWindow, win === settingsWindow else { return }
+        rearmTrafficLights(on: win)
+        let zoomed = win.isZoomed
+        let wasZoomed = settingsWindowWasZoomed
+        settingsWindowWasZoomed = zoomed
+        guard zoomed != wasZoomed else { return }
+        // zoom 动画收尾后系统还会再排一次灯位：边沿上补一拍延迟重臂。
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.settingsWindow === win else { return }
+            self.rearmTrafficLights(on: win)
+        }
+        // 还原边沿才重贴：zoom 期间 SwiftUI 按大窗重新布局，还原后窗回旧 frame，
+        // 内容理想高度与视口差出小数级缝隙，ScrollView 越过溢出阈值翻出滚动条。重贴消缝隙。
+        if wasZoomed { fitSettingsWindow() }
+    }
+
+    /// 红绿灯重臂：首见 tick 采系统默认位并左移；之后只在灯位被系统重排回「默认位」时再左移。
+    private func rearmTrafficLights(on win: NSWindow) {
+        for kind: NSWindow.ButtonType in [.closeButton, .miniaturizeButton, .zoomButton] {
+            guard let button = win.standardWindowButton(kind) else { continue }
+            let x = button.frame.origin.x
+            if let def = trafficLightDefaultX[kind] {
+                if x == def {
+                    let target = def - Self.trafficLightOffset
+                    button.frame.origin.x = target
+                    winDebugLog.notice("\(Self.pre, privacy: .public)lights \(kind.rawValue, privacy: .public) \(x, privacy: .public)->\(target, privacy: .public)")
+                }
+            } else {
+                // 布局未完成时 x 会是假小值，采进去就是错的默认位，等下一个 tick。
+                guard x > 0 else { continue }
+                trafficLightDefaultX[kind] = x
+                button.frame.origin.x = x - Self.trafficLightOffset
+                winDebugLog.notice("\(Self.pre, privacy: .public)lights-capture kind=\(kind.rawValue, privacy: .public) default=\(x, privacy: .public)")
+            }
+        }
+    }
+
     func windowWillClose(_ notification: Notification) {
+        winDebugLog.notice("\(Self.pre, privacy: .public)willClose obj=\(String(describing: notification.object), privacy: .public)")
         guard (notification.object as? NSWindow) === settingsWindow else { return }
         settingsWindow = nil
         // 关窗即重置贴合状态：下次开窗仍走「首次直接落位」，不该从上次尺寸长出来。
         hasFittedSettingsWindow = false
+        settingsWindowWasZoomed = false
+        trafficLightDefaultX = [:]
         settingsWindowIsAnimating = false
         pendingSettingsWindowSize = nil
         // 与旧 onDisappear 同一个落点：关窗即回 .accessory，不留 Dock 图标。
@@ -614,6 +688,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     /// 设置窗关闭时把策略改回 `.accessory` —— 少了这一句，Dock 图标会永久留下。
     /// 异常路径也走这一个入口，不留半开状态。
     @objc func hideSettingsAndRestorePolicy() {
+        winDebugLog.notice("\(Self.pre, privacy: .public)hideSettings stack=\(String(describing: Thread.callStackSymbols.prefix(6)), privacy: .public)")
         NSApp.setActivationPolicy(.accessory)
     }
 
@@ -795,6 +870,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
             if await pickFolder() == .accepted {
                 // 换目录后必须失效缓存再重扫。`scan` 的缓存现在按目录判等（换目录自然失效），
                 // 这里显式失效是纵深：让「切换目录」与「重新扫描」走同一条语义，不依赖缓存判等这一个闸。
+                mediaApplyEpoch += 1
                 if store.wallpaperKind == .image { imageLibrary.invalidateCache() } else { library.invalidateCache() }
                 await rescanAndApply()
             }
@@ -813,6 +889,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         let previous = store.wallpaperKind
         store.wallpaperKind = kind
         store.persist()
+        // 作废在途扫描：切来源后，旧来源晚到的扫描结果不得再进分派（见 mediaApplyEpoch）。
+        mediaApplyEpoch += 1
 
         if previous == .video {
             router.stop()
@@ -835,38 +913,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     /// 「切换目录」与「重新扫描」走**同一条**路径 —— 两处实现必然会漂。
     /// 扫描结果交给协调器后，按返回的 `LibraryState` 分派装载。
     private func rescanAndApply() async {
+        // 分派前比对用：切来源 / 换目录会自增代次，晚到的本轮结果在分派入口整轮丢弃。
+        let epoch = mediaApplyEpoch
         sessionState.isScanning = true
         defer { sessionState.isScanning = false }
         // 模式与间隔从设置带过来（当场生效，不存第二份真相）—— 两种来源共用同一个轮换器。
         rotation.mode = store.playMode
         rotation.setInterval(store.rotationInterval)
         if store.wallpaperKind == .image {
-            await rescanImagesAndApply()
+            await rescanImagesAndApply(epoch: epoch)
             return
         }
         guard let folder = store.resolvedFolderURL(for: .video) else {
-            await applyAndDispatch(scanOutcome: .success(0), folderConfigured: false, report: nil)
+            await applyAndDispatch(scanOutcome: .success(0), folderConfigured: false, report: nil, epoch: epoch)
             return
         }
         do {
             let report = try await library.scan(folder: folder)
             sessionState.playableCount = report.playableCount
             await applyAndDispatch(scanOutcome: .success(report.playableCount),
-                                   folderConfigured: true, report: report)
+                                   folderConfigured: true, report: report, epoch: epoch)
         } catch let error as MediaLibrary.MediaLibraryError {
-            await applyAndDispatch(scanOutcome: .failure(error), folderConfigured: true, report: nil)
+            await applyAndDispatch(scanOutcome: .failure(error), folderConfigured: true, report: nil, epoch: epoch)
         } catch {
             // scan 只抛 MediaLibraryError，这里是编译器要的兜底；真到了这一步按「目录读不了」处理。
             await applyAndDispatch(scanOutcome: .failure(.folderUnreadable),
-                                   folderConfigured: true, report: nil)
+                                   folderConfigured: true, report: nil, epoch: epoch)
         }
     }
 
     /// 图片来源的「扫描 → 分派」。与视频侧**结构对称**，判定与产物都不同：
     /// 口径是总像素量、没有转码 / 降帧、也没有 `Converted/` 产物要合并。
-    private func rescanImagesAndApply() async {
+    private func rescanImagesAndApply(epoch: Int) async {
         guard let folder = store.resolvedFolderURL(for: .image) else {
-            await applyImages(scanOutcome: .success(0), folderConfigured: false, urls: [])
+            await applyImages(scanOutcome: .success(0), folderConfigured: false, urls: [], epoch: epoch)
             return
         }
         do {
@@ -875,17 +955,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
             sessionState.imagePassing = report.passing
             sessionState.imageFiltered = report.filteredOut
             await applyImages(scanOutcome: .success(report.passing), folderConfigured: true,
-                              urls: report.items.map(\.url))
+                              urls: report.items.map(\.url), epoch: epoch)
         } catch let error as MediaLibrary.MediaLibraryError {
-            await applyImages(scanOutcome: .failure(error), folderConfigured: true, urls: [])
+            await applyImages(scanOutcome: .failure(error), folderConfigured: true, urls: [], epoch: epoch)
         } catch {
             // scan 只抛 MediaLibraryError，这里是编译器要的兜底。
-            await applyImages(scanOutcome: .failure(.folderUnreadable), folderConfigured: true, urls: [])
+            await applyImages(scanOutcome: .failure(.folderUnreadable), folderConfigured: true, urls: [], epoch: epoch)
         }
     }
 
     private func applyImages(scanOutcome: Result<Int, MediaLibrary.MediaLibraryError>,
-                             folderConfigured: Bool, urls: [URL]) async {
+                             folderConfigured: Bool, urls: [URL], epoch: Int) async {
+        // 掉队的图片扫描 Task 会在视频重启后抢走共享 rotation —— 代次不一致整轮丢弃，
+        // 不碰 router、不碰 rotation、也不走 coordinator.apply（它会 show/hide 窗口）。
+        guard epoch == mediaApplyEpoch else {
+            winDebugLog.notice("\(Self.pre, privacy: .public)stale apply dropped: epoch \(epoch, privacy: .public) != \(self.mediaApplyEpoch, privacy: .public)")
+            return
+        }
         let state = coordinator.apply(scanOutcome: scanOutcome, folderConfigured: folderConfigured)
         await dispatchImages(for: state, urls: urls)
         updateFolderWatch(for: state)
@@ -924,7 +1010,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     /// 漏掉的表现是「拔盘再插回，界面永远停在缺失态」。
     private func applyAndDispatch(scanOutcome: Result<Int, MediaLibrary.MediaLibraryError>,
                                   folderConfigured: Bool,
-                                  report: MediaLibraryReport?) async {
+                                  report: MediaLibraryReport?, epoch: Int) async {
+        // 与 applyImages 同一款掉队防护：扫描期间切了来源 / 目录，本轮结果整体丢弃。
+        guard epoch == mediaApplyEpoch else {
+            winDebugLog.notice("\(Self.pre, privacy: .public)stale apply dropped: epoch \(epoch, privacy: .public) != \(self.mediaApplyEpoch, privacy: .public)")
+            return
+        }
         let state = coordinator.apply(scanOutcome: scanOutcome, folderConfigured: folderConfigured)
         await dispatchPlayback(for: state, report: report)
         updateFolderWatch(for: state)
@@ -1021,7 +1112,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
 
         // ④ 最后才动文件。
         do {
-            try FileManager.default.trashItem(at: victim, resultingItemURL: nil)
+            // pointee 是 NSURL?，&URL? 编不过：先落 NSURL? 再桥接成 URL?。
+            var trashURL: NSURL?
+            try FileManager.default.trashItem(at: victim, resultingItemURL: &trashURL)
+            recordDeletionTombstones(victim: victim, trashedTo: trashURL as URL?)
         } catch {
             // 移入废纸篓失败（权限 / 文件已被外部移动 / 卷只读）——不动清单，下次扫描自然会收敛。
             return
@@ -1036,6 +1130,78 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         // ⑤ 必须失效缓存 —— 否则清单里那条路径已不存在，下次轮换会装载失败。
         invalidateActiveLibraryCache()
         Task { await rescanAndApply() }
+    }
+
+    /// 删视频时记墓碑：导入是逐字节拷贝，同字节文件 MD5 相同，下次导入据此跳过。
+    /// 哈希在后台做 —— victim 与溯源源片可能都是几十上百 MB 的视频，同步哈希会冻结主线程秒级。
+    /// 废纸篓落点与原路径字节相同，在落点算即可。trash 失败由调用方 catch 早退，本方法只在
+    /// 成功路径跑；落点拿不到则不记，废纸篓回填写兜底。
+    private func recordDeletionTombstones(victim: URL, trashedTo: URL?) {
+        guard let trashedTo,
+              MediaLibrary.allowedExtensions.contains(victim.pathExtension.lowercased()) else { return }
+        let table = FrameRateTable.load()
+        var toRecord = [trashedTo]
+        // 删的可能是降帧产物：产物 MD5 与原片不同，不溯源会让该素材被花見重新导入。
+        if let source = table.sourceURL(forDerivativeAt: victim) { toRecord.append(source) }
+        let ledger = hanamiLedger
+        Task.detached {
+            for url in toRecord where FileManager.default.fileExists(atPath: url.path) {
+                if let md5 = HanamiImporter.md5(at: url) { try? ledger.insert(md5) }
+            }
+        }
+    }
+
+    /// 导入汇总行的 10s 自动消失。runId 是护栏：10s 内用户再点一次导入，旧定时器醒来时
+    /// runId 已不匹配、不许清掉新一行的读数。
+    private var hanamiSummaryRunID = 0
+
+    private func scheduleHanamiSummaryHide() {
+        hanamiSummaryRunID += 1
+        let runID = hanamiSummaryRunID
+        Task {
+            try? await Task.sleep(for: .seconds(10))
+            guard hanamiSummaryRunID == runID else { return }
+            sessionState.hanamiImportSummary = nil
+        }
+    }
+
+    func importFromHanami() {
+        guard let destination = store.resolvedFolderURL(for: .video) else {
+            sessionState.hanamiImportSummary = "未设置视频文件夹"
+            scheduleHanamiSummaryHide()
+            return
+        }
+        sessionState.isImportingHanami = true
+        Task {
+            // 每次现构造导入器：destinationDirectory 若在 init 钉死，改视频目录后会导进旧目录。
+            let importer = HanamiImporter(destinationDirectory: destination, ledger: hanamiLedger)
+            let report = await importer.run()   // 非 isolated async：此处跳出主 actor
+            sessionState.isImportingHanami = false
+            sessionState.hanamiImportSummary = Self.hanamiSummary(report)
+            scheduleHanamiSummaryHide()
+            if report.imported > 0 { rescanLibrary() }   // 已含 invalidateActiveLibraryCache + rescanAndApply
+        }
+    }
+
+    /// 字段→段落映射：导入 · 忽略 · 跳过（已删过/已存在/重复）· 拒绝 · 失败。
+    /// 零值段整段省略，无例外（「跳过」内三个子段同理）；全零 run 回「未发现可导入的视频」——
+    /// nil 只留给「从未跑过」，回 nil 会抹掉上次读数且点击零反馈。
+    private static func hanamiSummary(_ report: HanamiImportReport) -> String? {
+        if report.sourceMissing { return "花見视频目录读不了或不存在" }
+        var positive: [String] = []
+        if report.imported > 0 { positive.append("导入 \(report.imported)") }
+        if report.tombstoneSeededFromTrash > 0 { positive.append("忽略 \(report.tombstoneSeededFromTrash)") }
+        var skipped: [String] = []
+        if report.skippedTombstone > 0 { skipped.append("已删过 \(report.skippedTombstone)") }
+        if report.skippedExisting > 0 { skipped.append("已存在 \(report.skippedExisting)") }
+        if report.skippedDuplicate > 0 { skipped.append("重复 \(report.skippedDuplicate)") }
+        var negative: [String] = []
+        if !skipped.isEmpty { negative.append("跳过（\(skipped.joined(separator: " · "))）") }
+        if report.rejectedByProbe > 0 { negative.append("拒绝 \(report.rejectedByProbe)") }
+        if report.failedCopy > 0 { negative.append("失败 \(report.failedCopy)") }
+        let segments = [positive.joined(separator: " · "), negative.joined(separator: "，")]
+        let summary = segments.filter { !$0.isEmpty }.joined(separator: "，")
+        return summary.isEmpty ? "未发现可导入的视频" : summary
     }
 
     /// 删除前的二次确认。`NSAlert` 而非 SwiftUI sheet：菜单面板是 NSPopover，弹层挂不上去，

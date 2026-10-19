@@ -8,6 +8,8 @@
 - 产品名**壁纸儿**（历史代号 Pic）；`PicCore` / `PicApp` 等为内部模块标识符，保留不改
 
 - 产品代码 **8873 行**（`PicCore` 纯逻辑 + `PicApp` 装配与 UI），零第三方依赖，仅 macOS 27
+- **花見导入**（设置窗「从花見导入…」手动按钮）：把花見容器下载的视频复制进所选视频目录；删除视频时后台记 MD5 墓碑（SQLite `deleted-videos.sqlite`），导入命中即跳过；每次导入把 `~/.Trash` 顶层 mp4 回填墓碑兜底
+- 花見导入的两个一次性竞态明示接受（不加锁）：导入后台跑时并发删除某候选 → 本轮仍可能拷入，下一轮导入收敛；删除后、后台哈希前清空废纸篓 → 墓碑缺失，素材回来一次、再删即记
 - 测试 **6980 行 / 全量 406 用例**：本机沙箱 396 绿（5 个进程类 10 例会挂起，见下）；CI 全量 406
 - 验收两条路：`swift test`（PicCoreTests）+ **PicUITests（XCUITest）真机 5/5 绿**
   （跑法 = `tools/run-uitests.sh`；Xcode 27 对手写 pbxproj 的 UITargetAppPath 解析有缺陷，
@@ -31,6 +33,8 @@
 8. **SettingsView 音量滑杆 onChanged 是无效往返换算**（死代码）；QueueRow 在 body 里逐任务 stat 盘。
 9. **ExternalToolLocator 探测表缺 MacPorts 路径**（/opt/local/bin/ffmpeg）。
 10. **FFmpegAvailabilityTests 与 ExternalToolLocatorTests 覆盖高度重复**（两套同形 Fake）。
+11. **`swift build -c release --build-tests` 失败**（与本功能无关的既有故障）：`AutoStartTests.swift:4` 报 unable to resolve Swift module dependency to a compatible module: 'PicCore'。前轮用 git stash 干净树复现，本轮清空 `.build` 后复跑仍同错（debug 全量 427 绿）。
+12. **hold 期间的 stop→start 不补 pause**：切来源 / 重扫会重启轮换器，而 `HoldArbiter.onShouldPlayChange` 只在翻转沿发一次（`PicCore/State/HoldArbiter.swift:59`），运行中的补冻结只有 `startWallpaper` 启动路径那一刀（`PicApp/AppDelegate.swift:739`）——hold 期间切来源，恢复后轮换已在不该转的时候转。
 
 ## 明确不动（复核过，别再「顺手优化」）
 
