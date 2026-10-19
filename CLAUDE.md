@@ -129,7 +129,7 @@ RotationController（轮换）→ PlaybackRouter（装载分派）
 
 ### Issue tracker
 
-票在 `coderstory/dynamic-wallpaper` 的 GitHub Issues 里，读写一律走 deck 的 `deck_*` 工具，不手敲 `gh`。See `docs/agents/issue-tracker.md`.
+票在 `coderstory/dynamic-wallpaper` 的 GitHub Issues 里，读写走 `gh` CLI。See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
@@ -137,6 +137,6 @@ triage 的五个规范角色，标签串与角色同名（`needs-triage` / `need
 
 ### Domain docs
 
-single-context —— 一个仓库共用根目录一份 `CONTEXT.md`，架构决策放 `docs/adr/`。See `docs/agents/domain.md`.
+single-context —— 一个仓库共用根目录一份 `GLOSSARY.md`，架构决策放 `docs/adr/`。See `docs/agents/domain.md`.
 两者目前**都不存在，且这是刻意的**：`docs/agents/domain.md` 规定它们由 `/domain-modeling` 懒创建。
 在那之前一律按它写的做 —— **静默跳过，不提示缺失，不主动创建**。
