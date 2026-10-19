@@ -81,6 +81,17 @@ public struct FrameRateTable: Codable, Equatable, Sendable {
     static func key(for url: URL) -> String { url.standardizedFileURL.path }
     static func key(forPath path: String) -> String { URL(fileURLWithPath: path).standardizedFileURL.path }
 
+    /// victim 是某行的降帧产物时回其源片 URL：产物 MD5 ≠ 原片，删产物不溯源会让已删素材被重新导入。
+    /// 路径 standardized 比对 —— /var 与 /private/var 两形态并存，直接比字符串永远漏匹配（`entry(for:)` 同坑）。
+    public func sourceURL(forDerivativeAt victim: URL) -> URL? {
+        let key = Self.key(for: victim)
+        guard let entry = entries.first(where: { entry in
+            guard let path = entry.derivativePath else { return false }
+            return Self.key(forPath: path) == key
+        }) else { return nil }
+        return URL(fileURLWithPath: entry.sourcePath)
+    }
+
     /// 增量扫描的判据：能复用就返回，省掉一次 `AVURLAsset` 打开。
     public func reusableEntry(for source: URL) -> FrameRateEntry? {
         guard var entry = entry(for: source) else { return nil }
