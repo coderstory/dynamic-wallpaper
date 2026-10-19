@@ -26,6 +26,11 @@ final class SettingsSessionState {
     /// 一次性：SettingsView 读后即清。窗未开时 onAppear 消费，窗已开时 onChange 消费。
     var requestedTab: Int?
 
+    /// 花見导入进行中：按钮置灰防重入。
+    var isImportingHanami = false
+    /// 最近一次导入的一行读数。nil = 从未跑过。
+    var hanamiImportSummary: String?
+
     /// 协调器状态变更的**唯一**写入口（AppDelegate 的 onStateChange handler 调）。
     func update(state: LibraryState) {
         lastLibraryState = state

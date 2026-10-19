@@ -1,7 +1,7 @@
 import XCTest
 @testable import PicCore
 
-/// 窗口常量（1024/880）在这里锁死 —— 唯一来源是 `SettingsPresentation`，视图与探针都读它，不许散落字面量。
+/// 窗口常量（1040/880）在这里锁死 —— 唯一来源是 `SettingsPresentation`，视图与探针都读它，不许散落字面量。
 final class SettingsPresentationTests: XCTestCase {
 
     func testRateLabelFormatsBounds() {
@@ -35,7 +35,7 @@ final class SettingsPresentationTests: XCTestCase {
     }
 
     func testWindowConstantsMatchContract() {
-        XCTAssertEqual(SettingsPresentation.windowWidth, 1024)
+        XCTAssertEqual(SettingsPresentation.windowWidth, 1040)
         XCTAssertEqual(SettingsPresentation.windowMinWidth, 880)
     }
 

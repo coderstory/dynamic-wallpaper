@@ -31,6 +31,8 @@ struct SettingsView: View {
     var switchSource: ((WallpaperKind) -> Void)? = nil
     var applyImageFit: (() -> Void)? = nil
     var applyImageFilter: (() -> Void)? = nil
+    /// 带默认值的可选闭包：AppDelegate 未接线时为 nil，UI 照常编译、动作只是不落行为。
+    var importHanami: (() -> Void)? = nil
 
     /// ffmpeg 不可用时的安装途径弹层（置灰之外还得给出途径）。
     @State private var showingPathways = false
@@ -68,13 +70,24 @@ struct SettingsView: View {
                idealWidth: SettingsPresentation.windowWidth,
                maxWidth: .infinity, maxHeight: .infinity,
                alignment: .topLeading)
+        // 顶栏必须顶到窗沿：fullSizeContentView 下内容 VStack 默认避让标题栏安全区，
+        // 避让出的那一段只剩裸材质 = 顶栏上方白条（banner「显矮」同源）。只放行顶边，
+        // 底边仍避让（别盖 Dock 区）。
+        .ignoresSafeArea(edges: .top)
         .background {
-            // 液态玻璃开启时根背景是超薄材质（配合窗体透明透出桌面模糊）；
-            // 关闭时是不透明 pGround，与原状逐像素相同。
-            Rectangle().fill(store.liquidGlassEnabled
-                ? AnyShapeStyle(.ultraThinMaterial)
-                : AnyShapeStyle(Color.pGround))
-                .ignoresSafeArea()
+            // 整窗磨砂：玻璃开 = 根一层 ultraThinMaterial + pGround 70% 染色；材质只此一层，
+            // 卡片面禁止再叠（双层磨砂泛白，前科在案）。0.5 偏透 / 0.85 偏实，0.70 用户校准中点。
+            // 卡=根上浅一档（CardSurface 纯染色 0.80 + 描边）。
+            // 关：不透明 pGround，与原状逐像素相同。
+            Group {
+                if store.liquidGlassEnabled {
+                    Rectangle().fill(.ultraThinMaterial)
+                        .overlay(Rectangle().fill(Color.pGround.opacity(0.70)))
+                } else {
+                    Rectangle().fill(Color.pGround)
+                }
+            }
+            .ignoresSafeArea()
         }
         // 卡片面是否走液态玻璃只在根视图读一次 store，卡片调用点经环境量继承。
         .environment(\.liquidGlassActive, store.liquidGlassEnabled)
@@ -184,16 +197,16 @@ struct SettingsView: View {
                 HStack(spacing: 9) {
                     Circle()
                         .fill(heroTint)
-                        .frame(width: 8, height: 8)
+                        .frame(width: 10, height: 10)
                         .background(
-                            Circle().fill(heroTint.opacity(0.22)).frame(width: 15, height: 15)
+                            Circle().fill(heroTint.opacity(0.22)).frame(width: 19, height: 19)
                         )
                     Text(heroHeadline)
-                        .font(display(15))
+                        .font(display(18))
                         .foregroundStyle(Color.pInk)
                 }
                 Text(heroSummary)
-                    .font(.system(size: 13))
+                    .font(.system(size: 15))
                     .foregroundStyle(Color.pInk2)
                     .fixedSize(horizontal: false, vertical: true)
                 heroTags
@@ -205,12 +218,15 @@ struct SettingsView: View {
                 rotationRing
             }
         }
-        .cardSurface()
+        // hero 卡比普通卡片高（用户拍板）：+8pt 垂直 padding，状态点/字号/环相应放大。
+        .padding(.vertical, 8)
+        // 圆角小一档（11）：卡高更大，14 的连续圆角在 hero 上显得过鼓；介于全卡 14 与控件 10 之间。
+        .cardSurface(radius: 11)
     }
 
     private var heroTint: Color { isHeld ? .pHold : .pOk }
 
-    /// 倒计时环的颜色与状态点解耦：播放中走品牌橙，让路仍用 hold 褐。
+    /// 倒计时环的颜色与状态点解耦：播放中走强调色 pBrand（草绿），让路仍用 hold 褐。
     private var heroRingTint: Color { isHeld ? Color.pHold : Color.pBrand }
 
     private var heroHeadline: String {
@@ -255,17 +271,20 @@ struct SettingsView: View {
                     .trim(from: 0, to: ringFraction(remaining))
                     .stroke(heroRingTint, style: StrokeStyle(lineWidth: 6, lineCap: .round))
                     .rotationEffect(.degrees(-90))
+                // 只剩读数（用户拍板删「换下一个」）；停转态保留「不轮换」一行说明。
                 VStack(spacing: 1) {
                     Text(remaining.map { mmss($0) } ?? "—")
-                        .font(mono(12, .semibold))
+                        .font(mono(17, .semibold))
                         .monospacedDigit()
                         .foregroundStyle(Color.pInk)
-                    Text(remaining == nil ? "不轮换" : "换下一个")
-                        .font(.system(size: 10))
-                        .foregroundStyle(Color.pInk3)
+                    if remaining == nil {
+                        Text("不轮换")
+                            .font(.system(size: 10))
+                            .foregroundStyle(Color.pInk3)
+                    }
                 }
             }
-            .frame(width: 78, height: 78)
+            .frame(width: 84, height: 84)
             .accessibilityElement()
             .accessibilityLabel(Text(remaining.map { "距下次换片还有 \(mmss($0))" } ?? "当前不轮换"))
         }
@@ -277,14 +296,14 @@ struct SettingsView: View {
             Circle().stroke(Color.pSurface3, lineWidth: 6)
             VStack(spacing: 1) {
                 Text("—")
-                    .font(mono(12, .semibold))
+                    .font(mono(13, .semibold))
                     .foregroundStyle(Color.pInk)
                 Text("不轮换")
                     .font(.system(size: 10))
                     .foregroundStyle(Color.pInk3)
             }
         }
-        .frame(width: 78, height: 78)
+        .frame(width: 84, height: 84)
         .accessibilityElement()
         .accessibilityLabel(Text("当前不轮换"))
     }
@@ -308,7 +327,7 @@ struct SettingsView: View {
                 .frame(width: 38, height: 38)
                 .background(
                     RoundedRectangle(cornerRadius: Metrics.ctlRadius, style: .continuous)
-                        .fill(Color.pHoldSoft)
+                        .fill(glassTinted(Color.pHoldSoft, store.liquidGlassEnabled))
                 )
             VStack(alignment: .leading, spacing: 0) {
                 Text(emptyCopy?.title ?? "没有可播文件")
@@ -337,7 +356,7 @@ struct SettingsView: View {
                         .padding(.vertical, 6)
                         .background(
                             RoundedRectangle(cornerRadius: Metrics.ctlRadius, style: .continuous)
-                                .fill(Color.pSurface2)
+                                .fill(glassTinted(Color.pSurface2, store.liquidGlassEnabled))
                         )
                         .padding(.top, 11)
                 }
@@ -566,10 +585,28 @@ struct SettingsView: View {
                     .buttonStyle(GlowSmallButton())
                     .disabled(session.isScanning)
                     .accessibilityIdentifier("rescan-button")
+                Button("从花見导入…") { importHanami?() }
+                    .buttonStyle(GlowSmallButton())
+                    .disabled(session.isImportingHanami || session.isScanning)
+                    .accessibilityIdentifier("hanami-import")
             }
         }) {
             VStack(alignment: .leading, spacing: Metrics.tileGap) {
                 pathRow
+                if let summary = session.hanamiImportSummary {
+                    Text(summary)
+                        .font(mono(11))
+                        .foregroundStyle(Color.pInk2)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .padding(.horizontal, 11)
+                        .padding(.vertical, 6)
+                        .background(
+                            RoundedRectangle(cornerRadius: Metrics.ctlRadius, style: .continuous)
+                                .fill(glassTinted(Color.pSurface2, store.liquidGlassEnabled))
+                        )
+                        .padding(.top, 11)
+                }
                 if session.isScanning {
                     scanningRow
                 } else {
@@ -825,7 +862,7 @@ struct SettingsView: View {
                 .padding(.vertical, 9)
                 .background(
                     RoundedRectangle(cornerRadius: Metrics.ctlRadius, style: .continuous)
-                        .fill(Color.pSurface2)
+                        .fill(glassTinted(Color.pSurface2, store.liquidGlassEnabled))
                 )
                 .accessibilityIdentifier("transcode-command")
         }
@@ -1145,6 +1182,7 @@ enum QueueFilter: Int {
 /// 只读的规则标签。
 private struct TagChip: View {
     let text: String
+    @Environment(\.liquidGlassActive) private var glass
 
     var body: some View {
         Text(text)
@@ -1152,7 +1190,7 @@ private struct TagChip: View {
             .foregroundStyle(Color.pInk2)
             .padding(.horizontal, 9)
             .padding(.vertical, 3)
-            .background(Capsule().fill(Color.pSurface2))
+            .background(Capsule().fill(glassTinted(Color.pSurface2, glass)))
     }
 }
 
@@ -1184,11 +1222,12 @@ private struct QueueFilterBar: View {
 private struct ProgressBar: View {
     let percent: Double?
     var failed = false
+    @Environment(\.liquidGlassActive) private var glass
 
     var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
-                Capsule().fill(Color.pSurface3)
+                Capsule().fill(glassTinted(Color.pSurface3, glass))
                 if let percent {
                     Capsule()
                         .fill(failed ? Color.pBad : Color.pOk)

@@ -47,7 +47,7 @@ struct MenuPanelView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            header
+            header.padding(.bottom, 6)
             // 空态的主行动（.mrow.primary）：三种原因三个出口，文案的唯一来源是 emptyStateCopy。
             if let copy = emptyCopy {
                 MenuRow(glyph: emptyPrimaryGlyph, label: copy.primaryAction, style: .primary) {
@@ -76,13 +76,18 @@ struct MenuPanelView: View {
             }
         }
         .padding(10)
-        .frame(width: 300)
+        .frame(width: 330)
         .background {
-            // 液态玻璃开启时根背景是超薄材质，与设置窗根背景同一分派逻辑；
-            // 关闭时是不透明 pGround，平面渲染路径零材质。
-            Rectangle().fill(store.liquidGlassEnabled
-                ? AnyShapeStyle(.ultraThinMaterial)
-                : AnyShapeStyle(Color.pGround))
+            // 与设置窗根同一分派：玻璃开 = ultraThinMaterial + pGround 70% 染色，材质只此一层，
+            // 卡面禁止再叠；0.5 偏透 / 0.85 偏实，0.70 用户校准中点。关 = 不透明 pGround，零材质。
+            Group {
+                if store.liquidGlassEnabled {
+                    Rectangle().fill(.ultraThinMaterial)
+                        .overlay(Rectangle().fill(Color.pGround.opacity(0.70)))
+                } else {
+                    Rectangle().fill(Color.pGround)
+                }
+            }
         }
         // 卡片面是否走液态玻璃只在根视图读一次 store，头部卡经环境量继承。
         .environment(\.liquidGlassActive, store.liquidGlassEnabled)
@@ -100,14 +105,10 @@ struct MenuPanelView: View {
         HStack(spacing: 11) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .center, spacing: 10) {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(Color.pBrand)
+                    Image(nsImage: NSApp.applicationIconImage)
+                        .resizable()
                         .frame(width: 28, height: 28)
-                        .overlay(
-                            Image(systemName: "play.rectangle.fill")
-                                .font(.system(size: 13))
-                                .foregroundStyle(Color.pBrandInk)
-                        )
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     VStack(alignment: .leading, spacing: 2) {
                         Text("壁纸儿")
                             .font(display(13))
@@ -142,8 +143,8 @@ struct MenuPanelView: View {
 
     private var headerTint: Color { isEmpty ? .pBad : (isHeld ? .pHold : .pOk) }
 
-    /// 倒计时环的颜色与状态点解耦：播放中走品牌橙（用户拍板），让路仍用 hold 褐
-    /// —— 环是「进行中」的仪表，点才是状态语义。
+    /// 倒计时环播放态走强调色 pBrand（用户拍板：强调色橙改草绿后，环随之草绿，
+    /// 与整窗强调色统一）；让路仍用 hold 褐。
     private var ringTint: Color { isHeld ? Color.pHold : Color.pBrand }
 
     private var headerSubline: String {
@@ -243,12 +244,12 @@ struct MenuPanelView: View {
         session.lastLibraryState == .noPlayableVideos ? "film" : "folder"
     }
 
-    /// primary 只留给「暂停/继续」—— 那是当前播放会话的开关。
-    /// `.switchSource`（改用图片/视频壁纸）刻意走 normal：它是常态化的来源选择，
-    /// 给它品牌橙实底会和暂停抢注意力，还让用户误以为点了会立刻开始播放。
+    /// primary 给「立即下一个」—— 面板里唯一即时换画面的动作，实底只配用户主动要的那一下。
+    /// 暂停/继续是常态开关，走 normal；`.switchSource` 同理：来源切换是常态化选择，
+    /// 实底会被误读成「点了立刻播放」。
     private func rowStyle(for id: MenuItemID) -> MenuRowStyle {
         switch id {
-        case .pauseResume: return .primary
+        case .nextVideo: return .primary
         case .deleteCurrent: return .danger
         default: return .normal
         }
@@ -286,6 +287,7 @@ private struct MenuRow: View {
     let action: () -> Void
 
     @State private var hovering = false
+    @Environment(\.liquidGlassActive) private var glass
 
     var body: some View {
         Button(action: action) {
@@ -295,7 +297,7 @@ private struct MenuRow: View {
                     .font(.system(size: 13, weight: style == .primary ? .semibold : .regular))
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 12)
             .frame(height: 34)
             .frame(maxWidth: .infinity, alignment: .leading)
             .foregroundStyle(textColor)
@@ -353,11 +355,12 @@ private struct MenuRow: View {
     }
 
     /// hover 态：normal 白底（v2 navi:hover），danger 红软底，primary 恒为品牌实底。
+    /// 玻璃开时软底降染色——面板根已是材质，实色 hover 会糊住玻璃。
     private var background: Color {
         switch style {
         case .primary: return .pBrand
-        case .danger: return hovering ? .pBadSoft : .clear
-        case .normal: return hovering ? .pSurface : .clear
+        case .danger: return hovering ? glassTinted(.pBadSoft, glass) : .clear
+        case .normal: return hovering ? glassTinted(.pSurface, glass) : .clear
         }
     }
 }

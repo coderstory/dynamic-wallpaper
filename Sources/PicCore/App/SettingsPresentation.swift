@@ -5,7 +5,7 @@ import Foundation
 public enum SettingsPresentation {
     /// 设置窗打开时的宽度（`.defaultSize` / `idealWidth` 读这里）。
     /// 新版 shell：216 侧栏 + 内容区，见 ui-redesign-v2-shell.html。
-    public static let windowWidth: CGFloat = 1024
+    public static let windowWidth: CGFloat = 1040
     /// 设置窗的最小内容宽度（`contentMinSize` 的来源）。同上：低于这个宽，内容区的两列
     /// 卡片会挤到放不下半宽卡。
     public static let windowMinWidth: CGFloat = 880

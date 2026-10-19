@@ -6,7 +6,7 @@ import PicCore
 
 extension View {
     // v2 是平面风：白底 + 1pt pLine 描边 + 圆角 14，**无投影**（.cd）。
-    func cardSurface() -> some View { modifier(CardSurface()) }
+    func cardSurface(radius: CGFloat = Metrics.cardRadius) -> some View { modifier(CardSurface(radius: radius)) }
 }
 
 /// 液态玻璃是否激活。走环境量而不是 modifier 参数：glass 判断只在根视图读一次
@@ -26,28 +26,23 @@ extension EnvironmentValues {
 
 struct CardSurface: ViewModifier {
     @Environment(\.liquidGlassActive) private var glass
+    /// hero 卡传小一档（11）；缺省 = 全卡共用 cardRadius，既有调用点零改动。
+    var radius: CGFloat = Metrics.cardRadius
 
     func body(content: Content) -> some View {
-        if glass {
-            content
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(Metrics.tilePadding)
-                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: Metrics.cardRadius,
-                                                            style: .continuous))
-        } else {
-            // 关闭分支与 v2 平面风原路径逐字节相同：不开玻璃时必须零视觉变化。
-            content
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(Metrics.tilePadding)
-                .background(
-                    RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous)
-                        .fill(Color.pSurface)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous)
-                        .strokeBorder(Color.pLine, lineWidth: 1)
-                )
-        }
+        // 两路同结构，只差面材：玻璃开 = 纯染色 pSurface 80%——根已有 ultraThinMaterial，
+        // 这里**禁止**再叠材质（双层磨砂泛白），卡=根上浅一档，靠描边分层；关 = pSurface 实底。
+        content
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(Metrics.tilePadding)
+            .background {
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .fill(glass ? Color.pSurface.opacity(0.80) : Color.pSurface)
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: radius, style: .continuous)
+                    .strokeBorder(Color.pLine, lineWidth: 1)
+            )
     }
 }
 
@@ -59,9 +54,9 @@ private struct ChromeSurface: ViewModifier {
 
     func body(content: Content) -> some View {
         if active {
+            // 玻璃开 = 透出根材质（全窗唯一玻璃配方：材质基座+染色）。chrome 不自带任何
+            // glassEffect/材质——材质叠材质是顶栏/侧栏泛白、以及顶栏上下亮度断差的根源。
             content
-                .background(Color.clear)
-                .glassEffect(.regular, in: Rectangle())
         } else {
             content.background(Color.pSurface2)
         }
@@ -220,6 +215,7 @@ struct TileRow<Content: View>: View {
 struct TickSelector: View {
     let items: [String]
     @Binding var index: Int
+    @Environment(\.liquidGlassActive) private var glass
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 4) {
@@ -228,7 +224,7 @@ struct TickSelector: View {
                 Button { index = i } label: {
                     VStack(spacing: 5) {
                         Capsule()
-                            .fill(on ? Color.pBrand : Color.pSurface3)
+                            .fill(on ? Color.pBrand : glassTinted(Color.pSurface3, glass))
                             .frame(height: on ? 11 : 6)
                             .frame(minWidth: Metrics.tickMinWidth, maxWidth: .infinity)
                         Text(items[i])
@@ -258,6 +254,7 @@ struct StatusPill: View {
     let kind: Kind
     let lead: String
     let rest: String
+    @Environment(\.liquidGlassActive) private var glass
     /// 播放中时圆点呼吸：这是唯一一处「什么都没变也该动」的动画 —— 它说的是
     /// 「系统在跑」这件不可见的事。有余力才做，不做也不构成信息缺失。
     @State private var pulsing = false
@@ -295,7 +292,7 @@ struct StatusPill: View {
         .padding(.vertical, 4)
         .background(
             Capsule()
-                .fill(Color.pSurface)
+                .fill(glassTinted(Color.pSurface, glass))
                 .overlay(Capsule().strokeBorder(Color.pLine, lineWidth: 1))
         )
         // 文案变了（「播放中」→「已暂停」）不该硬切。
@@ -313,6 +310,7 @@ struct StatusPill: View {
 struct WarningStrip<Action: View>: View {
     let text: String
     @ViewBuilder var action: () -> Action
+    @Environment(\.liquidGlassActive) private var glass
 
     var body: some View {
         HStack(spacing: 11) {
@@ -330,7 +328,7 @@ struct WarningStrip<Action: View>: View {
         .padding(.horizontal, 14)
         .background(
             RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous)
-                .fill(Color.pHoldSoft)
+                .fill(glassTinted(Color.pHoldSoft, glass))
         )
         .overlay(
             RoundedRectangle(cornerRadius: Metrics.cardRadius, style: .continuous)
@@ -363,6 +361,8 @@ struct SettingsTopBar<Pill: View>: View {
     }
 
     var body: some View {
+        // 单行 44pt：贴窗沿后系统红绿灯画在行左段，「壁纸儿」紧随灯右侧（leading 70）同行居中，
+        // 右端控件组同一行右侧——用户只要「应用名进标题行」，其余布局不动。
         HStack(spacing: 10) {
             brand
             Spacer(minLength: 0)
@@ -385,8 +385,9 @@ struct SettingsTopBar<Pill: View>: View {
                         .font(mono(10))
                         .foregroundStyle(Color.pInk3)
                     SlideSegmented(items: ["视频", "图片"], index: sourceIndex, track: .pSurface3,
-                                   itemIdentifiers: ["source-switch-video", "source-switch-image"])
-                        .frame(width: 132, height: 26)
+                                   itemIdentifiers: ["source-switch-video", "source-switch-image"],
+                                   icons: ["film", "photo"])
+                        .frame(width: 140, height: 28)
                     // 刻意**不给**容器挂 accessibilityIdentifier("source-switch")：与侧栏同款
                     // AX 串染——容器标识会向下覆盖 SlideSegmented 的 itemIdentifiers
                     // （source-switch-video/-image 真机实测查不到）。契约 id 在段上，别加回来。
@@ -397,12 +398,9 @@ struct SettingsTopBar<Pill: View>: View {
         }
         .padding(.leading, Metrics.trafficLightInset)
         .padding(.trailing, 14)
-        // **强制 44pt**。`.frame(height:)` 是强制（装不下就裁）；
-        // `minHeight/maxHeight` 只是「提议」—— 内容更高时 SwiftUI 照实排出去，
-        // 实测顶栏被撑到 75pt（分隔线在 y=75）。
         .frame(height: Metrics.topbarHeight)
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        // 液态玻璃开启时顶栏自身成为玻璃片（形状 = 直角矩形），底部分隔线保留出结构；
+        // 液态玻璃开启时顶栏透出根材质（无自带玻璃），底部分隔线保留出结构；
         // 关闭时不透明 pSurface2，与平面路径逐像素相同。
         .modifier(ChromeSurface(active: glass))
         .overlay(alignment: .bottom) {
@@ -410,45 +408,19 @@ struct SettingsTopBar<Pill: View>: View {
         }
     }
 
-    /// 身份块：品牌图标 + 「壁纸儿」+ 版本号。从侧栏原样搬来，缩到 24pt 图标盒以塞进 44pt 顶栏。
-    /// - 圆角 6.5：超椭圆（squircle）比例，小尺寸下才不像药丸。7 偏大。
-    /// - 文字块与图标 `alignment: .center`：两行字 12+9pt 的视觉重心偏上，
-    ///   `.top` 会让它比图标高一截，看着「没对齐」。
-    /// - **不写竖向 fixedSize**：两行字（12pt + 9pt + 1pt 间距 ≈ 27pt）比 24pt 图标盒高，
-    ///   锁死自然高度会把图标顶到上沿。水平方向单锁`horizontal: true` 即可。
-    /// - 外层 `.frame(height: topbarHeight)` + `alignment: .center`：这一层是
-    ///   **必需的**，不是冗余。hiddenTitleBar 下标题栏由系统在内容层之上叠加绘制，
-    ///   SwiftUI 内容层的坐标原点与红绿灯的绘制位置差一个 titlebar 偏移；不显式给
-    ///   44pt 高度并居中，brand 就会贴在内容层顶部而与红绿灯错位。
+    /// 身份块：只剩「壁纸儿」三个字（用户拍板：图标/版本号/arm64 全删；菜单面板头部仍带
+    /// 图标与版本）。与红绿灯同行、位于灯右侧。
     private var brand: some View {
-        HStack(alignment: .center, spacing: 9) {
-            RoundedRectangle(cornerRadius: 6.5, style: .continuous)
-                .fill(Color.pBrand)
-                .frame(width: 24, height: 24)
-                .overlay(
-                    Image(systemName: "play.rectangle.fill")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Color.pBrandInk)
-                )
-            VStack(alignment: .leading, spacing: 1) {
-                Text("壁纸儿")
-                    .font(display(12))
-                    .foregroundStyle(Color.pInk)
-                Text("v\(appVersion()) · arm64")
-                    .font(mono(9))
-                    .foregroundStyle(Color.pInk3)
-            }
-            .fixedSize(horizontal: true, vertical: true)
-        }
-        // **只锁水平**。竖向什么都不写：brand 保持自然高度（两行字 ≈27pt），
-        // 由顶栏的 `.frame(height: 44)` 强制塞进 44pt 并在其中居中。
-        // 曾经在这里写 `.frame(height: topbarHeight)`是多余的 —— 它让 brand 变成
-        // 44pt 高的子视图，顶栏再套44pt 约束时内容装不下就溢出，实测把图标推到
-        // 顶栏下方 6.8pt（用户：「没变化啊」）。
-        .fixedSize(horizontal: true, vertical: false)
-        .accessibilityElement()
-        .accessibilityLabel(Text("壁纸儿，版本 \(appVersion())"))
-        .accessibilityIdentifier("brand-block")
+        Text("壁纸儿")
+            .font(display(14))
+            .foregroundStyle(Color.pInk)
+            // 垂直校准（读数确定性补偿，换系统标题栏规格要重量）：系统标题栏 28pt，灯心距
+            // 窗顶 14pt；顶栏 44pt 行几何中心 y=22，对齐灯心的几何差是 -8。CJK 字形重心
+            // 偏下，视觉对齐再多抬 1pt → -9。别按「几何中心对齐」改回 -8 或更小。
+            .offset(y: -9)
+            .accessibilityElement()
+            .accessibilityLabel(Text("壁纸儿"))
+            .accessibilityIdentifier("brand-block")
     }
 }
 
@@ -539,7 +511,8 @@ struct SettingsSideBar: View {
             .background(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     // 悬停底压在选中底之下：未选中行才有 hover 反馈，选中行的颜色已经够说明了。
-                    .fill(on ? z.soft : (hovering == item ? Color.pSurface3.opacity(0.55) : Color.clear))
+                    .fill(on ? glassTinted(z.soft, glass)
+                            : (hovering == item ? Color.pSurface3.opacity(0.55) : Color.clear))
             )
             .contentShape(Rectangle())
         }

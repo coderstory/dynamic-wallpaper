@@ -24,14 +24,15 @@ extension Color {
     static let pInk2 = Color(red: 0x5B/255, green: 0x63/255, blue: 0x71/255)
     static let pInk3 = Color(red: 0x64/255, green: 0x6C/255, blue: 0x79/255)
 
-    // 行动色：暖橙（与 App 图标渐变同族）。
+    // 行动色：草绿。
     // 双色规则：brand 只作填充底，上面放 brandInk（近黑）；
-    // brand 作文字时用 brandText（白底达标）。白字在亮橙底对比不足，禁用。
-    static let pBrand     = Color(red: 0xF4/255, green: 0x70/255, blue: 0x1B/255)
-    static let pBrandInk  = Color(red: 0x2A/255, green: 0x11/255, blue: 0x04/255)
+    // brand 作文字时用 brandText（白底达标）。白字在亮绿底对比不足，禁用。
+    static let pBrand     = Color(red: 0x7C/255, green: 0xB3/255, blue: 0x42/255)
+    static let pBrandInk  = Color(red: 0x0F/255, green: 0x23/255, blue: 0x05/255)
     /// brand 出现在文字位（徽标、状态字）时的替身。
-    static let pBrandText = Color(red: 0xB2/255, green: 0x45/255, blue: 0x0A/255)
-    static let pBrandSoft = Color(red: 0xFF/255, green: 0xE8/255, blue: 0xD8/255)
+    static let pBrandText = Color(red: 0x55/255, green: 0x8B/255, blue: 0x2F/255)
+    /// 强调色的浅底。从 pBrand 派生，不手写第二份绿（用户拍板单一绿）。
+    static let pBrandSoft = pBrand.opacity(0.2)
 
     // 播放区（play）身份色复用 brand 四件套，不另设。
 
@@ -53,9 +54,9 @@ extension Color {
     static let pGenText  = Color(red: 0x0A/255, green: 0x6B/255, blue: 0x61/255)
     static let pGenSoft  = Color(red: 0xD6/255, green: 0xF3/255, blue: 0xEF/255)
 
-    // 状态色：三态语义，不复用行动色与身份色
-    static let pOk       = Color(red: 0x09/255, green: 0x70/255, blue: 0x55/255)
-    static let pOkSoft   = Color(red: 0xE0/255, green: 0xF5/255, blue: 0xEF/255)
+    // 状态色：三态语义。pOk 与强调色同色（用户拍板单一绿），不复用规则对其余各色仍成立。
+    static let pOk       = pBrand
+    static let pOkSoft   = pBrand.opacity(0.14)
     static let pHold     = Color(red: 0x8A/255, green: 0x5A/255, blue: 0x00/255)
     static let pHoldSoft = Color(red: 0xFA/255, green: 0xEF/255, blue: 0xD9/255)
     static let pBad      = Color(red: 0xC0/255, green: 0x2B/255, blue: 0x4E/255)
@@ -83,12 +84,20 @@ enum Motion {
 
 /// 等宽字体：数值 / 副标签 / 版本号 / 命令。字体切换的唯一入口。
 func mono(_ size: CGFloat, _ w: Font.Weight = .regular) -> Font {
-    .system(size: size, weight: w, design: .monospaced)
+    // 密度抬档（用户拍板，全界面 +10%）：全体等宽字号 +1pt 只在这里生效，调用点不动。
+    .system(size: size + 1, weight: w, design: .monospaced)
 }
 
 /// 版本号取自 bundle，不硬编码。侧栏身份区与「关于」卡共用这一份。
 func appVersion() -> String {
     Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+}
+
+/// 玻璃开：实色面同色染色 85%（子面档）。卡=根上浅一档（CardSurface 0.80，不走这里）。
+/// 关：原色，平面路径零变化。
+/// 只用于「面」——胶囊底 / 轨道 / 芯片 / 软底。旋钮、行动实底（pBrand/pBad）与图标盒不走这里。
+func glassTinted(_ c: Color, _ glass: Bool) -> Color {
+    glass ? c.opacity(0.85) : c
 }
 
 /// 圆体：卡片标题 / 行标题 / hero。取不到时回退到系统无衬线，不打包字体文件。
@@ -102,18 +111,16 @@ enum Metrics {
     // SettingsPresentation.windowWidth，这里不再存第二份拷贝。
     static let sidebarWidth: CGFloat = 216
     static let topbarHeight: CGFloat = 44
-    /// 顶栏左端让开系统红绿灯的宽度。
-    /// hiddenTitleBar（`titleVisibility=.hidden` + `titlebarAppearsTransparent`）下红绿灯
-    /// 由系统单独绘制，**不进视图树**（实测：ThemeFrame 子视图里找不到它们），所以这个值
-    /// 只能按系统约定推：13 左 + 3×12 灯 + 2×8 间距 + 13 右 ≈ 72。
-    /// 再加16pt 呼吸间距 → 88。上一版取 78 是猜的，红绿灯与品牌块几乎顶在一起。
-    static let trafficLightInset: CGFloat = 88
+    /// 顶栏左端让开系统红绿灯的宽度 = 「壁纸儿」的 leading。
+    /// 灯经标准 API 左移 10pt（makeSettingsWindow），灯群估算右缘 ≈62；用户拍板名字与灯
+    /// 右缘间距 ≥20pt → 84。灯位若再调，这里与 makeSettingsWindow 要一起重排。
+    static let trafficLightInset: CGFloat = 84
     static let cardRadius: CGFloat = 14
     static let contentPadding: CGFloat = 18
 
     // 磁贴网格（v2 g2：gap 14）
     static let gridGap: CGFloat = 14
-    static let tilePadding: CGFloat = 14
+    static let tilePadding: CGFloat = 16
     static let tileGap: CGFloat = 12
     // 圆角：磁贴/卡片 14、控件/行 10。
     static let tileRadius: CGFloat = 14
@@ -229,6 +236,7 @@ struct GlowSlider: View {
     var onChanged: (() -> Void)? = nil
     var onEnded: (() -> Void)? = nil
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.liquidGlassActive) private var glass
     @State private var dragging = false
 
     var body: some View {
@@ -236,7 +244,7 @@ struct GlowSlider: View {
             let w = geo.size.width
             let pct = (value - range.lowerBound) / (range.upperBound - range.lowerBound)
             ZStack(alignment: .leading) {
-                Capsule().fill(Color.pSurface3)
+                Capsule().fill(glassTinted(Color.pSurface3, glass))
                     .frame(width: w, height: Metrics.sliderTrack)
                 Capsule().fill(Color.pBrand)
                     .frame(width: max(0, w * pct), height: Metrics.sliderTrack)
@@ -292,6 +300,7 @@ struct GlowSlider: View {
 struct GlowSegmented: View {
     let items: [String]
     @Binding var index: Int
+    @Environment(\.liquidGlassActive) private var glass
 
     var body: some View {
         HStack(spacing: 2) {
@@ -321,7 +330,7 @@ struct GlowSegmented: View {
         .padding(Metrics.segPadding)
         .background(
             RoundedRectangle(cornerRadius: Metrics.ctlRadius, style: .continuous)
-                .fill(Color.pSurface2)
+                .fill(glassTinted(Color.pSurface2, glass))
         )
     }
 }
@@ -337,6 +346,10 @@ struct SlideSegmented: View {
     @Binding var index: Int
     var track: Color = .pSurface2
     var itemIdentifiers: [String]? = nil
+    @Environment(\.liquidGlassActive) private var glass
+    /// 局部样式开关（默认 nil = 其余调用点渲染逐字节不变）：传值后每段 = SF Symbol + 文字。
+    /// 只有顶栏「壁纸来源」切换用（用户拍板的升级版滑轨）。
+    var icons: [String]? = nil
 
     var body: some View {
         GeometryReader { geo in
@@ -363,12 +376,19 @@ struct SlideSegmented: View {
                 HStack(spacing: 0) {
                     ForEach(items.indices, id: \.self) { i in
                         Button { index = i } label: {
-                            Text(items[i])
-                                .font(.system(size: 11, weight: index == i ? .semibold : .regular))
-                                .foregroundStyle(index == i ? Color.pInk : Color.pInk2)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: segHeight)
-                                .contentShape(Rectangle())
+                            HStack(spacing: 3) {
+                                if let icons {
+                                    Image(systemName: icons[i])
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(index == i ? Color.pInk : Color.pInk2)
+                                }
+                                Text(items[i])
+                                    .font(.system(size: 11, weight: index == i ? .semibold : .regular))
+                                    .foregroundStyle(index == i ? Color.pInk : Color.pInk2)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .frame(height: segHeight)
+                            .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         // 自绘分段没有内建 AX 语义：逐段合成，选中段标 isSelected。
@@ -379,11 +399,14 @@ struct SlideSegmented: View {
                 }
                 .frame(height: segHeight)
             }
+            // GeometryReader 默认 topLeading 落子：不补这一帧，segHeight 的内容贴 GR 顶，
+            // 段在轨里整体偏上（图标入段后偏移更扎眼）。补满 GR 后 ZStack 才能垂直居中。
+            .frame(width: geo.size.width, height: geo.size.height)
         }
         .padding(2)
         .background(
             RoundedRectangle(cornerRadius: Metrics.ctlRadius - 3, style: .continuous)
-                .fill(track)
+                .fill(glassTinted(track, glass))
         )
         .animation(Motion.state, value: index)
     }
@@ -403,6 +426,7 @@ struct GlowButton: ButtonStyle {
     /// 破坏性操作用实心 bad 底 + badInk 字。**不用 outline 红字** —— 那与「失败状态」的文案色
     /// 撞在一起，用户分不清哪个是状态、哪个是可点的动作。
     var destructive = false
+    @Environment(\.liquidGlassActive) private var glass
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -421,7 +445,7 @@ struct GlowButton: ButtonStyle {
     private var bg: Color {
         if destructive { return .pBad }
         if primary { return .pBrand }
-        return .pSurface2
+        return glassTinted(.pSurface2, glass)
     }
 
     private var fg: Color {
@@ -433,15 +457,17 @@ struct GlowButton: ButtonStyle {
 
 /// 小号按钮：卡片尾部那一排（选择… / 重新扫描）用它，与卡片标题同排不能太大。
 struct GlowSmallButton: ButtonStyle {
+    @Environment(\.liquidGlassActive) private var glass
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 11))
+            // 下限对齐 GlowButton 基线（13/14/7，「打开队列」档）——任何按钮不得更小。
+            .font(.system(size: 13))
             .foregroundStyle(Color.pInk)
-            .padding(.horizontal, 11)
-            .padding(.vertical, 5)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 7)
             .background(
                 RoundedRectangle(cornerRadius: Metrics.ctlRadius, style: .continuous)
-                    .fill(Color.pSurface2)
+                    .fill(glassTinted(Color.pSurface2, glass))
             )
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(Motion.press, value: configuration.isPressed)
