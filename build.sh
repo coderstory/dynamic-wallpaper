@@ -2,6 +2,9 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+# 构建串行化：并发构建会踩坏 XCBuild 增量库（详见 scripts/build-guard.sh 头注释）。
+source scripts/build-guard.sh
+
 # 交付名（用户可见：Contents/MacOS、.app、.icns、DMG 全用它）。
 APP_NAME="壁纸儿"
 BUNDLE_ID="com.local.bizhier"
