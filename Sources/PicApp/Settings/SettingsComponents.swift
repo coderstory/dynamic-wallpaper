@@ -84,8 +84,10 @@ enum Motion {
 
 /// 等宽字体：数值 / 副标签 / 版本号 / 命令。字体切换的唯一入口。
 func mono(_ size: CGFloat, _ w: Font.Weight = .regular) -> Font {
-    // 密度抬档（用户拍板，全界面 +10%）：全体等宽字号 +1pt 只在这里生效，调用点不动。
-    .system(size: size + 1, weight: w, design: .monospaced)
+    // 全档 +2 = 密度抬档 +1 与「最小档抬档后再全档 +1」（用户拍板 DPI 式整体放大）。
+    // 9→10、10→11 的小档映射后再全体 +1；调用点不动。
+    let raised = size <= 9 ? size + 1 : (size == 10 ? 11 : size)
+    return .system(size: raised + 2, weight: w, design: .monospaced)
 }
 
 /// 版本号取自 bundle，不硬编码。侧栏身份区与「关于」卡共用这一份。
@@ -102,7 +104,9 @@ func glassTinted(_ c: Color, _ glass: Bool) -> Color {
 
 /// 圆体：卡片标题 / 行标题 / hero。取不到时回退到系统无衬线，不打包字体文件。
 func display(_ size: CGFloat, _ w: Font.Weight = .semibold) -> Font {
-    .system(size: size, weight: w, design: .rounded)
+    // 全档 +1（DPI 式整体放大）；小档映射 9→11、10→12 先行。调用点不动。
+    let raised = size <= 9 ? 11 : (size == 10 ? 12 : size)
+    return .system(size: raised + 1, weight: w, design: .rounded)
 }
 
 // ── 间距 / 圆角常量 ──
@@ -112,9 +116,12 @@ enum Metrics {
     static let sidebarWidth: CGFloat = 216
     static let topbarHeight: CGFloat = 44
     /// 顶栏左端让开系统红绿灯的宽度 = 「壁纸儿」的 leading。
-    /// 灯经标准 API 左移 10pt（makeSettingsWindow），灯群估算右缘 ≈62；用户拍板名字与灯
-    /// 右缘间距 ≥20pt → 84。灯位若再调，这里与 makeSettingsWindow 要一起重排。
-    static let trafficLightInset: CGFloat = 84
+    /// 灯由 rearmTrafficLights 定到 close 左缘 x=20，灯群右缘 ≈74（20 + 灯径与间距）；
+    /// 84 使文字与灯右缘保持 10pt 间距。灯位若再调，这里与 AppDelegate 一起重排。
+    static let trafficLightInset: CGFloat = 90
+    /// 灯心「距窗顶」的几何推导回落值：标准标题栏 28pt、灯垂直居中 → 14。
+    /// 灯心距窗顶的标准几何位：标题栏 28pt 的垂直中心。
+    static let defaultLightCenterFromTop: CGFloat = 14
     static let cardRadius: CGFloat = 14
     static let contentPadding: CGFloat = 18
 

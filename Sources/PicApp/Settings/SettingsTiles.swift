@@ -346,6 +346,8 @@ struct WarningStrip<Action: View>: View {
 // 来源切换不染分区色：它切的是内容类型，不是「去哪个区」。
 struct SettingsTopBar<Pill: View>: View {
     @Environment(\.liquidGlassActive) private var glass
+    /// 灯心「距窗顶」实测读数的来源（AppDelegate 经 resize tick 回填）。
+    @Environment(SettingsSessionState.self) private var session
     let kind: WallpaperKind
     /// 仅当目标来源 != 当前来源时由内部保证调用；动作本身由装配层注入。
     let switchSource: (WallpaperKind) -> Void
@@ -414,10 +416,15 @@ struct SettingsTopBar<Pill: View>: View {
         Text("壁纸儿")
             .font(display(14))
             .foregroundStyle(Color.pInk)
-            // 垂直校准（读数确定性补偿，换系统标题栏规格要重量）：系统标题栏 28pt，灯心距
-            // 窗顶 14pt；顶栏 44pt 行几何中心 y=22，对齐灯心的几何差是 -8。CJK 字形重心
-            // 偏下，视觉对齐再多抬 1pt → -9。别按「几何中心对齐」改回 -8 或更小。
-            .offset(y: -9)
+            // 垂直定位唯一依据 = 实测灯心距窗顶（AppKit frame 换算，见 AppDelegate）。
+            // 契约：SwiftUI 行中心在窗顶下 22pt（44pt 行的 HStack 居中，顶栏贴窗沿）；
+            // NSWindow 左下原点、SwiftUI 左上原点，AppDelegate 已换算成「距窗顶」，
+            // 这里 offset(灯心 − 行中心) 即把文字中心搬到灯心 —— 正值向下，恒成立。
+            // 禁止替换成猜测常数：灯位随系统标题栏规格变，只有实测值是准的。
+            // 灯心标准位 = 标题栏 28pt 的垂直中心（fullSizeContentView 下贴窗顶），44pt 行
+            // 居中后需上移 topbarHeight/2−14；别改成运行时读灯 frame 的桥——坐标换算链
+            // 实测喂过毒值（字被推出窗），几何推导常量就是终稿。
+            .offset(y: Metrics.defaultLightCenterFromTop - Metrics.topbarHeight / 2 - 0.5)
             .accessibilityElement()
             .accessibilityLabel(Text("壁纸儿"))
             .accessibilityIdentifier("brand-block")

@@ -54,11 +54,11 @@ struct SettingsView: View {
                                 queueCount: rows.count)
                 // 唯一允许滚动的是队列页（任务数天然不定），其余页一屏看全。
                 //
-                // **滚动条默认藏起来**（用户：「切换菜单过程中，不要出现滚动条」）：
-                // `.automatic` 会在内容**刚好**等于视口高度时就翻出滚动条 —— 而切页时
-                // 内容高度是动画过渡的，中间帧反复越过阈值，滚动条就闪一下。
-                // 这里让它是「真溢出才出现」，宽度 0 表示不占布局，溢出与否的判断交给
-                // 系统；`.hidden` 则连溢出时也不给滚动条，那会让长队列页无法滚动，弃用。
+                // 指示条双重隐藏（用户：「切换菜单过程中，不要出现滚动条」）：这里
+                // `.hidden` 只管 SwiftUI 层；果冻动画的中间帧视口 < 内容，AppKit 层的
+                // NSScrollView 会在动画期间自动翻出滚动条（不走 SwiftUI 的指示条开关），
+                // 由 AppDelegate 的 hardHideSettingsScrollers 把 hasVerticalScroller 关死。
+                // 滚动事件不依赖滚动条可见性，长队列页照滚。
                 ScrollView(.vertical) {
                     contentColumn
                         .padding(Metrics.contentPadding)
@@ -279,7 +279,7 @@ struct SettingsView: View {
                         .foregroundStyle(Color.pInk)
                     if remaining == nil {
                         Text("不轮换")
-                            .font(.system(size: 10))
+                            .font(.system(size: 12))
                             .foregroundStyle(Color.pInk3)
                     }
                 }
@@ -299,7 +299,7 @@ struct SettingsView: View {
                     .font(mono(13, .semibold))
                     .foregroundStyle(Color.pInk)
                 Text("不轮换")
-                    .font(.system(size: 10))
+                    .font(.system(size: 12))
                     .foregroundStyle(Color.pInk3)
             }
         }

@@ -31,6 +31,8 @@ final class SettingsSessionState {
     /// 最近一次导入的一行读数。nil = 从未跑过。
     var hanamiImportSummary: String?
 
+    /// 红绿灯灯心「距窗顶」实测值（pt）。AppDelegate 在窗口 resize tick 里从 close 按钮的
+    /// AppKit frame 换算回填（左下原点 → 上原点，换算链见 `AppDelegate.updateTrafficLightCenter`）。
     /// 协调器状态变更的**唯一**写入口（AppDelegate 的 onStateChange handler 调）。
     func update(state: LibraryState) {
         lastLibraryState = state
