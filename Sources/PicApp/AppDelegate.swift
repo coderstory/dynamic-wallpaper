@@ -36,13 +36,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
     private var pendingSettingsWindowSize: NSSize?
     /// 绿灯 zoom 状态跟踪：只在「zoom → 还原」边沿动作。进 zoom 尊重用户最大化，不动窗。
     private var settingsWindowWasZoomed = false
-    /// 红绿灯左移的重臂状态：defaultX 是「系统默认位」实测值，在首见 resize tick 采集 ——
+    /// 红绿灯重臂基准表：defaultX 是「系统默认位」实测值，在首见 resize tick 采集 ——
     /// 采集前本方没动过灯位，见到的必是默认。判据用 x == default 而非 x != target：
-    /// 只把「被系统重排回默认」的灯拉回左移位，动画过渡帧等别的中间态不碰，减法才不会漂移。
+    /// 只把「被系统重排回默认」的灯拉回目标位，动画过渡帧等别的中间态不碰。
     /// 不在 make 期采基准：make 时点早于 titlebar 首布局，那时改的 frame 会被首布局覆盖，
-    /// rearm 再按它重臂就在覆盖值上叠加位移（实测灯组被推到贴死窗缘）。
+    /// rearm 再按它重臂就在覆盖值上叠加位移。
     private var trafficLightDefaultX: [NSWindow.ButtonType: CGFloat] = [:]
-    private static let trafficLightOffset: CGFloat = 10
+    /// close 灯左缘的绝对目标位（窗坐标）。三灯整体平移：mini/zoom 目标 = 20 + 各自与
+    /// close 的系统默认间距差，相对间距永不改。
+    private static let trafficLightLeadingInset: CGFloat = 20
     // rotation 必须强持有，它持 onAdvance 闭包与 Timer 调度器
     let library = MediaLibrary()
     /// 拔盘 / 目录消失后的重生看护。只在 `folderMissing` 期间活着（见 `updateFolderWatch`）。
@@ -528,6 +530,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
             // zoom 期间窗归用户管：setFrame 会把系统记的还原 frame 顶掉，还原就落错位。
             // zoom 中错过的贴合由 windowDidResize 的还原边沿补上。
             guard !win.isZoomed else { return }
+            hardHideSettingsScrollers()
             let fit = view.fittingSize
             // 布局未完成时 fittingSize 是假小值，不采纳。
             guard fit.height > 100 else { return }
@@ -544,6 +547,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
                 return
             }
             self.animateSettingsWindow(win, to: target)
+        }
+    }
+
+    /// 设置窗滚动条硬隐藏。SwiftUI 的 `.scrollIndicators(.hidden)` 管不住 AppKit 层：
+    /// 果冻改窗的中间帧视口 < 内容，NSScrollView 会自动翻出滚动条（正是「切页闪滚动条」
+    /// 的来源）。开窗与每次贴合前重申一遍，滚动事件不依赖滚动条可见性，队列页照滚。
+    private func hardHideSettingsScrollers() {
+        guard let root = settingsWindow?.contentView else { return }
+        var stack = [root]
+        while let view = stack.popLast() {
+            if let sv = view as? NSScrollView {
+                sv.hasVerticalScroller = false
+            }
+            stack.append(contentsOf: view.subviews)
         }
     }
 
@@ -610,11 +627,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         win.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
         win.titleVisibility = .hidden
         win.titlebarAppearsTransparent = true
-        // 品牌块整体左移（用户拍板）的配套：三个红绿灯整体左移 10pt，腾出 trafficLightInset
-        // 88→70 的空间。只挪标准按钮 frame、无私有 API。左移动作本身不在这里做 —— make 时点
-        // 早于 titlebar 首布局，此处改的 frame 会被首布局覆盖；由 windowDidResize 首见 tick
-        // 采系统默认位后统一左移（rearmTrafficLights），之后系统每次重排回默认都再拉回来。
-        // 这里只确保按钮存在。
+        // 灯位由 rearmTrafficLights 定到绝对目标（close 左缘 x=20，其余按默认间距差平移）。
+        // 这里只确保按钮存在 —— make 时点早于 titlebar 首布局，此处改的 frame 会被首布局
+        // 覆盖；由 windowDidResize 首见 tick 采系统默认位后再定位，之后系统每次重排回默认
+        // 都再拉回来。
         for kind: NSWindow.ButtonType in [.closeButton, .miniaturizeButton, .zoomButton] {
             _ = win.standardWindowButton(kind)
         }
@@ -650,24 +666,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate, NSW
         if wasZoomed { fitSettingsWindow() }
     }
 
-    /// 红绿灯重臂：首见 tick 采系统默认位并左移；之后只在灯位被系统重排回「默认位」时再左移。
+    /// 红绿灯重臂：首见 tick 采系统默认位并定位到目标；之后只在灯位被系统重排回「默认位」
+    /// 时再定位一次。
     private func rearmTrafficLights(on win: NSWindow) {
         for kind: NSWindow.ButtonType in [.closeButton, .miniaturizeButton, .zoomButton] {
             guard let button = win.standardWindowButton(kind) else { continue }
             let x = button.frame.origin.x
-            if let def = trafficLightDefaultX[kind] {
-                if x == def {
-                    let target = def - Self.trafficLightOffset
-                    button.frame.origin.x = target
-                    winDebugLog.notice("\(Self.pre, privacy: .public)lights \(kind.rawValue, privacy: .public) \(x, privacy: .public)->\(target, privacy: .public)")
-                }
-            } else {
-                // 布局未完成时 x 会是假小值，采进去就是错的默认位，等下一个 tick。
+            // 布局未完成时 x 会是假小值，采进去就是错的默认位，等下一个 tick。
+            if trafficLightDefaultX[kind] == nil {
                 guard x > 0 else { continue }
                 trafficLightDefaultX[kind] = x
-                button.frame.origin.x = x - Self.trafficLightOffset
-                winDebugLog.notice("\(Self.pre, privacy: .public)lights-capture kind=\(kind.rawValue, privacy: .public) default=\(x, privacy: .public)")
             }
+            guard x == trafficLightDefaultX[kind] else { continue }
+            let target: CGFloat
+            if kind == .closeButton {
+                target = Self.trafficLightLeadingInset
+            } else if let closeDefault = trafficLightDefaultX[.closeButton] {
+                // 循环序保证 close 先采；mini/zoom 保住与 close 的系统默认间距差。
+                target = Self.trafficLightLeadingInset + (x - closeDefault)
+            } else {
+                // close 默认位还没采到（假小值 tick）：本轮只采不移。
+                continue
+            }
+            button.frame.origin.x = target
+            winDebugLog.notice("\(Self.pre, privacy: .public)lights \(kind.rawValue, privacy: .public) \(x, privacy: .public)->\(target, privacy: .public)")
         }
     }
 
